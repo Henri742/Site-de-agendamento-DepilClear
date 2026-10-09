@@ -35,6 +35,8 @@ function initPOS() {
     localStorage.setItem('depilclear_services', JSON.stringify(posServices));
   }
 
+  // Preenche a lista do catálogo do modal de imediato
+  renderCatalogModalGrid('');
   renderPosCartTable();
   renderPosTotals();
   applyInitialTheme();
@@ -479,26 +481,36 @@ function handleAddClientCredit(e) {
   e.preventDefault();
   if (!currentPosClient) return;
 
+  const opType = document.getElementById('pos-credit-op-type').value;
   const amount = parseCurrency(document.getElementById('pos-credit-amount').value);
   const method = document.getElementById('pos-credit-payment-method').value;
   if (amount <= 0) return;
 
   const current = getClientCredit(currentPosClient.id);
-  setClientCredit(currentPosClient.id, current + amount);
 
-  cashOperations.push({
-    id: Date.now(),
-    type: 'recarga_credito',
-    amount,
-    method,
-    desc: `Crédito em conta para ${currentPosClient.name}`,
-    timestamp: new Date().toISOString()
-  });
-  localStorage.setItem('depilclear_cash_ops', JSON.stringify(cashOperations));
+  if (opType === 'remover') {
+    if (current < amount) {
+      showToast(`A cliente tem apenas R$ ${current.toFixed(2)} de saldo para estorno!`, 'error');
+      return;
+    }
+    setClientCredit(currentPosClient.id, current - amount);
+    showToast(`R$ ${amount.toFixed(2)} removidos do saldo de ${currentPosClient.name}!`, 'info');
+  } else {
+    setClientCredit(currentPosClient.id, current + amount);
+    cashOperations.push({
+      id: Date.now(),
+      type: 'recarga_credito',
+      amount,
+      method,
+      desc: `Crédito em conta para ${currentPosClient.name}`,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('depilclear_cash_ops', JSON.stringify(cashOperations));
+    showToast(`R$ ${amount.toFixed(2)} creditados para ${currentPosClient.name}!`, 'success');
+  }
 
   closeModal('modal-pos-credit');
   updateClientPerksUI();
-  showToast(`R$ ${amount.toFixed(2)} creditados com sucesso!`, 'success');
 }
 
 function openFidelityManageModal() {

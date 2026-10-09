@@ -575,13 +575,23 @@
       </div>
 
       <form onsubmit="handleAddClientCredit(event)" class="space-y-3">
-        <p class="text-xs text-slate-400">Adicione saldo pré-pago quando a cliente pagar múltiplas sessões antecipadamente.</p>
+        <p class="text-xs text-slate-400">Gerencie o saldo da cliente (recargas ou estornos de pacotes).</p>
+        
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor do Crédito (R$) *</label>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tipo de Operação *</label>
+          <select id="pos-credit-op-type" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-bold outline-none">
+            <option value="adicionar">(+) Adicionar Crédito (Entrada de Dinheiro)</option>
+            <option value="remover">(-) Remover / Estornar Crédito</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor (R$) *</label>
           <input type="text" id="pos-credit-amount" placeholder="0,00" oninput="handleCurrencyMask(this)" onblur="handleCurrencyBlur(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
         </div>
+
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Forma de Pagamento da Recarga *</label>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Forma de Pagamento (se adicionar) *</label>
           <select id="pos-credit-payment-method" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-bold">
             <option value="DINHEIRO">DINHEIRO</option>
             <option value="PIX">PIX</option>
@@ -589,9 +599,10 @@
             <option value="CARTÃO DÉBITO">CARTÃO DE DÉBITO</option>
           </select>
         </div>
+
         <div class="pt-2 flex justify-end gap-2">
           <button type="button" onclick="closeModal('modal-pos-credit')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
-          <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-2xl shadow">Creditar Saldo</button>
+          <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-2xl shadow">Confirmar Saldo</button>
         </div>
       </form>
     </div>

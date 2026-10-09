@@ -695,6 +695,9 @@ document.addEventListener('contextmenu', (e) => {
   }
 });
 
+/* ========================================================
+ * MENUS DE CONTEXTO (BOTÃO DIREITO GLOBAL E NOS ELEMENTOS)
+ * ======================================================== */
 function showCustomContextMenu(event, type, id) {
   if (event) {
     event.preventDefault();
@@ -724,8 +727,8 @@ function showCustomContextMenu(event, type, id) {
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Histórico completo
         </button>
-        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i> Cartão Fidelidade
+        <button type="button" onclick="closeContextMenu(); openAppFidelityManageModal(${app.clientId})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
         </button>
       </div>
       <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
@@ -746,13 +749,13 @@ function showCustomContextMenu(event, type, id) {
           <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar cliente
         </button>
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'dados')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Dados da cliente
+          <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Dados cadastrais
         </button>
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Ver histórico
         </button>
-        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i> Cartão Fidelidade
+        <button type="button" onclick="closeContextMenu(); openAppFidelityManageModal(${client.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
         </button>
       </div>
       <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
@@ -761,33 +764,80 @@ function showCustomContextMenu(event, type, id) {
         </button>
       </div>
     `;
+  } else if (type === 'service') {
+    const srv = servicesList.find(s => s.id === id);
+    if (!srv) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${srv.name}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openServiceModal(${srv.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar serviço
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteService(${srv.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir serviço
+        </button>
+      </div>
+    `;
+  } else if (type === 'category') {
+    const cat = categoriesList.find(c => c.id === id);
+    if (!cat) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${cat.name}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openCategoryModal(${cat.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar categoria
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteCategory(${cat.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir categoria
+        </button>
+      </div>
+    `;
+  } else if (type === 'professional') {
+    const pro = professionalsList.find(p => p.id === id);
+    if (!pro) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${pro.name}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openProfessionalModal(${pro.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar Profissional
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteProfessional(${pro.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir profissional
+        </button>
+      </div>
+    `;
   }
 
   content.innerHTML = menuItemsHtml;
   lucide.createIcons({ root: content });
 
-  const menuWidth = 260;
-  const menuHeight = 220;
-  let posX = event.clientX;
-  let posY = event.clientY;
+  const posX = Math.min(event.clientX, window.innerWidth - 240);
+  const posY = Math.min(event.clientY, window.innerHeight - 260);
 
-  if (posX + menuWidth > window.innerWidth) posX = window.innerWidth - menuWidth - 20;
-  if (posY + menuHeight > window.innerHeight) posY = window.innerHeight - menuHeight - 20;
-
-  menu.style.left = `${Math.max(10, posX)}px`;
-  menu.style.top = `${Math.max(10, posY)}px`;
+  menu.style.left = `${posX}px`;
+  menu.style.top = `${posY}px`;
   menu.classList.remove('hidden');
 }
 
-function closeContextMenu() {
-  const menu = document.getElementById('custom-context-menu');
-  if (menu) menu.classList.add('hidden');
-}
-
-// Ouvinte global para clique com botão direito no index.html
+// Ouvinte geral de botão direito (caso clique fora de itens com menu contextual próprio)
 window.addEventListener('contextmenu', (e) => {
-  // Se for campo de digitação, preserva o comportamento nativo (copiar/colar)
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  
+  // Se o clique foi dentro de um elemento com menu próprio, não exibe o menu geral
+  if (e.target.closest('[oncontextmenu]')) return;
+
   e.preventDefault();
 
   const menu = document.getElementById('custom-context-menu');
@@ -815,7 +865,7 @@ window.addEventListener('contextmenu', (e) => {
         <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
       </button>
       <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa (PDV)
+        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa
       </button>
     </div>
   `;
@@ -828,7 +878,15 @@ window.addEventListener('contextmenu', (e) => {
   menu.style.left = `${posX}px`;
   menu.style.top = `${posY}px`;
   menu.classList.remove('hidden');
-}, true);
+});
+
+
+
+function closeContextMenu() {
+  const menu = document.getElementById('custom-context-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
 
 // Fecha o menu ao clicar com o botão esquerdo fora dele
 window.addEventListener('click', (e) => {
@@ -2987,6 +3045,81 @@ function updateMuralCounters() {
   if (totalEl) totalEl.textContent = totalAgendadasData;
   if (confirmadasEl) confirmadasEl.textContent = confirmadasData;
 }
+
+/* ========================================================
+ * CALENDÁRIO ESTILIZADO DE RELATÓRIOS (JANELA MODAL)
+ * ======================================================== */
+function openReportCalendarModal() {
+  const modal = document.getElementById('modal-report-calendar');
+  if (!modal) return;
+  const startVal = document.getElementById('rep-start-date')?.value || '';
+  const endVal = document.getElementById('rep-end-date')?.value || '';
+  document.getElementById('cal-modal-rep-start').value = startVal;
+  document.getElementById('cal-modal-rep-end').value = endVal;
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function setQuickReportRange(type) {
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+
+  if (type === 'today') {
+    // Mantém a data de hoje para início e término
+  } else if (type === 'week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    start = new Date(now.setDate(diff));
+    end = new Date(start);
+    end.setDate(start.getDate() + 5);
+  } else if (type === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  document.getElementById('cal-modal-rep-start').value = fmt(start);
+  document.getElementById('cal-modal-rep-end').value = fmt(end);
+}
+
+function applyCustomReportDateRange() {
+  const s = document.getElementById('cal-modal-rep-start').value;
+  const e = document.getElementById('cal-modal-rep-end').value;
+
+  if (s && e && s > e) {
+    showToast('A data inicial não pode ser maior que a data final!', 'error');
+    return;
+  }
+
+  document.getElementById('rep-start-date').value = s;
+  document.getElementById('rep-end-date').value = e;
+
+  const display = document.getElementById('rep-period-display-text');
+  if (display) {
+    if (s && e) {
+      display.innerText = `${s.split('-').reverse().join('/')} até ${e.split('-').reverse().join('/')}`;
+    } else if (s) {
+      display.innerText = `A partir de ${s.split('-').reverse().join('/')}`;
+    } else {
+      display.innerText = 'Todo o Histórico';
+    }
+  }
+
+  closeModal('modal-report-calendar');
+  generateBusinessReport();
+  showToast('Período de relatório atualizado!', 'success');
+}
+
+function clearReportDateFilter() {
+  document.getElementById('rep-start-date').value = '';
+  document.getElementById('rep-end-date').value = '';
+  const display = document.getElementById('rep-period-display-text');
+  if (display) display.innerText = 'Todo o Histórico';
+  generateBusinessReport();
+  showToast('Filtro de período limpo.', 'info');
+}
+
 
 /* ========================================================
  * 1. RELATÓRIOS GERENCIAIS DE ATENDIMENTO E FATURAMENTO
