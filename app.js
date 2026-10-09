@@ -653,21 +653,45 @@ function clearAgendaSearch() {
 }
 
 /* ========================================================
- * MENUS DE CONTEXTO E BOTÃO DIREITO
+ * MENUS DE CONTEXTO E BOTÃO DIREITO NA PÁGINA PRINCIPAL
  * ======================================================== */
 document.addEventListener('contextmenu', (e) => {
+  // Se clicar em inputs ou selects, mantém o menu padrão do navegador
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
   e.preventDefault();
-});
-
-document.addEventListener('click', (e) => {
+  
+  // Abre o menu contextual geral caso não tenha clicado num card específico
   const customMenu = document.getElementById('custom-context-menu');
-  if (customMenu && !customMenu.contains(e.target)) {
-    customMenu.classList.add('hidden');
-  }
-  const filterPop = document.getElementById('agenda-filter-popover');
-  const filterBtn = document.getElementById('btn-agenda-filters-popover');
-  if (filterPop && !filterPop.contains(e.target) && filterBtn && !filterBtn.contains(e.target)) {
-    filterPop.classList.add('hidden');
+  if (customMenu && customMenu.classList.contains('hidden')) {
+    const content = document.getElementById('custom-context-menu-content');
+    if (content) {
+      content.innerHTML = `
+        <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+          Opções do Sistema
+        </div>
+        <div class="py-1.5 space-y-0.5">
+          <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
+          </button>
+          <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+            <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Novo Cliente
+          </button>
+          <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+            <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Novo Serviço
+          </button>
+          <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+            <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
+          </button>
+          <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+            <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa
+          </button>
+        </div>
+      `;
+      lucide.createIcons({ root: content });
+      customMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 240)}px`;
+      customMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 260)}px`;
+      customMenu.classList.remove('hidden');
+    }
   }
 });
 

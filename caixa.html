@@ -63,8 +63,7 @@
     </div>
 
     <div class="flex items-center gap-2 flex-wrap">
-      <!-- Fundo de Caixa -->
-      <button type="button" onclick="openCashOperationModal('fundo')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white transition-all flex items-center gap-1.5" title="Definir troco inicial">
+      <button type="button" onclick="openCashOperationModal('fundo')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white transition-all flex items-center gap-1.5">
         <i data-lucide="vault" class="w-3.5 h-3.5"></i>
         <span>Fundo de Caixa</span>
       </button>
@@ -81,7 +80,7 @@
 
       <button type="button" onclick="openReportModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-gold/15 border border-brand-gold/40 text-brand-gold hover:bg-brand-gold hover:text-slate-950 transition-all flex items-center gap-1.5">
         <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-        <span>Fechamento</span>
+        <span>Fechamento &amp; Relatórios</span>
       </button>
 
       <!-- Indicador de Ligação -->
@@ -109,14 +108,14 @@
   <main class="flex-1 p-3.5 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-7xl w-full mx-auto">
     
     <!-- LADO ESQUERDO: Lançamento de Itens -->
-    <section class="lg:col-span-8 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
+    <section class="lg:col-span-7 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
       <div class="space-y-4">
         
-        <!-- Seleção de Cliente e Crédito -->
+        <!-- Seleção de Cliente e Benefícios -->
         <div class="p-4 rounded-2xl bg-brand-lightCard/60 dark:bg-brand-darkBg/60 border border-brand-lightBorder dark:border-brand-darkBorder space-y-3">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <span class="text-[10px] uppercase font-bold text-slate-400 block">Cliente Vinculada à Nota:</span>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block">Cliente Vinculada:</span>
               <h4 id="pos-selected-client-name" class="text-sm font-black text-slate-900 dark:text-white">CONSUMIDOR PADRÃO</h4>
               <span id="pos-selected-client-sub" class="text-[11px] text-slate-400 font-mono">Sem identificação</span>
             </div>
@@ -135,14 +134,12 @@
           <!-- Barra de Crédito e Fidelidade -->
           <div id="pos-client-perks-bar" class="hidden pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-3">
-              <!-- Saldo de Crédito -->
               <div class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
                 <i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-500"></i>
-                <span class="text-xs text-slate-500 dark:text-slate-300">Crédito Disponível:</span>
+                <span class="text-xs text-slate-500 dark:text-slate-300">Crédito:</span>
                 <strong id="pos-client-credit-badge" class="text-xs font-black text-emerald-500 font-mono">R$ 0,00</strong>
               </div>
 
-              <!-- Cartão Fidelidade -->
               <div class="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl">
                 <span id="pos-fidelity-badge" class="text-xs font-black text-brand-gold">⭐ 0/10 Selos</span>
               </div>
@@ -150,25 +147,25 @@
 
             <div class="flex items-center gap-2">
               <button type="button" onclick="openCreditManagementModal()" class="px-2.5 py-1 text-[11px] font-bold text-brand-violet hover:underline">
-                + Adicionar Crédito
-              </button>
-              <button type="button" id="btn-use-credit" onclick="applyClientCreditToPOS()" class="hidden px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] shadow">
-                Abater com Crédito
+                + Recarregar Saldo
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Inserção de Procedimentos -->
+        <!-- Inserção de Procedimentos com Lupa -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Adicionar Procedimento / Serviço:</label>
-            <button type="button" onclick="openQuickCreateServiceModal()" class="text-xs text-brand-gold hover:underline font-bold flex items-center gap-1">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> + Novo Serviço
+            <button type="button" onclick="openServicesCatalogModal()" class="text-xs text-brand-gold hover:underline font-bold flex items-center gap-1">
+              <i data-lucide="search" class="w-3.5 h-3.5"></i> Abrir Catálogo &amp; Lupa
             </button>
           </div>
           <div class="flex gap-2">
-            <select id="pos-service-select" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet"></select>
+            <button type="button" onclick="openServicesCatalogModal()" class="p-2.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder hover:border-brand-gold text-brand-gold transition-all" title="Ver painel de serviços">
+              <i data-lucide="search" class="w-4 h-4"></i>
+            </button>
+            <select id="pos-service-select" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet font-mono"></select>
             <button type="button" onclick="addServiceToPOS()" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold shadow-md hover:brightness-110 transition-all flex items-center gap-1.5">
               <i data-lucide="plus" class="w-4 h-4 text-brand-gold"></i>
               <span>Inserir</span>
@@ -181,7 +178,7 @@
           <table class="w-full text-left text-xs">
             <thead class="bg-brand-lightCard dark:bg-brand-darkBg uppercase font-extrabold text-[10px] text-slate-400 border-b border-brand-lightBorder dark:border-brand-darkBorder">
               <tr>
-                <th class="p-3">Procedimento</th>
+                <th class="p-3">Cód / Procedimento</th>
                 <th class="p-3 text-center">Qtd</th>
                 <th class="p-3">Unitário</th>
                 <th class="p-3">Total</th>
@@ -195,45 +192,82 @@
 
       <!-- Totalizador Inferior -->
       <div class="pt-4 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between mt-4">
-        <span class="text-[11px] text-slate-400 font-medium">Dica: Selecione a cliente para utilizar saldo pré-pago ou selos.</span>
+        <span class="text-[11px] text-slate-400 font-medium">Nota operacional com suporte a multi-pagamento.</span>
         <div class="text-right">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block">Total da Nota:</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Total a Pagar:</span>
           <span id="pos-grand-total" class="text-3xl font-black text-brand-violet dark:text-brand-violetLight font-mono">R$ 0,00</span>
         </div>
       </div>
     </section>
 
-    <!-- LADO DIREITO: Formas de Pagamento -->
-    <section class="lg:col-span-4 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
+    <!-- LADO DIREITO: Formas de Pagamento & Múltiplas Parcelas -->
+    <section class="lg:col-span-5 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
       <div class="space-y-4">
-        <div class="pb-2 border-b border-brand-lightBorder dark:border-brand-darkBorder">
-          <h3 class="text-xs font-black uppercase tracking-wider text-brand-gold">Formas de Recebimento</h3>
+        <div class="pb-2 border-b border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+          <h3 class="text-xs font-black uppercase tracking-wider text-brand-gold">Formas de Pagamento (Multi-forma)</h3>
+          <span id="pos-payment-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-brand-darkCard text-slate-500">Aguardando</span>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Método de Pagamento:</label>
-          <select id="pos-payment-method" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none">
-            <option value="PIX">PIX</option>
-            <option value="DINHEIRO">DINHEIRO (Espécie)</option>
-            <option value="CARTÃO CRÉDITO">CARTÃO DE CRÉDITO</option>
-            <option value="CARTÃO DÉBITO">CARTÃO DE DÉBITO</option>
-            <option value="SALDO CRÉDITO">CRÉDITO EM CONTA (Pré-pago)</option>
-          </select>
-        </div>
-
+        <!-- Desconto na Nota com máscara monetária -->
         <div>
           <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Desconto Manual (R$):</label>
-          <input type="number" id="pos-discount" value="0.00" min="0" step="0.50" oninput="renderPosTotals()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono text-slate-800 dark:text-white outline-none">
+          <input type="text" id="pos-discount" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-800 dark:text-white outline-none">
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Valor Recebido (Para Troco):</label>
-          <input type="number" id="pos-received-value" value="0.00" min="0" step="1.00" oninput="renderPosTotals()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono text-slate-800 dark:text-white outline-none">
+        <!-- Tabela com Espaço para Preencher Cada Forma de Pagamento -->
+        <div class="space-y-2 border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-3 bg-brand-lightCard/40 dark:bg-brand-darkBg/40">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Distribuição de Valores Recebidos:</span>
+          
+          <div class="grid grid-cols-1 gap-2 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-500"></i> PIX:</span>
+              <input type="text" id="pay-pix" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="banknote" class="w-3.5 h-3.5 text-emerald-500"></i> Dinheiro (Espécie):</span>
+              <input type="text" id="pay-dinheiro" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-brand-violet"></i> Cartão de Crédito:</span>
+              <input type="text" id="pay-credito" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-sky-500"></i> Cartão de Débito:</span>
+              <input type="text" id="pay-debito" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-500"></i> Saldo em Crédito:</span>
+              <input type="text" id="pay-saldo" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+            </div>
+
+            <!-- Resgate Cartão Fidelidade (Íntima Completa 100% OFF) -->
+            <div id="row-fidelidade-pay" class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between gap-2">
+              <div class="flex flex-col">
+                <span class="font-black text-amber-500 flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Cartão Fidelidade (10 Selos):</span>
+                <span class="text-[9px] text-slate-400">Gratuidade: Íntima Completa</span>
+              </div>
+              <button type="button" id="btn-redeem-fidelidade-pay" onclick="applyFidelityIntimaRewardToPOS()" class="px-2.5 py-1.5 rounded-xl bg-amber-500/20 text-brand-gold hover:bg-amber-500 hover:text-slate-950 font-bold text-[11px] transition-all">
+                Resgatar (10 Selos)
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Troco:</span>
-          <span id="pos-change-value" class="text-lg font-black text-emerald-500 font-mono">R$ 0,00</span>
+        <!-- Balanço de Pagamento -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Total Informado:</span>
+            <span id="pos-total-paid-info" class="text-base font-black text-slate-900 dark:text-white font-mono">R$ 0,00</span>
+          </div>
+
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">
+            <span id="pos-balance-label" class="text-[10px] uppercase font-bold text-slate-400 block">Faltando:</span>
+            <span id="pos-balance-value" class="text-base font-black text-rose-500 font-mono">R$ 0,00</span>
+          </div>
         </div>
       </div>
 
@@ -243,19 +277,96 @@
           <span>Gravar e Finalizar Venda</span>
         </button>
 
-        <button type="button" onclick="clearPosCart()" class="w-full py-2.5 rounded-2xl bg-transparent hover:bg-slate-200/50 dark:hover:bg-brand-darkBg text-slate-400 text-xs font-bold transition-all">
-          Cancelar Nota
+        <button type="button" onclick="cancelCurrentSale()" class="w-full py-2.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+          <i data-lucide="x-circle" class="w-4 h-4"></i>
+          <span>Cancelar Nota (Gravar como Cancelada)</span>
         </button>
       </div>
     </section>
   </main>
 
-  <!-- MODAL: PESQUISAR OU CRIAR CLIENTE -->
+  <!-- MODAL: PAINEL DE CATÁLOGO DE SERVIÇOS (LUPA) -->
+  <div id="modal-pos-services-catalog" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-2xl rounded-3xl p-6 shadow-2xl relative my-auto max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder shrink-0">
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Catálogo Oficial</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Painel de Procedimentos &amp; Serviços</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-pos-services-catalog')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="my-3 flex gap-2 shrink-0">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+          <input type="text" id="catalog-search-query" oninput="renderCatalogModalGrid(this.value)" placeholder="Pesquise por código numérico, nome, valor ou sigla..." class="w-full pl-9 pr-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white outline-none focus:border-brand-violet">
+        </div>
+        <button type="button" onclick="openServiceEditModal(null)" class="px-4 py-2 rounded-2xl bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold flex items-center gap-1.5 shadow shrink-0">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Novo Serviço</span>
+        </button>
+      </div>
+
+      <div id="catalog-services-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRO / EDIÇÃO DE SERVIÇO COM CÓDIGO NUMÉRICO -->
+  <div id="modal-service-edit" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
+        <h3 id="modal-service-edit-title" class="text-base font-black text-slate-900 dark:text-white">Cadastrar / Editar Serviço</h3>
+        <button type="button" onclick="closeModal('modal-service-edit')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleSaveServiceWithCode(event)" class="space-y-3">
+        <input type="hidden" id="edit-srv-id">
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Código Nº *</label>
+            <input type="number" id="edit-srv-code" required placeholder="101" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none text-brand-gold">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nome do Procedimento *</label>
+            <input type="text" id="edit-srv-name" required placeholder="Ex: Íntima Completa" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Preço (R$) *</label>
+            <input type="text" id="edit-srv-price" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Duração (Minutos) *</label>
+            <input type="number" id="edit-srv-duration" min="5" step="5" value="15" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sigla / Abreviatura (Para o Mural)</label>
+          <input type="text" id="edit-srv-short" placeholder="Ex: int'c" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono outline-none">
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-service-edit')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-brand-violet text-white text-xs font-bold rounded-2xl shadow">Salvar Serviço</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: PESQUISAR CLIENTE -->
   <div id="modal-pos-search-client" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-lg rounded-3xl p-6 shadow-2xl relative my-auto">
       <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder">
         <div>
-          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Base de Dados</span>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Base de Clientes</span>
           <h3 class="text-base font-black text-slate-900 dark:text-white">Selecionar Cliente</h3>
         </div>
         <button type="button" onclick="closeModal('modal-pos-search-client')" class="text-slate-400 hover:text-white p-1">
@@ -266,62 +377,140 @@
       <div class="my-4 space-y-3">
         <div class="relative">
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
-          <input type="text" id="pos-client-modal-query" oninput="renderPosClientSearchResults(this.value)" placeholder="Pesquise por nome, telemóvel ou CPF..." class="w-full pl-9 pr-4 py-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white outline-none focus:border-brand-violet">
+          <input type="text" id="pos-client-modal-query" oninput="renderPosClientSearchResults(this.value)" placeholder="Pesquise por nome, telefone ou CPF..." class="w-full pl-9 pr-4 py-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white outline-none focus:border-brand-violet">
         </div>
 
         <div id="pos-client-search-results" class="space-y-1.5 max-h-60 overflow-y-auto pr-1"></div>
       </div>
 
       <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
-        <button type="button" onclick="openQuickCreateClientModal()" class="text-xs text-brand-gold font-bold hover:underline flex items-center gap-1">
-          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Criar Novo Cliente Agora
+        <button type="button" onclick="openCompleteCreateClientModal()" class="text-xs text-brand-gold font-bold hover:underline flex items-center gap-1">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> + Cadastrar Cliente Completo
         </button>
         <button type="button" onclick="closeModal('modal-pos-search-client')" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-brand-darkCard text-xs font-semibold">Fechar</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: REGISTO RÁPIDO DE CLIENTE -->
-  <div id="modal-pos-create-client" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+  <!-- MODAL: REGISTO COMPLETO DE CLIENTE NO PDV -->
+  <div id="modal-pos-create-client" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-2xl rounded-3xl p-6 shadow-2xl relative my-auto">
       <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">Novo Registo de Cliente</h3>
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Registo de Cliente</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Cadastrar Cliente com Dados Completos</h3>
+        </div>
         <button type="button" onclick="closeModal('modal-pos-create-client')" class="text-slate-400 hover:text-white p-1">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form onsubmit="handleQuickCreateClient(event)" class="space-y-3">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
-          <input type="text" id="pos-new-cli-name" required placeholder="Ex: Sandra Ramos" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+      <form onsubmit="handleSaveCompleteClient(event)" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
+            <input type="text" id="cli-name" required placeholder="Ex: Sandra Ramos" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nascimento *</label>
+            <input type="date" id="cli-birth" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">WhatsApp *</label>
-            <input type="tel" id="pos-new-cli-phone" required placeholder="82987223360" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-mono">
+            <input type="tel" id="cli-phone" required placeholder="82987223360" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-mono">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CPF</label>
-            <input type="text" id="pos-new-cli-cpf" placeholder="000.000.000-00" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-mono">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CPF *</label>
+            <input type="text" id="cli-cpf" placeholder="000.000.000-00" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sexo *</label>
+            <select id="cli-gender" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+              <option value="Feminino">Feminino</option>
+              <option value="Masculino">Masculino</option>
+            </select>
           </div>
         </div>
+
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sexo *</label>
-          <select id="pos-new-cli-gender" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
-            <option value="Feminino">Feminino</option>
-            <option value="Masculino">Masculino</option>
-          </select>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
+          <input type="email" id="cli-email" placeholder="cliente@email.com" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
         </div>
+
+        <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-brand-gold mb-2">Endereço Residencial</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CEP</label>
+            <input type="text" id="cli-cep" maxlength="9" onblur="buscarEnderecoPorCEP(this.value)" placeholder="00000-000" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none font-mono">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Rua / Logradouro</label>
+            <input type="text" id="cli-street" placeholder="Rua das Flores" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Número</label>
+            <input type="text" id="cli-number" placeholder="123 ou S/N" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Bairro</label>
+            <input type="text" id="cli-neighborhood" placeholder="Centro" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Cidade / UF</label>
+            <input type="text" id="cli-city" placeholder="Maceió" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none">
+          </div>
+        </div>
+
         <div class="pt-2 flex justify-end gap-2">
           <button type="button" onclick="closeModal('modal-pos-create-client')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
-          <button type="submit" class="px-5 py-2.5 bg-brand-violet text-white text-xs font-bold rounded-2xl shadow">Gravar e Vincular</button>
+          <button type="submit" class="px-5 py-2.5 bg-brand-violet text-white text-xs font-bold rounded-2xl shadow">Salvar no Banco e Vincular</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL: GESTÃO DE CRÉDITO -->
+  <!-- MODAL: GESTÃO DO CARTÃO FIDELIDADE & RESGATE -->
+  <div id="modal-fidelidade-manage" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">Gerir Cartão Fidelidade</h3>
+        <button type="button" onclick="closeModal('modal-fidelidade-manage')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg text-center">
+          <span class="text-xs text-slate-400 block font-semibold">Total de Selos Atuais:</span>
+          <span id="fid-modal-count" class="text-2xl font-black text-brand-gold">0 / 10</span>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" onclick="adjustFidelityPoints(-1)" class="flex-1 py-2 rounded-xl bg-slate-200 dark:bg-brand-darkCard font-bold text-xs">- Remover 1 Selo</button>
+          <button type="button" onclick="adjustFidelityPoints(1)" class="flex-1 py-2 rounded-xl bg-amber-500/20 text-brand-gold font-bold text-xs">+ Adicionar 1 Selo</button>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Aplicar Desconto Promocional (%):</label>
+          <div class="flex gap-2">
+            <input type="number" id="fid-custom-perc" min="1" max="100" value="50" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2 text-xs font-bold font-mono outline-none">
+            <button type="button" onclick="applyFidelityPercentageReward()" class="px-4 py-2 bg-brand-violet text-white text-xs font-bold rounded-xl shadow">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTÃO DE SALDO DE CRÉDITO -->
   <div id="modal-pos-credit" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
       <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
@@ -335,7 +524,7 @@
         <p class="text-xs text-slate-400">Adicione saldo pré-pago quando a cliente pagar múltiplas sessões antecipadamente.</p>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor do Crédito (R$) *</label>
-          <input type="number" id="pos-credit-amount" step="0.50" min="1" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
+          <input type="text" id="pos-credit-amount" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Forma de Pagamento da Recarga *</label>
@@ -362,11 +551,11 @@
         <input type="hidden" id="cash-op-type">
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor (R$):</label>
-          <input type="number" id="cash-op-amount" step="0.50" min="0.01" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
+          <input type="text" id="cash-op-amount" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Motivo / Descrição:</label>
-          <input type="text" id="cash-op-desc" placeholder="Ex: Abertura de caixa / Troco inicial" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs text-slate-900 dark:text-white outline-none">
+          <input type="text" id="cash-op-desc" placeholder="Ex: Fundo de abertura / Troco" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs text-slate-900 dark:text-white outline-none">
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeModal('modal-cash-op')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
@@ -376,7 +565,7 @@
     </div>
   </div>
 
-  <!-- MODAL: RELATÓRIOS DE FECHAMENTO -->
+  <!-- MODAL: RELATÓRIOS & FECHAMENTO -->
   <div id="modal-pos-reports" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-4xl rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder">
@@ -386,7 +575,6 @@
         </button>
       </div>
 
-      <!-- Filtro de Data e Hora -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-4 p-3.5 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder text-xs">
         <div>
           <label class="block font-bold text-slate-400 text-[10px] mb-1">Data Inicial:</label>
@@ -406,17 +594,15 @@
         </div>
       </div>
 
-      <!-- Abas de Relatório -->
       <div class="flex gap-2 mb-4">
         <button type="button" onclick="switchReportTab('fechamento')" id="tab-btn-fechamento" class="px-4 py-2 bg-brand-violet text-white font-bold text-xs rounded-2xl shadow">
           1. Fechamento de Caixa (Cupom)
         </button>
         <button type="button" onclick="switchReportTab('detalhado')" id="tab-btn-detalhado" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg text-slate-500 font-semibold text-xs rounded-2xl hover:text-brand-gold">
-          2. Detalhamento de Clientes do Período
+          2. Detalhamento de Clientes &amp; Canceladas
         </button>
       </div>
 
-      <!-- Conteúdo 1: Cupom -->
       <div id="report-content-fechamento" class="space-y-4">
         <div id="printable-ticket" class="ticket-cupom mx-auto p-4 rounded-xl border border-slate-300 font-mono text-xs max-w-sm shadow">
           <p class="font-extrabold text-center text-sm">DEPILCLEAR SANDRA RAMOS</p>
@@ -425,9 +611,10 @@
           
           <div class="space-y-1 mb-2">
             <div class="flex justify-between"><span>Fundo Inicial:</span><span id="t-fundo">R$ 0,00</span></div>
-            <div class="flex justify-between"><span>Vendas:</span><span id="t-vendas">R$ 0,00</span></div>
+            <div class="flex justify-between"><span>Vendas Concluídas:</span><span id="t-vendas">R$ 0,00</span></div>
             <div class="flex justify-between"><span>Suprimentos:</span><span id="t-suprimentos">R$ 0,00</span></div>
             <div class="flex justify-between"><span>Sangrias:</span><span id="t-sangrias">R$ 0,00</span></div>
+            <div class="flex justify-between text-rose-500"><span>Notas Canceladas:</span><span id="t-canceladas">R$ 0,00</span></div>
             <div class="flex justify-between font-black border-t pt-1"><span>SALDO FINAL EM CAIXA:</span><span id="t-saldo">R$ 0,00</span></div>
           </div>
 
@@ -443,7 +630,6 @@
         </div>
       </div>
 
-      <!-- Conteúdo 2: Detalhado -->
       <div id="report-content-detalhado" class="hidden space-y-3">
         <div class="overflow-x-auto rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder">
           <table class="w-full text-left text-xs">
@@ -452,7 +638,7 @@
                 <th class="p-3">Data/Hora</th>
                 <th class="p-3">Cliente</th>
                 <th class="p-3">Procedimentos</th>
-                <th class="p-3">Forma</th>
+                <th class="p-3">Estado</th>
                 <th class="p-3 text-right">Valor</th>
               </tr>
             </thead>
@@ -460,49 +646,6 @@
           </table>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- MODAL: REGISTRO RÁPIDO DE SERVIÇO NA NOTA -->
-  <div id="modal-pos-create-service" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
-        <div>
-          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Catálogo</span>
-          <h3 class="text-base font-black text-slate-900 dark:text-white">Cadastrar Serviço no Caixa</h3>
-        </div>
-        <button type="button" onclick="closeModal('modal-pos-create-service')" class="text-slate-400 hover:text-white p-1">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleQuickCreateService(event)" class="space-y-3.5">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nome do Procedimento / Serviço *</label>
-          <input type="text" id="pos-new-srv-name" required placeholder="Ex: Drenagem Linfática Facial" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 outline-none focus:border-brand-violet text-slate-900 dark:text-white">
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor Unitário (R$) *</label>
-            <input type="number" id="pos-new-srv-price" step="0.50" min="0" required placeholder="120.00" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none focus:border-brand-violet text-slate-900 dark:text-white">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Duração (Minutos) *</label>
-            <input type="number" id="pos-new-srv-duration" step="5" min="5" value="30" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono outline-none focus:border-brand-violet text-slate-900 dark:text-white">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sigla / Abreviatura (Opcional - Mural)</label>
-          <input type="text" id="pos-new-srv-short" placeholder="Ex: dren.facial" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono outline-none focus:border-brand-violet text-slate-900 dark:text-white">
-        </div>
-
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeModal('modal-pos-create-service')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
-          <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold rounded-2xl shadow">Salvar e Selecionar</button>
-        </div>
-      </form>
     </div>
   </div>
 
