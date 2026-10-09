@@ -1,0 +1,133 @@
+/* ========================================================
+ * DEPILCLEAR WOMEN & MEN - SANDRA RAMOS
+ * Folha de Estilos Modular (style.css)
+ * ======================================================== */
+
+/* Animação de rotação suave no ícone ao trocar tema (Sol/Lua) */
+.theme-icon-spin {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-icon-spin.spinning {
+  transform: rotate(360deg) scale(1.15);
+}
+
+/* ========================================================
+ * BARRAS DE ROLAGEM PERSONALIZADAS
+ * ======================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Modo Escuro */
+.dark ::-webkit-scrollbar-track {
+  background: #120b1f;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3c1e5f;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #5b2891;
+}
+
+/* Modo Claro */
+::-webkit-scrollbar-track {
+  background: #f4eefa;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbb5e5;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b193d6;
+}
+
+/* ========================================================
+ * EFEITOS VISUAIS E IDENTIDADE
+ * ======================================================== */
+/* Borda e iluminação dourada sutil */
+.gold-border-glow {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.12);
+}
+
+/* ========================================================
+ * PLANILHA FÍSICA DO MURAL DA RECEPÇÃO
+ * ======================================================== */
+.sheet-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.sheet-table th, 
+.sheet-table td {
+  border: 1.5px solid #4a3b5a;
+  padding: 6px 8px;
+}
+
+/* Bordas da planilha no Modo Escuro */
+.dark .sheet-table th, 
+.dark .sheet-table td {
+  border: 1.5px solid #3c2a4f;
+}
+
+/* Bordas nítidas da planilha no Modo Claro (Visual Folha Impressa) */
+html:not(.dark) .sheet-table th, 
+html:not(.dark) .sheet-table td {
+  border: 1.5px solid #2d2d2d;
+}
+
+/* ========================================================
+ * STATUS DAS CÉLULAS (PRESENÇA NO MURAL)
+ * ======================================================== */
+/* Cliente Presente / Chegou (Verde suave com texto verde escuro) */
+.sheet-arrived {
+  background-color: #a7f3d0 !important;
+  color: #064e3b !important;
+  font-weight: 700;
+}
+
+.dark .sheet-arrived {
+  background-color: #065f46 !important;
+  color: #a7f3d0 !important;
+  font-weight: 700;
+}
+
+/* Cliente Aguardando / Não Chegou */
+.sheet-not-arrived {
+  background-color: #ffffff;
+  color: #180a29;
+}
+
+.dark .sheet-not-arrived {
+  background-color: #170e28;
+  color: #f1f5f9;
+}
+
+/* ========================================================
+ * ESTILOS DE IMPRESSÃO (CTRL + P)
+ * ======================================================== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-sheet-target, 
+  #printable-sheet-target * {
+    visibility: visible;
+  }
+  
+  #printable-sheet-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
