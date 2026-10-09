@@ -2380,6 +2380,10 @@ function handleSaveCompanyInfo(e) {
  * ======================================================== */
 function openNewWhatsAppTemplateModal(id = null) {
   document.getElementById('wpp-tpl-id').value = id || '';
+  const advEnable = document.getElementById('wpp-tpl-advance-enable');
+  const advDays = document.getElementById('wpp-tpl-advance-days');
+  const advWrapper = document.getElementById('wpp-advance-days-wrapper');
+
   if (id) {
     const tpl = whatsappTemplates.find(t => t.id === id);
     if (tpl) {
@@ -2387,23 +2391,20 @@ function openNewWhatsAppTemplateModal(id = null) {
       document.getElementById('wpp-tpl-trigger').value = tpl.trigger;
       document.getElementById('wpp-tpl-active').value = tpl.active ? 'true' : 'false';
       document.getElementById('wpp-tpl-text').value = tpl.text;
+
+      const hasAdvance = Boolean(tpl.advanceDays && tpl.advanceDays > 0);
+      if (advEnable) advEnable.checked = hasAdvance;
+      if (advDays) advDays.value = tpl.advanceDays || 1;
+      if (advWrapper) advWrapper.classList.toggle('hidden', !hasAdvance);
     }
   } else {
     document.getElementById('form-wpp-template').reset();
+    if (advEnable) advEnable.checked = false;
+    if (advDays) advDays.value = 1;
+    if (advWrapper) advWrapper.classList.add('hidden');
   }
   document.getElementById('modal-whatsapp-template').classList.remove('hidden');
   lucide.createIcons();
-}
-
-function insertVariableIntoWpp(tag) {
-  const textarea = document.getElementById('wpp-tpl-text');
-  if (!textarea) return;
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const text = textarea.value;
-  textarea.value = text.substring(0, start) + tag + text.substring(end);
-  textarea.focus();
-  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
 }
 
 function handleSaveWppTemplate(e) {
@@ -2414,12 +2415,17 @@ function handleSaveWppTemplate(e) {
   const active = document.getElementById('wpp-tpl-active').value === 'true';
   const text = document.getElementById('wpp-tpl-text').value.trim();
 
+  const isAdvanceEnabled = document.getElementById('wpp-tpl-advance-enable')?.checked || false;
+  const advanceDays = isAdvanceEnabled ? parseInt(document.getElementById('wpp-tpl-advance-days')?.value || '1', 10) : null;
+
+  const templateData = { id, title, trigger, active, text, advanceDays };
+
   const existingIdx = whatsappTemplates.findIndex(t => t.id === id);
   if (existingIdx > -1) {
-    whatsappTemplates[existingIdx] = { id, title, trigger, active, text };
+    whatsappTemplates[existingIdx] = templateData;
     showToast(`Modelo "${title}" atualizado!`, 'success');
   } else {
-    whatsappTemplates.push({ id, title, trigger, active, text });
+    whatsappTemplates.push(templateData);
     showToast(`Modelo "${title}" criado!`, 'success');
   }
 
@@ -2440,7 +2446,10 @@ function renderWhatsAppTemplatesList() {
           ${tpl.active ? 'Robô Ativo' : 'Pausado'}
         </span>
       </div>
-      <span class="text-[10px] text-brand-gold font-mono block">Gatilho: Status = ${tpl.trigger}</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] text-brand-gold font-mono">Gatilho: Status = ${tpl.trigger}</span>
+        \${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${tpl.advanceDays} dia(s) antes</span>` : ''}
+      </div>
       <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono whitespace-pre-wrap line-clamp-2">${tpl.text}</p>
       <div class="flex justify-end gap-2 pt-1 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
         <button onclick="openNewWhatsAppTemplateModal('${tpl.id}')" class="text-xs text-brand-violet hover:underline font-bold">Editar</button>
@@ -2933,12 +2942,17 @@ function updateAgendaCounters(selectedDate) {
 }
 
 function updateMuralCounters() {
-  const totalClientes = clientsList.length;
-  const confirmadasData = appointmentsList.filter(a => a.date === currentSelectedDate && a.status === 'Confirmada').length;
+  // Filtra apenas os agendamentos da data da planilha que não estejam cancelados
+  const appsDaData = appointmentsList.filter(a => a.date === currentSelectedDate && a.status !== 'Cancelado');
+  
+  // Total de agendadas no dia (status 'Agendado' ou 'Confirmada')
+  const totalAgendadasData = appsDaData.filter(a => a.status === 'Agendado' || a.status === 'Confirmada').length;
+  // Apenas as confirmadas no dia
+  const confirmadasData = appsDaData.filter(a => a.status === 'Confirmada').length;
 
   const totalEl = document.getElementById('mural-total-clientes');
   const confirmadasEl = document.getElementById('mural-confirmadas-hoje');
 
-  if (totalEl) totalEl.textContent = totalClientes;
+  if (totalEl) totalEl.textContent = totalAgendadasData;
   if (confirmadasEl) confirmadasEl.textContent = confirmadasData;
 }
