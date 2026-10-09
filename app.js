@@ -286,6 +286,15 @@ function handleLogout() {
 
 function toggleTheme(btnElement = null) {
   const html = document.documentElement;
+  
+  // Adiciona feedback tátil ao botão de cápsula
+  if (btnElement) {
+    btnElement.style.transform = 'scale(0.92)';
+    setTimeout(() => {
+      btnElement.style.transform = '';
+    }, 200);
+  }
+
   html.classList.toggle('dark');
   
   const isDark = html.classList.contains('dark');
@@ -512,15 +521,58 @@ function handleDateRangeCheckboxChange() {
 
   if (agendaFilterByDateRange) {
     container?.classList.remove('hidden');
-    if (!document.getElementById('filter-date-start').value) {
-      document.getElementById('filter-date-start').value = currentSelectedDate;
+    const startInput = document.getElementById('filter-date-start');
+    const endInput = document.getElementById('filter-date-end');
+    
+    if (startInput && !startInput.value) {
+      startInput.value = currentSelectedDate;
     }
-    if (!document.getElementById('filter-date-end').value) {
-      document.getElementById('filter-date-end').value = currentSelectedDate;
+    if (endInput && !endInput.value) {
+      endInput.value = currentSelectedDate;
     }
   } else {
     container?.classList.add('hidden');
   }
+  handleFilterCheckboxChange();
+  lucide.createIcons();
+}
+
+// Atalhos rápidos para preencher do dia X ao dia Y com 1 clique
+function setQuickDateRange(rangeType) {
+  const cb = document.getElementById('filter-date-range-cb');
+  if (cb) cb.checked = true;
+  document.getElementById('filter-date-range-inputs')?.classList.remove('hidden');
+  agendaFilterByDateRange = true;
+
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+
+  if (rangeType === 'today') {
+    // Apenas o dia de hoje
+  } else if (rangeType === 'week') {
+    // Do início ao final da semana (segunda a sábado)
+    const day = now.getDay();
+    const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
+    start = new Date(now.setDate(diffToMon));
+    end = new Date(start);
+    end.setDate(start.getDate() + 5);
+  } else if (rangeType === 'month') {
+    // Do dia 1 ao último dia do mês corrente
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  const formatISO = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  document.getElementById('filter-date-start').value = formatISO(start);
+  document.getElementById('filter-date-end').value = formatISO(end);
+
   handleFilterCheckboxChange();
 }
 
