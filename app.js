@@ -201,10 +201,12 @@ function loadAllFromLocalStorage() {
 /* ========================================================
  * NAVEGAÇÃO, AUTENTICAÇÃO E TEMA
  * ======================================================== */
-// Autenticação com a API da Vercel / Supabase (Sessão temporária)
 async function handleLoginSubmit(event) {
-  event.preventDefault();
-  
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   const emailInput = document.getElementById('login-email');
   const passwordInput = document.getElementById('login-password');
   
@@ -213,7 +215,7 @@ async function handleLoginSubmit(event) {
 
   if (!email || !password) {
     showToast('Preencha seu e-mail e senha.', 'warning');
-    return;
+    return false;
   }
 
   showToast('A verificar credenciais...', 'info');
@@ -229,14 +231,12 @@ async function handleLoginSubmit(event) {
 
     if (!resposta.ok) {
       showToast(dados.erro || 'Credenciais inválidas.', 'error');
-      return;
+      return false;
     }
 
-    // Guarda apenas na sessão temporária da aba atual
     sessionStorage.setItem('depilclear_active_session', 'true');
     sessionStorage.setItem('depilclear_active_user', dados.usuario.email);
 
-    // Oculta o login e mostra o dashboard em formato flex horizontal
     document.getElementById('view-login')?.classList.add('hidden');
     const dash = document.getElementById('view-dashboard');
     if (dash) {
@@ -255,6 +255,8 @@ async function handleLoginSubmit(event) {
     console.error('Erro de conexão:', erro);
     showToast('Erro ao ligar ao servidor.', 'error');
   }
+
+  return false;
 }
 
 function toggleLoginPassword() {
@@ -271,23 +273,21 @@ function toggleLoginPassword() {
   lucide.createIcons();
 }
 
-// Botão Sair da conta
 function handleLogout() {
-  localStorage.removeItem('depilclear_jwt_token');
-  localStorage.removeItem('depilclear_active_user');
+  sessionStorage.removeItem('depilclear_active_session');
+  sessionStorage.removeItem('depilclear_active_user');
 
   const pwdInput = document.getElementById('login-password');
   if (pwdInput) pwdInput.value = '';
 
   document.getElementById('view-dashboard')?.classList.add('hidden');
+  document.getElementById('view-dashboard')?.classList.remove('flex');
   document.getElementById('view-login')?.classList.remove('hidden');
   showToast('Saiu do sistema com segurança.', 'info');
 }
 
 function toggleTheme(btnElement = null) {
   const html = document.documentElement;
-  
-  // Adiciona feedback tátil ao botão de cápsula
   if (btnElement) {
     btnElement.style.transform = 'scale(0.92)';
     setTimeout(() => {
@@ -296,10 +296,8 @@ function toggleTheme(btnElement = null) {
   }
 
   html.classList.toggle('dark');
-  
   const isDark = html.classList.contains('dark');
   localStorage.setItem('depilclear_theme', isDark ? 'dark' : 'light');
-  
   lucide.createIcons();
 }
 
@@ -537,7 +535,6 @@ function handleDateRangeCheckboxChange() {
   lucide.createIcons();
 }
 
-// Atalhos rápidos para preencher do dia X ao dia Y com 1 clique
 function setQuickDateRange(rangeType) {
   const cb = document.getElementById('filter-date-range-cb');
   if (cb) cb.checked = true;
@@ -549,16 +546,14 @@ function setQuickDateRange(rangeType) {
   let end = new Date(now);
 
   if (rangeType === 'today') {
-    // Apenas o dia de hoje
+    // Mantém o dia atual
   } else if (rangeType === 'week') {
-    // Do início ao final da semana (segunda a sábado)
     const day = now.getDay();
     const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
     start = new Date(now.setDate(diffToMon));
     end = new Date(start);
     end.setDate(start.getDate() + 5);
   } else if (rangeType === 'month') {
-    // Do dia 1 ao último dia do mês corrente
     start = new Date(now.getFullYear(), now.getMonth(), 1);
     end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
@@ -705,6 +700,9 @@ function showCustomContextMenu(event, type, id) {
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Histórico completo
         </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i> Cartão Fidelidade
+        </button>
       </div>
       <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
         <button type="button" onclick="closeContextMenu(); handleCancelAppointmentViaContext(${app.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
@@ -729,64 +727,13 @@ function showCustomContextMenu(event, type, id) {
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Ver histórico
         </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i> Cartão Fidelidade
+        </button>
       </div>
       <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
         <button type="button" onclick="closeContextMenu(); handleDeleteClient(${client.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
           <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir definitivamente
-        </button>
-      </div>
-    `;
-  } else if (type === 'category') {
-    const cat = categoriesList.find(c => c.id === id);
-    if (!cat) return;
-    menuItemsHtml = `
-      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-        ${cat.name}
-      </div>
-      <div class="py-1.5 space-y-0.5">
-        <button type="button" onclick="closeContextMenu(); openCategoryModal(${cat.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar categoria
-        </button>
-      </div>
-      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
-        <button type="button" onclick="closeContextMenu(); handleDeleteCategory(${cat.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
-          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir categoria
-        </button>
-      </div>
-    `;
-  } else if (type === 'service') {
-    const srv = servicesList.find(s => s.id === id);
-    if (!srv) return;
-    menuItemsHtml = `
-      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-        ${srv.name}
-      </div>
-      <div class="py-1.5 space-y-0.5">
-        <button type="button" onclick="closeContextMenu(); openServiceModal(${srv.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar serviço
-        </button>
-      </div>
-      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
-        <button type="button" onclick="closeContextMenu(); handleDeleteService(${srv.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
-          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir serviço
-        </button>
-      </div>
-    `;
-  } else if (type === 'professional') {
-    const pro = professionalsList.find(p => p.id === id);
-    if (!pro) return;
-    menuItemsHtml = `
-      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-        ${pro.name}
-      </div>
-      <div class="py-1.5 space-y-0.5">
-        <button type="button" onclick="closeContextMenu(); openProfessionalModal(${pro.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar Profissional
-        </button>
-      </div>
-      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
-        <button type="button" onclick="closeContextMenu(); handleDeleteProfessional(${pro.id})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
-          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir profissional
         </button>
       </div>
     `;
@@ -817,7 +764,7 @@ function handleCancelAppointmentViaContext(appId) {
   if (!app) return;
   app.status = 'Cancelado';
   saveAllToLocalStorage();
-  showToast(`Agendamento de ${app.clientName} marcado como CANCELADO.`, 'warning');
+  showToast(`Agendamento de ${app.clientName} cancelado.`, 'warning');
   renderAgendaView();
   renderPhysicalReceptionSheet();
 }
@@ -841,7 +788,7 @@ function renderAgendaView() {
     if (dateTitle) dateTitle.innerHTML = `<i data-lucide="search" class="w-4 h-4 text-brand-gold"></i> Histórico encontrado para "${agendaSearchQuery}"`;
     if (dateBadge) dateBadge.innerText = `Pesquisa Ativa`;
   } else if (agendaFilterInactiveOnly) {
-    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="user-x" class="w-4 h-4 text-rose-500"></i> Clientes Inativas (&gt; 3 meses) em Todo o Banco`;
+    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="user-x" class="w-4 h-4 text-rose-500"></i> Clientes Inativas (> 3 meses)`;
     if (dateBadge) dateBadge.innerText = `Inativas Globais`;
   } else if (agendaFilterByDateRange && agendaStartDate && agendaEndDate) {
     const [sy, sm, sd] = agendaStartDate.split('-');
@@ -1155,9 +1102,7 @@ function handleUpdateAppointmentStatus(appId, newStatus) {
     showToast(`Status atualizado para: ${newStatus}`, 'info');
   }
 
-  // Aciona o disparo automático configurado para este estado
   triggerWhatsAppWebhook(app, newStatus);
-
   renderAgendaView();
   renderPhysicalReceptionSheet();
 
@@ -1740,7 +1685,6 @@ async function buscarEnderecoPorCEP(cepValue) {
   }
 }
 
-
 /* ========================================================
  * CLIENTES & CPF
  * ======================================================== */
@@ -1924,32 +1868,33 @@ function openClientProfileModal(clientId, initialTab = 'dados') {
 function switchProfileTab(tab) {
   const btnDados = document.getElementById('profile-tab-btn-dados');
   const btnHist = document.getElementById('profile-tab-btn-historico');
+  const btnFid = document.getElementById('profile-tab-btn-fidelidade');
   const contentDados = document.getElementById('profile-tab-content-dados');
   const contentHist = document.getElementById('profile-tab-content-historico');
+  const contentFid = document.getElementById('profile-tab-content-fidelidade');
+
+  const defaultBtnClass = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all';
+  const activeBtnClass = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white transition-all shadow';
+
+  if (btnDados) btnDados.className = defaultBtnClass;
+  if (btnHist) btnHist.className = defaultBtnClass;
+  if (btnFid) btnFid.className = defaultBtnClass;
+
+  contentDados?.classList.add('hidden');
+  contentHist?.classList.add('hidden');
+  contentFid?.classList.add('hidden');
 
   if (tab === 'dados') {
-    btnDados.className = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white transition-all shadow';
-    btnHist.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all';
-    contentDados.classList.remove('hidden');
-    contentHist.classList.add('hidden');
-  } else {
-    btnHist.className = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white transition-all shadow';
-    btnDados.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all';
-    contentHist.classList.remove('hidden');
-    contentDados.classList.add('hidden');
-  }
-
-  if (tab === 'fidelidade') {
-    btnDados.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20';
-    btnHist.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20';
-    document.getElementById('profile-tab-btn-fidelidade').className = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white shadow';
-    
-    document.getElementById('profile-tab-content-dados').classList.add('hidden');
-    document.getElementById('profile-tab-content-historico').classList.add('hidden');
-    document.getElementById('profile-tab-content-fidelidade').classList.remove('hidden');
+    if (btnDados) btnDados.className = activeBtnClass;
+    contentDados?.classList.remove('hidden');
+  } else if (tab === 'historico') {
+    if (btnHist) btnHist.className = activeBtnClass;
+    contentHist?.classList.remove('hidden');
+  } else if (tab === 'fidelidade') {
+    if (btnFid) btnFid.className = activeBtnClass;
+    contentFid?.classList.remove('hidden');
     renderClientProfileFidelity(currentViewingClientId);
   }
-
 }
 
 function renderProfileHistoryTab(clientId) {
@@ -2369,10 +2314,6 @@ function handleLogoUpload(e) {
     saveAllToLocalStorage();
     const preview = document.getElementById('company-logo-preview');
     if (preview) preview.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
-    const sideHolder = document.getElementById('sidebar-company-logo-holder');
-    if (sideHolder) sideHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
-    const mobHolder = document.getElementById('mobile-company-logo-holder');
-    if (mobHolder) mobHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
     showToast('Logotipo atualizado no sistema!', 'success');
   };
   reader.readAsDataURL(file);
@@ -2423,6 +2364,17 @@ function openNewWhatsAppTemplateModal(id = null) {
   lucide.createIcons();
 }
 
+function insertVariableIntoWpp(tag) {
+  const textarea = document.getElementById('wpp-tpl-text');
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  textarea.value = text.substring(0, start) + tag + text.substring(end);
+  textarea.focus();
+  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+}
+
 function handleSaveWppTemplate(e) {
   e.preventDefault();
   const id = document.getElementById('wpp-tpl-id').value || `tpl_${Date.now()}`;
@@ -2464,7 +2416,7 @@ function renderWhatsAppTemplatesList() {
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[10px] text-brand-gold font-mono">Gatilho: Status = ${tpl.trigger}</span>
-        \${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${tpl.advanceDays} dia(s) antes</span>` : ''}
+        ${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${tpl.advanceDays} dia(s) antes</span>` : ''}
       </div>
       <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono whitespace-pre-wrap line-clamp-2">${tpl.text}</p>
       <div class="flex justify-end gap-2 pt-1 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
@@ -2479,14 +2431,12 @@ function renderWhatsAppTemplatesList() {
  * DISPARO SILENCIOSO DE WHATSAPP (VIA BACKEND /api/whatsapp)
  * ======================================================== */
 async function triggerWhatsAppWebhook(app, triggerStatus) {
-  // Localiza o modelo ativo correspondente ao estado
   const activeTpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active);
   if (!activeTpl || !app.phone) return;
 
   const [y, m, d] = (app.date || '').split('-');
   const dateFormatted = `${d}/${m}/${y}`;
 
-  // Substituição das variáveis dinâmicas do modelo
   let msg = activeTpl.text
     .replace(/{nome}/g, app.clientName)
     .replace(/{data}/g, dateFormatted)
@@ -2501,24 +2451,16 @@ async function triggerWhatsAppWebhook(app, triggerStatus) {
     const resposta = await fetch('/api/whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: app.phone,
-        message: msg
-      })
+      body: JSON.stringify({ phone: app.phone, message: msg })
     });
-
     const resultado = await resposta.json();
-
     if (resultado.sucesso) {
       showToast(`📲 WhatsApp enviado para ${app.clientName}!`, 'success');
-    } else {
-      console.warn('Falha no envio do WhatsApp:', resultado);
     }
   } catch (err) {
-    console.error('Erro na requisição do WhatsApp:', err);
+    console.error('Erro no envio do WhatsApp:', err);
   }
 }
-
 
 /* ========================================================
  * EXPORTAÇÃO EXCEL (.XLSX) COM ESTILOS
@@ -2885,7 +2827,6 @@ window.addEventListener('offline', () => {
   showToast('Você está offline. O sistema continua gravando normalmente no disco local.', 'warning');
 });
 
-// Função para verificar sessão existente (Exige senha sempre que abrir o site)
 function checkUserSession() {
   const isLogged = sessionStorage.getItem('depilclear_active_session');
   const user = sessionStorage.getItem('depilclear_active_user');
@@ -2907,25 +2848,21 @@ function checkUserSession() {
     return true;
   }
 
-  // Se não estiver autenticado: esconde o dashboard e mostra a tela de login
   document.getElementById('view-dashboard')?.classList.add('hidden');
   document.getElementById('view-dashboard')?.classList.remove('flex');
   document.getElementById('view-login')?.classList.remove('hidden');
   return false;
 }
 
-// Inicialização da aplicação
 window.onload = function() {
   loadAllFromLocalStorage();
 
-  // Aplica o tema previamente selecionado
   if (localStorage.getItem('depilclear_theme') === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
 
-  // Limpa campos de credenciais
   const emailInput = document.getElementById('login-email');
   const pwdInput = document.getElementById('login-password');
   if (emailInput) emailInput.value = '';
@@ -2934,7 +2871,6 @@ window.onload = function() {
   checkUserSession();
   lucide.createIcons();
 
-  // REGISTO DO SERVICE WORKER (Permite recarregar sem internet)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
       .then(() => console.log('Service Worker registado com sucesso!'))
@@ -2958,12 +2894,8 @@ function updateAgendaCounters(selectedDate) {
 }
 
 function updateMuralCounters() {
-  // Filtra apenas os agendamentos da data da planilha que não estejam cancelados
   const appsDaData = appointmentsList.filter(a => a.date === currentSelectedDate && a.status !== 'Cancelado');
-  
-  // Total de agendadas no dia (status 'Agendado' ou 'Confirmada')
   const totalAgendadasData = appsDaData.filter(a => a.status === 'Agendado' || a.status === 'Confirmada').length;
-  // Apenas as confirmadas no dia
   const confirmadasData = appsDaData.filter(a => a.status === 'Confirmada').length;
 
   const totalEl = document.getElementById('mural-total-clientes');
@@ -2984,11 +2916,10 @@ function generateBusinessReport() {
   if (start) filtered = filtered.filter(a => a.date >= start);
   if (end) filtered = filtered.filter(a => a.date <= end);
 
-  // 1. Total de clientes distintos atendidos
   const distinctClients = new Set(filtered.map(a => a.clientId));
-  document.getElementById('rep-total-clients').textContent = distinctClients.size;
+  const totalClientsEl = document.getElementById('rep-total-clients');
+  if (totalClientsEl) totalClientsEl.textContent = distinctClients.size;
 
-  // 2. Procedimentos e Total Faturado
   let totalProcedimentos = 0;
   let faturamentoTotal = 0;
   const serviceCountMap = {};
@@ -2996,7 +2927,6 @@ function generateBusinessReport() {
 
   filtered.forEach(app => {
     faturamentoTotal += Number(app.price || 0);
-
     const pro = app.professional || 'Sem indicação';
     proCountMap[pro] = (proCountMap[pro] || 0) + 1;
 
@@ -3008,10 +2938,12 @@ function generateBusinessReport() {
     });
   });
 
-  document.getElementById('rep-total-services').textContent = totalProcedimentos;
-  document.getElementById('rep-total-amount').textContent = `R$ ${faturamentoTotal.toFixed(2)}`;
+  const totalServicesEl = document.getElementById('rep-total-services');
+  if (totalServicesEl) totalServicesEl.textContent = totalProcedimentos;
 
-  // 3. Profissional que mais atendeu
+  const totalAmountEl = document.getElementById('rep-total-amount');
+  if (totalAmountEl) totalAmountEl.textContent = `R$ ${faturamentoTotal.toFixed(2)}`;
+
   let topProName = '-';
   let topProCount = 0;
   for (const [pro, qtd] of Object.entries(proCountMap)) {
@@ -3020,9 +2952,9 @@ function generateBusinessReport() {
       topProName = `${pro} (${qtd} atend.)`;
     }
   }
-  document.getElementById('rep-top-pro').textContent = topProName;
+  const topProEl = document.getElementById('rep-top-pro');
+  if (topProEl) topProEl.textContent = topProName;
 
-  // 4. Detalhamento de Procedimentos
   const srvContainer = document.getElementById('rep-services-breakdown');
   if (srvContainer) {
     srvContainer.innerHTML = Object.entries(serviceCountMap).map(([name, data]) => `
@@ -3036,7 +2968,6 @@ function generateBusinessReport() {
     `).join('') || '<p class="text-xs text-slate-400">Nenhum atendimento no período.</p>';
   }
 
-  // 5. Produção por Depiladora
   const proContainer = document.getElementById('rep-pro-breakdown');
   if (proContainer) {
     proContainer.innerHTML = Object.entries(proCountMap).map(([name, qtd]) => `
@@ -3054,10 +2985,7 @@ function generateBusinessReport() {
 function getClientFidelity(clientId) {
   let fData = localStorage.getItem(`depilclear_fidelity_${clientId}`);
   if (!fData) {
-    return {
-      points: [], // Array de objetos: { date: 'YYYY-MM-DD', type: 'atendimento' | 'indicacao', note: '' }
-      rewardsClaimed: 0
-    };
+    return { points: [], rewardsClaimed: 0 };
   }
   return JSON.parse(fData);
 }
@@ -3066,12 +2994,10 @@ function saveClientFidelity(clientId, data) {
   localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(data));
 }
 
-// Atribui ponto automático ao colocar status como Finalizado
 function checkAndAwardFidelityPoint(app) {
   if (app.status !== 'Finalizado') return;
 
   const f = getClientFidelity(app.clientId);
-  // Impede pontuação duplicada do mesmo agendamento
   const jaPontuou = f.points.some(p => p.appId === app.id);
   if (!jaPontuou && f.points.length < 10) {
     f.points.push({
@@ -3085,7 +3011,6 @@ function checkAndAwardFidelityPoint(app) {
   }
 }
 
-// Inserir indicação manual com data e tag
 function addManualFidelityPoint(clientId, type = 'indicacao', note = 'Indicação de amiga') {
   const f = getClientFidelity(clientId);
   if (f.points.length >= 10) {
@@ -3104,7 +3029,6 @@ function addManualFidelityPoint(clientId, type = 'indicacao', note = 'Indicaçã
   renderClientProfileFidelity(clientId);
 }
 
-// Resgatar / Utilizar benefício do cartão (Ex: 1 ponto por 50% de desconto ou 10 pontos por serviço grátis)
 function consumeFidelityPoints(clientId, pointsToUse, reason = 'Resgate de benefício') {
   const f = getClientFidelity(clientId);
   if (f.points.length < pointsToUse) {
@@ -3120,7 +3044,6 @@ function consumeFidelityPoints(clientId, pointsToUse, reason = 'Resgate de benef
   return true;
 }
 
-// Renderizar o cartão gráfico de 10 bolhas
 function generateFidelityCardHTML(client, f) {
   const pointsCount = f.points.length;
   let circlesHTML = '';
@@ -3159,7 +3082,6 @@ function generateFidelityCardHTML(client, f) {
         </span>
       </div>
 
-      <!-- Grade com as 10 Bolhas do Cartão -->
       <div class="grid grid-cols-5 gap-2 my-3">
         ${circlesHTML}
       </div>
