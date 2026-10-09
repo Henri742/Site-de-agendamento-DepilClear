@@ -201,21 +201,53 @@ function loadAllFromLocalStorage() {
 /* ========================================================
  * NAVEGAÇÃO, AUTENTICAÇÃO E TEMA
  * ======================================================== */
-function handleLoginSubmit(event) {
+async function handleLoginSubmit(event) {
   event.preventDefault();
+  
   const emailInput = document.getElementById('login-email');
-  const email = emailInput && emailInput.value ? emailInput.value : 'admin@depilclear.com';
+  const passwordInput = document.getElementById('login-password');
+  
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
 
-  document.getElementById('view-login')?.classList.add('hidden');
-  document.getElementById('view-dashboard')?.classList.remove('hidden');
+  if (!email || !password) {
+    showToast('Preencha todos os campos.', 'warning');
+    return;
+  }
 
-  const userDisplay = document.getElementById('user-display-email');
-  if (userDisplay) userDisplay.innerText = email;
+  showToast('A verificar credenciais no servidor...', 'info');
 
-  initCalendar();
-  renderAllViews();
-  showToast('Bem-vindo(a) à DepilClear Sandra Ramos!', 'success');
-  lucide.createIcons();
+  try {
+    const resposta = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      showToast(dados.erro || 'Falha na autenticação.', 'error');
+      return;
+    }
+
+    sessionStorage.setItem('depilclear_jwt_token', dados.token);
+    sessionStorage.setItem('depilclear_user_data', JSON.stringify(dados.usuario));
+
+    document.getElementById('view-login')?.classList.add('hidden');
+    document.getElementById('view-dashboard')?.classList.remove('hidden');
+
+    const userDisplay = document.getElementById('user-display-email');
+    if (userDisplay) userDisplay.innerText = dados.usuario.email;
+
+    initCalendar();
+    renderAllViews();
+    showToast(`Bem-vindo(a), ${dados.usuario.nome}!`, 'success');
+    lucide.createIcons();
+  } catch (erro) {
+    console.error('Erro de conexão:', erro);
+    showToast('Erro ao comunicar com a API de segurança.', 'error');
+  }
 }
 
 function toggleLoginPassword() {
