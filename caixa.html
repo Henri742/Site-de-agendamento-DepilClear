@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>DepilClear - PDV Frente de Caixa & Nota Manual</title>
+  <title>DepilClear - PDV Frente de Caixa</title>
   <link rel="icon" type="image/png" href="logo.png">
 
   <!-- Tailwind CSS CDN -->
@@ -49,7 +49,7 @@
 </head>
 <body class="bg-brand-lightBg dark:bg-brand-darkBg text-brand-lightText dark:text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-violet selection:text-white">
 
-  <!-- Notificações Toast -->
+  <!-- Toast Wrapper -->
   <div id="toast-wrapper" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3"></div>
 
   <!-- Cabeçalho Superior -->
@@ -78,18 +78,22 @@
         <span>Sangria</span>
       </button>
 
-      <button type="button" onclick="openReportModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-gold/15 border border-brand-gold/40 text-brand-gold hover:bg-brand-gold hover:text-slate-950 transition-all flex items-center gap-1.5">
-        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-        <span>Fechamento &amp; Relatórios</span>
+      <!-- GERENCIAR NOTAS FINALIZADAS E CANCELAMENTOS POSTERIORES -->
+      <button type="button" onclick="openManageSalesModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition-all flex items-center gap-1.5">
+        <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+        <span>Gerenciar Notas</span>
       </button>
 
-      <!-- Indicador de Ligação -->
+      <button type="button" onclick="openReportModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-gold/15 border border-brand-gold/40 text-brand-gold hover:bg-brand-gold hover:text-slate-950 transition-all flex items-center gap-1.5">
+        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+        <span>Fechamento</span>
+      </button>
+
       <div id="connection-status-pos" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightCard dark:bg-brand-darkCard text-xs font-semibold">
         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
         <span id="connection-status-text" class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Online</span>
       </div>
 
-      <!-- Alternador de Tema -->
       <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
         <div class="theme-switch-thumb">
           <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
@@ -111,7 +115,7 @@
     <section class="lg:col-span-7 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
       <div class="space-y-4">
         
-        <!-- Seleção de Cliente e Benefícios -->
+        <!-- Cliente Vinculada -->
         <div class="p-4 rounded-2xl bg-brand-lightCard/60 dark:bg-brand-darkBg/60 border border-brand-lightBorder dark:border-brand-darkBorder space-y-3">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -131,7 +135,7 @@
             </div>
           </div>
 
-          <!-- Barra de Crédito e Fidelidade -->
+          <!-- Benefícios da Cliente -->
           <div id="pos-client-perks-bar" class="hidden pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-3">
               <div class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
@@ -153,22 +157,30 @@
           </div>
         </div>
 
-        <!-- Inserção de Procedimentos com Lupa -->
+        <!-- Ferramenta de Pesquisa Rápida de Serviços com Botão de Lupa -->
         <div>
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Adicionar Procedimento / Serviço:</label>
-            <button type="button" onclick="openServicesCatalogModal()" class="text-xs text-brand-gold hover:underline font-bold flex items-center gap-1">
-              <i data-lucide="search" class="w-3.5 h-3.5"></i> Abrir Catálogo &amp; Lupa
-            </button>
-          </div>
-          <div class="flex gap-2">
-            <button type="button" onclick="openServicesCatalogModal()" class="p-2.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder hover:border-brand-gold text-brand-gold transition-all" title="Ver painel de serviços">
-              <i data-lucide="search" class="w-4 h-4"></i>
-            </button>
-            <select id="pos-service-select" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet font-mono"></select>
-            <button type="button" onclick="addServiceToPOS()" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold shadow-md hover:brightness-110 transition-all flex items-center gap-1.5">
-              <i data-lucide="plus" class="w-4 h-4 text-brand-gold"></i>
-              <span>Inserir</span>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Pesquisar e Inserir Procedimento:</label>
+          <div class="relative flex items-center gap-2">
+            <div class="relative flex-1">
+              <input 
+                type="text" 
+                id="pos-service-search-input" 
+                oninput="handleServiceLiveSearch(this.value)" 
+                placeholder="Digite o código, nome ou sigla do serviço..." 
+                class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-3 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet pr-10"
+                autocomplete="off"
+              >
+              <div id="pos-service-autocomplete-dropdown" class="hidden absolute top-full left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl shadow-2xl divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></div>
+            </div>
+
+            <!-- Botão da Lupa no Lugar de 'Inserir' -->
+            <button 
+              type="button" 
+              onclick="openServicesCatalogModal()" 
+              class="p-3 rounded-2xl bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold shadow-md hover:brightness-110 transition-all flex items-center justify-center shrink-0 border border-brand-gold/40"
+              title="Abrir Catálogo Completo com Painel"
+            >
+              <i data-lucide="search" class="w-4 h-4 text-brand-gold"></i>
             </button>
           </div>
         </div>
@@ -192,15 +204,15 @@
 
       <!-- Totalizador Inferior -->
       <div class="pt-4 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between mt-4">
-        <span class="text-[11px] text-slate-400 font-medium">Nota operacional com suporte a multi-pagamento.</span>
+        <span class="text-[11px] text-slate-400 font-medium">Preencha o valor pago em uma ou mais formas.</span>
         <div class="text-right">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block">Total a Pagar:</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Total da Nota:</span>
           <span id="pos-grand-total" class="text-3xl font-black text-brand-violet dark:text-brand-violetLight font-mono">R$ 0,00</span>
         </div>
       </div>
     </section>
 
-    <!-- LADO DIREITO: Formas de Pagamento & Múltiplas Parcelas -->
+    <!-- LADO DIREITO: Formas de Pagamento & Multi-forma -->
     <section class="lg:col-span-5 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
       <div class="space-y-4">
         <div class="pb-2 border-b border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
@@ -208,43 +220,42 @@
           <span id="pos-payment-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-brand-darkCard text-slate-500">Aguardando</span>
         </div>
 
-        <!-- Desconto na Nota com máscara monetária -->
         <div>
           <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Desconto Manual (R$):</label>
-          <input type="text" id="pos-discount" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-800 dark:text-white outline-none">
+          <input type="text" id="pos-discount" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-800 dark:text-white outline-none">
         </div>
 
-        <!-- Tabela com Espaço para Preencher Cada Forma de Pagamento -->
+        <!-- Tabela com Espaço em Branco (Preenche com Dinheiro Automático) -->
         <div class="space-y-2 border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-3 bg-brand-lightCard/40 dark:bg-brand-darkBg/40">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Distribuição de Valores Recebidos:</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Preencha os valores recebidos:</span>
           
           <div class="grid grid-cols-1 gap-2 text-xs">
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold flex items-center gap-1.5"><i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-500"></i> PIX:</span>
-              <input type="text" id="pay-pix" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="banknote" class="w-3.5 h-3.5 text-emerald-500"></i> Dinheiro (Espécie):</span>
+              <input type="text" id="pay-dinheiro" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
             </div>
 
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold flex items-center gap-1.5"><i data-lucide="banknote" class="w-3.5 h-3.5 text-emerald-500"></i> Dinheiro (Espécie):</span>
-              <input type="text" id="pay-dinheiro" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+              <span class="font-bold flex items-center gap-1.5"><i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-500"></i> PIX:</span>
+              <input type="text" id="pay-pix" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
             </div>
 
             <div class="flex items-center justify-between gap-2">
               <span class="font-bold flex items-center gap-1.5"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-brand-violet"></i> Cartão de Crédito:</span>
-              <input type="text" id="pay-credito" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+              <input type="text" id="pay-credito" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
             </div>
 
             <div class="flex items-center justify-between gap-2">
               <span class="font-bold flex items-center gap-1.5"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-sky-500"></i> Cartão de Débito:</span>
-              <input type="text" id="pay-debito" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+              <input type="text" id="pay-debito" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
             </div>
 
             <div class="flex items-center justify-between gap-2">
               <span class="font-bold flex items-center gap-1.5"><i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-500"></i> Saldo em Crédito:</span>
-              <input type="text" id="pay-saldo" value="0,00" oninput="handleCurrencyMaskInput(this); renderPosTotals();" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
+              <input type="text" id="pay-saldo" placeholder="0,00" oninput="handleCurrencyMask(this); renderPosTotals();" onblur="handleCurrencyBlur(this)" class="w-32 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-right font-bold text-slate-900 dark:text-white outline-none">
             </div>
 
-            <!-- Resgate Cartão Fidelidade (Íntima Completa 100% OFF) -->
+            <!-- Resgate Fidelidade (Íntima Completa 100% OFF) -->
             <div id="row-fidelidade-pay" class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between gap-2">
               <div class="flex flex-col">
                 <span class="font-black text-amber-500 flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Cartão Fidelidade (10 Selos):</span>
@@ -277,13 +288,48 @@
           <span>Gravar e Finalizar Venda</span>
         </button>
 
-        <button type="button" onclick="cancelCurrentSale()" class="w-full py-2.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
-          <i data-lucide="x-circle" class="w-4 h-4"></i>
-          <span>Cancelar Nota (Gravar como Cancelada)</span>
+        <button type="button" onclick="clearPosCart()" class="w-full py-2.5 rounded-2xl bg-transparent hover:bg-slate-200/50 dark:hover:bg-brand-darkBg text-slate-400 text-xs font-bold transition-all">
+          Limpar Nota Atual
         </button>
       </div>
     </section>
   </main>
+
+  <!-- MODAL: GERENCIAR NOTAS (CANCELAMENTO POSTERIOR) -->
+  <div id="modal-pos-manage-sales" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-4xl rounded-3xl p-6 shadow-2xl relative my-auto max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder shrink-0">
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Histórico de Caixa</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Gerenciamento de Notas &amp; Cancelamentos</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-pos-manage-sales')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="my-3 shrink-0">
+        <input type="text" id="search-sales-input" oninput="renderSalesManagementTable(this.value)" placeholder="Pesquise por cliente, procedimento ou valor para cancelar..." class="w-full p-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs outline-none">
+      </div>
+
+      <div class="flex-1 overflow-y-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-brand-lightCard dark:bg-brand-darkBg text-slate-400 font-bold border-b border-brand-lightBorder dark:border-brand-darkBorder text-[10px] uppercase sticky top-0">
+            <tr>
+              <th class="p-3">Data/Hora</th>
+              <th class="p-3">Cliente</th>
+              <th class="p-3">Itens</th>
+              <th class="p-3">Formas</th>
+              <th class="p-3">Total</th>
+              <th class="p-3">Status</th>
+              <th class="p-3 text-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="manage-sales-table-body" class="divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: PAINEL DE CATÁLOGO DE SERVIÇOS (LUPA) -->
   <div id="modal-pos-services-catalog" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
@@ -340,7 +386,7 @@
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Preço (R$) *</label>
-            <input type="text" id="edit-srv-price" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
+            <input type="text" id="edit-srv-price" placeholder="0,00" oninput="handleCurrencyMask(this)" onblur="handleCurrencyBlur(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Duração (Minutos) *</label>
@@ -478,38 +524,6 @@
     </div>
   </div>
 
-  <!-- MODAL: GESTÃO DO CARTÃO FIDELIDADE & RESGATE -->
-  <div id="modal-fidelidade-manage" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">Gerir Cartão Fidelidade</h3>
-        <button type="button" onclick="closeModal('modal-fidelidade-manage')" class="text-slate-400 hover:text-white p-1">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3">
-        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg text-center">
-          <span class="text-xs text-slate-400 block font-semibold">Total de Selos Atuais:</span>
-          <span id="fid-modal-count" class="text-2xl font-black text-brand-gold">0 / 10</span>
-        </div>
-
-        <div class="flex gap-2">
-          <button type="button" onclick="adjustFidelityPoints(-1)" class="flex-1 py-2 rounded-xl bg-slate-200 dark:bg-brand-darkCard font-bold text-xs">- Remover 1 Selo</button>
-          <button type="button" onclick="adjustFidelityPoints(1)" class="flex-1 py-2 rounded-xl bg-amber-500/20 text-brand-gold font-bold text-xs">+ Adicionar 1 Selo</button>
-        </div>
-
-        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder">
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Aplicar Desconto Promocional (%):</label>
-          <div class="flex gap-2">
-            <input type="number" id="fid-custom-perc" min="1" max="100" value="50" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2 text-xs font-bold font-mono outline-none">
-            <button type="button" onclick="applyFidelityPercentageReward()" class="px-4 py-2 bg-brand-violet text-white text-xs font-bold rounded-xl shadow">Aplicar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- MODAL: GESTÃO DE SALDO DE CRÉDITO -->
   <div id="modal-pos-credit" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
@@ -524,7 +538,7 @@
         <p class="text-xs text-slate-400">Adicione saldo pré-pago quando a cliente pagar múltiplas sessões antecipadamente.</p>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor do Crédito (R$) *</label>
-          <input type="text" id="pos-credit-amount" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
+          <input type="text" id="pos-credit-amount" placeholder="0,00" oninput="handleCurrencyMask(this)" onblur="handleCurrencyBlur(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 font-mono font-bold outline-none">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Forma de Pagamento da Recarga *</label>
@@ -551,7 +565,7 @@
         <input type="hidden" id="cash-op-type">
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor (R$):</label>
-          <input type="text" id="cash-op-amount" value="0,00" oninput="handleCurrencyMaskInput(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
+          <input type="text" id="cash-op-amount" placeholder="0,00" oninput="handleCurrencyMask(this)" onblur="handleCurrencyBlur(this)" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Motivo / Descrição:</label>

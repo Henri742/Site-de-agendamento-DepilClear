@@ -11,7 +11,6 @@ let currentPosClient = null;
 let cashOperations = JSON.parse(localStorage.getItem('depilclear_cash_ops') || '[]');
 let salesLog = JSON.parse(localStorage.getItem('depilclear_sales_log') || '[]');
 
-// Serviços Padrão com Código Numérico
 const defaultServices = [
   { id: 1, code: 101, name: 'Íntima Completa', shortCode: "int'c", duration: 15, price: 70.00 },
   { id: 2, code: 102, name: 'Perna Completa', shortCode: "perna'c", duration: 30, price: 60.00 },
@@ -36,7 +35,6 @@ function initPOS() {
     localStorage.setItem('depilclear_services', JSON.stringify(posServices));
   }
 
-  renderServicesSelect();
   renderPosCartTable();
   renderPosTotals();
   applyInitialTheme();
@@ -45,13 +43,33 @@ function initPOS() {
 }
 
 /* ========================================================
- * MÁSCARA MONETÁRIA NATURAL
+ * MÁSCARA MONETÁRIA COM SUPORTE A CAMPO VAZIO
  * ======================================================== */
-function handleCurrencyMaskInput(input) {
-  let value = input.value.replace(/\D/g, '');
-  if (!value) value = '0';
-  let num = (parseInt(value, 10) / 100).toFixed(2);
+function handleCurrencyMask(input) {
+  let val = input.value.replace(/\D/g, '');
+  if (!val) {
+    input.value = '';
+    return;
+  }
+  let num = (parseInt(val, 10) / 100).toFixed(2);
   input.value = num.replace('.', ',');
+}
+
+function handleCurrencyBlur(input) {
+  let raw = input.value.trim();
+  if (!raw) return;
+  // Se digitou apenas números inteiros sem vírgula (ex: 70)
+  if (!raw.includes(',')) {
+    let clean = raw.replace(/\D/g, '');
+    if (clean) {
+      input.value = `${clean},00`;
+    }
+  } else {
+    let parts = raw.split(',');
+    let dec = (parts[1] || '').padEnd(2, '0').slice(0, 2);
+    input.value = `${parts[0].replace(/\D/g, '') || '0'},${dec}`;
+  }
+  renderPosTotals();
 }
 
 function parseCurrency(strVal) {
@@ -65,17 +83,84 @@ function formatCurrency(num) {
 }
 
 /* ========================================================
- * BUSCA E CATÁLOGO DE SERVIÇOS (LUPA E CÓDIGO)
+ * PESQUISA EM TEMPO REAL E AUTOCOMPLETAR DE SERVIÇOS
  * ======================================================== */
-function renderServicesSelect() {
-  const select = document.getElementById('pos-service-select');
-  if (!select) return;
-
-  select.innerHTML = posServices.map(s => `
-    <option value="${s.id}">[Cód ${s.code}] ${s.name} - R$ ${Number(s.price).toFixed(2)}</option>
-  `).join('');
+function normalize(str) {
+  return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function handleServiceLiveSearch(query) {
+  const dropdown = document.getElementById('pos-service-autocomplete-dropdown');
+  if (!dropdown) return;
+
+  const q = normalize(query.trim());
+  if (!q) {
+    dropdown.classList.add('hidden');
+    return;
+  }
+
+  const matches = posServices.filter(s => {
+    const codeMatch = (s.code || '').toString().includes(q);
+    const nameMatch = normalize(s.name).includes(q);
+    const shortMatch = normalize(s.shortCode || '').includes(q);
+    const priceMatch = Number(s.price).toFixed(2).includes(q);
+    return codeMatch || nameMatch || shortMatch || priceMatch;
+  });
+
+  if (matches.length === 0) {
+    dropdown.innerHTML = `
+      <div class="p-3 text-center text-xs text-slate-400">
+        Nenhum procedimento encontrado.
+        <button type="button" onclick="openServiceEditModal(null)" class="block mx-auto mt-1 text-brand-gold font-bold hover:underline">+ Criar novo serviço</button>
+      </div>
+    `;
+    dropdown.classList.remove('hidden');
+    return;
+  }
+
+  dropdown.innerHTML = matches.map(s => `
+    <div onclick="addServiceDirectlyToPOS(${s.id})" class="p-2.5 hover:bg-brand-violet/15 cursor-pointer flex items-center justify-between text-xs transition-colors">
+      <div class="flex items-center gap-2">
+        <span class="px-1.5 py-0.5 rounded bg-brand-violet/20 text-brand-violet font-mono font-black text-[10px]">${s.code || '-'}</span>
+        <span class="font-bold text-slate-900 dark:text-white">${s.name}</span>
+        <span class="text-[10px] text-slate-400">(${s.duration}m)</span>
+      </div>
+      <span class="font-mono font-bold text-brand-gold">R$ ${Number(s.price).toFixed(2)}</span>
+    </div>
+  `).join('');
+
+  dropdown.classList.remove('hidden');
+}
+
+function addServiceDirectlyToPOS(serviceId) {
+  const service = posServices.find(s => s.id === serviceId);
+  if (!service) return;
+
+  const existing = posCart.find(item => item.id === service.id && !item.isFidelityReward);
+  if (existing) {
+    existing.qtd++;
+  } else {
+    posCart.push({
+      id: service.id,
+      code: service.code,
+      name: service.name,
+      price: Number(service.price),
+      qtd: 1
+    });
+  }
+
+  const searchInput = document.getElementById('pos-service-search-input');
+  if (searchInput) searchInput.value = '';
+  document.getElementById('pos-service-autocomplete-dropdown')?.classList.add('hidden');
+
+  renderPosCartTable();
+  renderPosTotals();
+  showToast(`Procedimento [${service.code}] ${service.name} adicionado!`, 'success');
+}
+
+/* ========================================================
+ * CATÁLOGO EM MODAL (LUPA) & CADASTRO COM CÓDIGO
+ * ======================================================== */
 function openServicesCatalogModal() {
   const modal = document.getElementById('modal-pos-services-catalog');
   const input = document.getElementById('catalog-search-query');
@@ -87,10 +172,6 @@ function openServicesCatalogModal() {
       input.focus();
     }
   }
-}
-
-function normalize(str) {
-  return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function renderCatalogModalGrid(query) {
@@ -108,7 +189,7 @@ function renderCatalogModalGrid(query) {
   });
 
   if (matches.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Nenhum serviço encontrado.</div>`;
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Nenhum serviço localizado.</div>`;
     return;
   }
 
@@ -139,10 +220,8 @@ function renderCatalogModalGrid(query) {
 }
 
 function selectServiceFromCatalog(serviceId) {
-  const select = document.getElementById('pos-service-select');
-  if (select) select.value = serviceId;
   closeModal('modal-pos-services-catalog');
-  addServiceToPOS();
+  addServiceDirectlyToPOS(serviceId);
 }
 
 function openServiceEditModal(serviceId = null) {
@@ -172,7 +251,7 @@ function openServiceEditModal(serviceId = null) {
     idInput.value = '';
     codeInput.value = (posServices.length > 0 ? Math.max(...posServices.map(x => x.code || 0)) + 1 : 101);
     nameInput.value = '';
-    priceInput.value = '0,00';
+    priceInput.value = '';
     durInput.value = '15';
     shortInput.value = '';
   }
@@ -211,17 +290,16 @@ function handleSaveServiceWithCode(e) {
       categoryId: 1
     };
     posServices.push(newService);
-    showToast(`Serviço [${code}] adicionado ao sistema!`, 'success');
+    showToast(`Serviço [${code}] adicionado!`, 'success');
   }
 
   localStorage.setItem('depilclear_services', JSON.stringify(posServices));
-  renderServicesSelect();
   renderCatalogModalGrid(document.getElementById('catalog-search-query')?.value || '');
   closeModal('modal-service-edit');
 }
 
 /* ========================================================
- * SELEÇÃO E CADASTRO COMPLETO DE CLIENTES
+ * CLIENTES & CADASTRO COMPLETO
  * ======================================================== */
 function openSearchClientModal() {
   const modal = document.getElementById('modal-pos-search-client');
@@ -313,7 +391,7 @@ async function buscarEnderecoPorCEP(cepVal) {
     if (!data.erro) {
       document.getElementById('cli-street').value = data.logradouro || '';
       document.getElementById('cli-neighborhood').value = data.bairro || '';
-      document.getElementById('cli-city').value = `${data.localidade || 'Maceió'} - ${data.uf || 'AL'}`;
+      document.getElementById('cli-city').value = `${data.localidade || 'Maceió'}`;
       document.getElementById('cli-number')?.focus();
     }
   } catch (err) {
@@ -344,7 +422,7 @@ function handleSaveCompleteClient(e) {
     cpf,
     gender,
     email,
-    address: { cep, street, number, neighborhood, city }
+    address: { cep, street, number, neighborhood, city, state: 'AL' }
   };
 
   posClients.push(newClient);
@@ -356,7 +434,7 @@ function handleSaveCompleteClient(e) {
 }
 
 /* ========================================================
- * CRÉDITO & CARTÃO FIDELIDADE (BENEFÍCIO ÍNTIMA COMPLETA)
+ * CRÉDITO & FIDELIDADE
  * ======================================================== */
 function getClientCredit(clientId) {
   const credits = JSON.parse(localStorage.getItem('depilclear_client_credits') || '{}');
@@ -379,10 +457,8 @@ function updateClientPerksUI() {
   const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
   const selos = fData.points ? fData.points.length : 0;
   
-  const fBadge = document.getElementById('pos-fidelity-badge');
-  if (fBadge) fBadge.innerText = `⭐ ${selos}/10 Selos`;
+  document.getElementById('pos-fidelity-badge').innerText = `⭐ ${selos}/10 Selos`;
 
-  // Linha de resgate de benefício do fidelidade
   const btnRedeem = document.getElementById('btn-redeem-fidelidade-pay');
   if (btnRedeem) {
     if (selos >= 10) {
@@ -428,42 +504,6 @@ function handleAddClientCredit(e) {
   showToast(`R$ ${amount.toFixed(2)} creditados com sucesso!`, 'success');
 }
 
-function openFidelityManageModal() {
-  if (!currentPosClient) return showToast('Selecione uma cliente!', 'warning');
-  const fData = JSON.parse(localStorage.getItem(`depilclear_fidelity_${currentPosClient.id}`) || '{"points":[]}');
-  document.getElementById('fid-modal-count').innerText = `${fData.points ? fData.points.length : 0} / 10`;
-  document.getElementById('modal-fidelidade-manage')?.classList.remove('hidden');
-}
-
-function adjustFidelityPoints(delta) {
-  if (!currentPosClient) return;
-  const fKey = `depilclear_fidelity_${currentPosClient.id}`;
-  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
-  if (!fData.points) fData.points = [];
-
-  if (delta > 0 && fData.points.length < 10) {
-    fData.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
-  } else if (delta < 0 && fData.points.length > 0) {
-    fData.points.pop();
-  }
-
-  localStorage.setItem(fKey, JSON.stringify(fData));
-  document.getElementById('fid-modal-count').innerText = `${fData.points.length} / 10`;
-  updateClientPerksUI();
-  renderPosTotals();
-}
-
-function applyFidelityPercentageReward() {
-  const perc = parseFloat(document.getElementById('fid-custom-perc').value || 0);
-  if (perc <= 0) return;
-  const raw = calculateCartTotal();
-  const descVal = (raw * (perc / 100));
-  document.getElementById('pos-discount').value = formatCurrency(descVal);
-  closeModal('modal-fidelidade-manage');
-  renderPosTotals();
-  showToast(`Desconto de ${perc}% aplicado na nota!`, 'success');
-}
-
 function applyFidelityIntimaRewardToPOS() {
   if (!currentPosClient) return;
   const fKey = `depilclear_fidelity_${currentPosClient.id}`;
@@ -474,7 +514,6 @@ function applyFidelityIntimaRewardToPOS() {
     return;
   }
 
-  // Verifica se há Íntima Completa na nota; se não houver, insere automaticamente com valor zerado
   const intimaSrv = posServices.find(s => normalize(s.name).includes('intima') || normalize(s.shortCode || '').includes('int'));
   const targetId = intimaSrv ? intimaSrv.id : (posServices[0] ? posServices[0].id : null);
 
@@ -482,6 +521,7 @@ function applyFidelityIntimaRewardToPOS() {
     const srv = posServices.find(s => s.id === targetId);
     posCart.push({
       id: srv.id,
+      code: srv.code,
       name: `${srv.name} (Prêmio Fidelidade)`,
       price: 0.00,
       qtd: 1,
@@ -490,7 +530,6 @@ function applyFidelityIntimaRewardToPOS() {
     renderPosCartTable();
   }
 
-  // Zera os selos do cartão
   fData.points = [];
   localStorage.setItem(fKey, JSON.stringify(fData));
   updateClientPerksUI();
@@ -499,30 +538,8 @@ function applyFidelityIntimaRewardToPOS() {
 }
 
 /* ========================================================
- * LANÇAMENTO DE ITENS E CÁLCULO MULTI-FORMA
+ * LANÇAMENTO DE ITENS E TOTAIS
  * ======================================================== */
-function addServiceToPOS() {
-  const serviceId = parseInt(document.getElementById('pos-service-select').value, 10);
-  const service = posServices.find(s => s.id === serviceId);
-  if (!service) return;
-
-  const existing = posCart.find(item => item.id === service.id && !item.isFidelityReward);
-  if (existing) {
-    existing.qtd++;
-  } else {
-    posCart.push({
-      id: service.id,
-      code: service.code,
-      name: service.name,
-      price: Number(service.price),
-      qtd: 1
-    });
-  }
-
-  renderPosCartTable();
-  renderPosTotals();
-}
-
 function removePosItem(index) {
   posCart.splice(index, 1);
   renderPosCartTable();
@@ -578,12 +595,11 @@ function calculateCartTotal() {
 
 function renderPosTotals() {
   const rawTotal = calculateCartTotal();
-  const discount = parseCurrency(document.getElementById('pos-discount')?.value || '0');
+  const discount = parseCurrency(document.getElementById('pos-discount')?.value);
   const finalTotal = Math.max(0, rawTotal - discount);
 
   document.getElementById('pos-grand-total').innerText = `R$ ${finalTotal.toFixed(2)}`;
 
-  // Soma de todas as formas de pagamento preenchidas na tabela
   const payPix = parseCurrency(document.getElementById('pay-pix')?.value);
   const payDinheiro = parseCurrency(document.getElementById('pay-dinheiro')?.value);
   const payCredito = parseCurrency(document.getElementById('pay-credito')?.value);
@@ -615,18 +631,18 @@ function renderPosTotals() {
 
 function clearPosCart() {
   posCart = [];
-  document.getElementById('pos-discount').value = '0,00';
-  document.getElementById('pay-pix').value = '0,00';
-  document.getElementById('pay-dinheiro').value = '0,00';
-  document.getElementById('pay-credito').value = '0,00';
-  document.getElementById('pay-debito').value = '0,00';
-  document.getElementById('pay-saldo').value = '0,00';
+  document.getElementById('pos-discount').value = '';
+  document.getElementById('pay-pix').value = '';
+  document.getElementById('pay-dinheiro').value = '';
+  document.getElementById('pay-credito').value = '';
+  document.getElementById('pay-debito').value = '';
+  document.getElementById('pay-saldo').value = '';
   renderPosCartTable();
   renderPosTotals();
 }
 
 /* ========================================================
- * FINALIZAR VENDA OU CANCELAR NOTA
+ * FINALIZAR VENDA
  * ======================================================== */
 function finalizeSale() {
   if (posCart.length === 0) return showToast('Adicione procedimentos à nota!', 'warning');
@@ -647,17 +663,16 @@ function finalizeSale() {
     return showToast(`Faltam R$ ${(finalTotal - totalPaid).toFixed(2)} para quitar a nota!`, 'error');
   }
 
-  // Verifica e desconta saldo pré-pago se houver
   if (paySaldo > 0) {
     if (!currentPosClient) return showToast('Selecione a cliente para utilizar saldo pré-pago!', 'error');
     const available = getClientCredit(currentPosClient.id);
-    if (available < paySaldo) return showToast(`Saldo pré-pago insuficiente! (Disponível: R$ ${available.toFixed(2)})`, 'error');
+    if (available < paySaldo) return showToast(`Saldo pré-pago insuficiente!`, 'error');
     setClientCredit(currentPosClient.id, available - paySaldo);
   }
 
   const paymentsBreakdown = [];
-  if (payPix > 0) paymentsBreakdown.push(`PIX: R$ ${payPix.toFixed(2)}`);
   if (payDinheiro > 0) paymentsBreakdown.push(`Dinheiro: R$ ${payDinheiro.toFixed(2)}`);
+  if (payPix > 0) paymentsBreakdown.push(`PIX: R$ ${payPix.toFixed(2)}`);
   if (payCredito > 0) paymentsBreakdown.push(`Crédito: R$ ${payCredito.toFixed(2)}`);
   if (payDebito > 0) paymentsBreakdown.push(`Débito: R$ ${payDebito.toFixed(2)}`);
   if (paySaldo > 0) paymentsBreakdown.push(`Saldo: R$ ${paySaldo.toFixed(2)}`);
@@ -671,14 +686,13 @@ function finalizeSale() {
     discount,
     finalTotal,
     status: 'Finalizada',
-    method: paymentsBreakdown.join(' | ') || 'Não especificado',
+    method: paymentsBreakdown.join(' | ') || 'Dinheiro',
     timestamp: new Date().toISOString()
   };
 
   salesLog.push(saleRecord);
   localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
 
-  // Atribui 1 selo ao atendimento concluído
   if (currentPosClient) {
     const fKey = `depilclear_fidelity_${currentPosClient.id}`;
     const f = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
@@ -693,28 +707,70 @@ function finalizeSale() {
   updateClientPerksUI();
 }
 
-function cancelCurrentSale() {
-  if (posCart.length === 0) return showToast('Nenhuma nota aberta para cancelar.', 'info');
+/* ========================================================
+ * GERENCIADOR DE NOTAS (CANCELAMENTO POSTERIOR)
+ * ======================================================== */
+function openManageSalesModal() {
+  renderSalesManagementTable('');
+  document.getElementById('modal-pos-manage-sales')?.classList.remove('hidden');
+  lucide.createIcons();
+}
 
-  const rawTotal = calculateCartTotal();
-  const saleRecord = {
-    id: Date.now(),
-    clientId: currentPosClient ? currentPosClient.id : null,
-    clientName: currentPosClient ? currentPosClient.name : 'CONSUMIDOR PADRÃO',
-    items: [...posCart],
-    rawTotal,
-    discount: 0,
-    finalTotal: rawTotal,
-    status: 'Cancelada',
-    method: 'CANCELADA',
-    timestamp: new Date().toISOString()
-  };
+function renderSalesManagementTable(search = '') {
+  const tbody = document.getElementById('manage-sales-table-body');
+  if (!tbody) return;
 
-  salesLog.push(saleRecord);
-  localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
+  const q = normalize(search.trim());
+  const list = [...salesLog].reverse().filter(s => {
+    if (!q) return true;
+    return normalize(s.clientName).includes(q) || s.items.some(i => normalize(i.name).includes(q)) || s.finalTotal.toFixed(2).includes(q);
+  });
 
-  clearPosCart();
-  showToast('Nota cancelada e registrada no histórico como CANCELADA.', 'warning');
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-xs text-slate-400">Nenhuma nota encontrada no histórico.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(s => {
+    const hora = new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dia = new Date(s.timestamp).toLocaleDateString();
+    const itensNomes = s.items.map(i => `${i.qtd}x ${i.name}`).join(', ');
+    const isCancel = s.status === 'Cancelada';
+
+    return `
+      <tr class="${isCancel ? 'bg-rose-500/10' : 'hover:bg-brand-lightCard/40 dark:hover:bg-brand-darkBg/40'}">
+        <td class="p-3 font-mono text-slate-400">${dia} ${hora}</td>
+        <td class="p-3 font-bold text-slate-900 dark:text-white">${s.clientName}</td>
+        <td class="p-3 text-brand-violet">${itensNomes}</td>
+        <td class="p-3 text-[10px] font-mono text-slate-500 dark:text-slate-400">${s.method}</td>
+        <td class="p-3 font-mono font-black ${isCancel ? 'text-rose-500 line-through' : 'text-emerald-500'}">R$ ${s.finalTotal.toFixed(2)}</td>
+        <td class="p-3">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isCancel ? 'bg-rose-500/20 text-rose-500' : 'bg-emerald-500/20 text-emerald-500'}">
+            ${s.status}
+          </span>
+        </td>
+        <td class="p-3 text-right">
+          ${!isCancel ? `
+            <button type="button" onclick="cancelPreviousSale(\${s.id})" class="px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 font-bold text-xs transition-all shadow-xs">
+              Cancelar Nota
+            </button>
+          ` : '<span class="text-xs text-slate-400">-</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function cancelPreviousSale(saleId) {
+  const sale = salesLog.find(s => s.id === saleId);
+  if (!sale) return;
+
+  if (confirm(`Tem certeza que deseja cancelar a nota de ${sale.clientName} no valor de R$ ${sale.finalTotal.toFixed(2)}?`)) {
+    sale.status = 'Cancelada';
+    localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
+    renderSalesManagementTable(document.getElementById('search-sales-input')?.value || '');
+    showToast(`Nota de ${sale.clientName} foi CANCELADA com sucesso!`, 'warning');
+  }
 }
 
 /* ========================================================
@@ -729,7 +785,7 @@ function openCashOperationModal(type) {
   if (!modal || !typeInput) return;
 
   typeInput.value = type;
-  document.getElementById('cash-op-amount').value = '0,00';
+  document.getElementById('cash-op-amount').value = '';
 
   if (type === 'fundo') {
     title.innerText = 'Fundo de Caixa (Abertura / Troco)';
@@ -910,11 +966,11 @@ function showPosContextMenu(e) {
       <button type="button" onclick="openServicesCatalogModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
         <i data-lucide="search" class="w-4 h-4 text-brand-gold"></i> Catálogo / Lupa de Serviços
       </button>
-      <button type="button" onclick="openFidelityManageModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
-      </button>
       <button type="button" onclick="openCreditManagementModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
         <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i> Adicionar Saldo de Crédito
+      </button>
+      <button type="button" onclick="openManageSalesModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="receipt" class="w-4 h-4 text-purple-400"></i> Gerenciar Notas (Cancelar)
       </button>
       <button type="button" onclick="openCashOperationModal('fundo')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
         <i data-lucide="vault" class="w-4 h-4 text-amber-400"></i> Fundo de Caixa (Abertura)
@@ -924,8 +980,8 @@ function showPosContextMenu(e) {
       </button>
     </div>
     <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
-      <button type="button" onclick="cancelCurrentSale()" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
-        <i data-lucide="x-circle" class="w-4 h-4"></i> Cancelar Nota
+      <button type="button" onclick="clearPosCart()" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+        <i data-lucide="trash-2" class="w-4 h-4"></i> Limpar Nota Atual
       </button>
     </div>
   `;
@@ -933,16 +989,13 @@ function showPosContextMenu(e) {
   lucide.createIcons({ root: content });
 
   const posX = Math.min(e.clientX, window.innerWidth - 240);
-  const posY = Math.min(e.clientY, window.innerHeight - 300);
+  const posY = Math.min(e.clientY, window.innerHeight - 320);
 
   menu.style.left = `${posX}px`;
   menu.style.top = `${posY}px`;
   menu.classList.remove('hidden');
 }
 
-/* ========================================================
- * TEMA, INTERNET & UTILITÁRIOS
- * ======================================================== */
 function applyInitialTheme() {
   if (localStorage.getItem('depilclear_theme') === 'dark') {
     document.documentElement.classList.add('dark');
@@ -968,7 +1021,8 @@ function setupNetworkListener() {
   const updateStatus = () => {
     const isOnline = navigator.onLine;
     const badge = document.getElementById('connection-status-pos');
-    if (!badge) return;
+    const text = document.getElementById('connection-status-text');
+    if (!badge || !text) return;
 
     if (isOnline) {
       badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Online</span>`;

@@ -1340,7 +1340,42 @@
       </form>
     </div>
   </div>
+  <!-- MODAL: GERENCIAR CARTÃO FIDELIDADE & RESGATES (SUBSTITUI O PROMPT) -->
+  <div id="modal-app-fidelidade-manage" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Gestão do Cartão</span>
+          <h3 id="app-fid-client-name" class="text-base font-black text-slate-900 dark:text-white">Cliente</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-app-fidelidade-manage')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
 
+      <input type="hidden" id="app-fid-client-id">
+
+      <div class="space-y-4">
+        <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg text-center border border-brand-lightBorder dark:border-brand-darkBorder">
+          <span class="text-xs text-slate-400 block font-semibold">Total de Selos Atuais:</span>
+          <span id="app-fid-modal-count" class="text-3xl font-black text-brand-gold">0 / 10</span>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" onclick="adjustFidelityPointsApp(-1)" class="flex-1 py-2.5 rounded-xl bg-slate-200 dark:bg-brand-darkCard font-bold text-xs hover:bg-rose-500/20 hover:text-rose-500 transition-all">- Remover Selo</button>
+          <button type="button" onclick="adjustFidelityPointsApp(1)" class="flex-1 py-2.5 rounded-xl bg-amber-500/20 text-brand-gold font-bold text-xs hover:bg-amber-500 hover:text-slate-950 transition-all">+ Adicionar Selo</button>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder space-y-2">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Desconto Promocional (%):</label>
+          <div class="flex gap-2">
+            <input type="number" id="app-fid-discount-perc" min="1" max="100" value="50" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2.5 text-xs font-mono font-bold outline-none">
+            <button type="button" onclick="confirmFidelityPercentageDiscountApp()" class="px-4 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-xl shadow transition-all">Resgatar %</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- MODAL: EXPORTAR PLANILHA -->
   <div id="modal-export-spreadsheet" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
     <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
