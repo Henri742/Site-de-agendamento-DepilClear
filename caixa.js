@@ -58,12 +58,9 @@ function handleCurrencyMask(input) {
 function handleCurrencyBlur(input) {
   let raw = input.value.trim();
   if (!raw) return;
-  // Se digitou apenas números inteiros sem vírgula (ex: 70)
   if (!raw.includes(',')) {
     let clean = raw.replace(/\D/g, '');
-    if (clean) {
-      input.value = `${clean},00`;
-    }
+    if (clean) input.value = `${clean},00`;
   } else {
     let parts = raw.split(',');
     let dec = (parts[1] || '').padEnd(2, '0').slice(0, 2);
@@ -434,7 +431,7 @@ function handleSaveCompleteClient(e) {
 }
 
 /* ========================================================
- * CRÉDITO & FIDELIDADE
+ * CRÉDITO & FIDELIDADE (RESGATE ZERA OS 10 PONTOS)
  * ======================================================== */
 function getClientCredit(clientId) {
   const credits = JSON.parse(localStorage.getItem('depilclear_client_credits') || '{}');
@@ -454,7 +451,7 @@ function updateClientPerksUI() {
   document.getElementById('pos-client-credit-badge').innerText = `R$ ${credit.toFixed(2)}`;
 
   const fKey = `depilclear_fidelity_${currentPosClient.id}`;
-  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
+  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
   const selos = fData.points ? fData.points.length : 0;
   
   document.getElementById('pos-fidelity-badge').innerText = `⭐ ${selos}/10 Selos`;
@@ -463,7 +460,7 @@ function updateClientPerksUI() {
   if (btnRedeem) {
     if (selos >= 10) {
       btnRedeem.disabled = false;
-      btnRedeem.className = 'px-2.5 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-[11px] animate-pulse';
+      btnRedeem.className = 'px-2.5 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-[11px] animate-pulse cursor-pointer';
       btnRedeem.innerText = 'Resgatar Íntima (100% OFF)';
     } else {
       btnRedeem.disabled = true;
@@ -504,37 +501,94 @@ function handleAddClientCredit(e) {
   showToast(`R$ ${amount.toFixed(2)} creditados com sucesso!`, 'success');
 }
 
+function openFidelityManageModal() {
+  if (!currentPosClient) return showToast('Selecione uma cliente primeiro!', 'warning');
+  const fData = JSON.parse(localStorage.getItem(`depilclear_fidelity_${currentPosClient.id}`) || '{"points":[],"rewardsClaimed":0}');
+  document.getElementById('fid-modal-client-name').innerText = currentPosClient.name;
+  document.getElementById('fid-modal-count').innerText = `${fData.points ? fData.points.length : 0} / 10`;
+  document.getElementById('modal-fidelidade-manage')?.classList.remove('hidden');
+}
+
+function adjustFidelityPoints(delta) {
+  if (!currentPosClient) return;
+  const fKey = `depilclear_fidelity_${currentPosClient.id}`;
+  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
+  if (!fData.points) fData.points = [];
+
+  if (delta > 0 && fData.points.length < 10) {
+    fData.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
+  } else if (delta < 0 && fData.points.length > 0) {
+    fData.points.pop();
+  }
+
+  localStorage.setItem(fKey, JSON.stringify(fData));
+  document.getElementById('fid-modal-count').innerText = `${fData.points.length} / 10`;
+  updateClientPerksUI();
+  renderPosTotals();
+}
+
+function applyFidelityPercentageReward() {
+  const perc = parseFloat(document.getElementById('fid-custom-perc').value || 0);
+  if (perc <= 0) return;
+  const raw = calculateCartTotal();
+  const descVal = (raw * (perc / 100));
+  document.getElementById('pos-discount').value = formatCurrency(descVal);
+  closeModal('modal-fidelidade-manage');
+  renderPosTotals();
+  showToast(`Desconto de ${perc}% aplicado na nota!`, 'success');
+}
+
+// Resgate de Íntima Completa Gratuita (Abate e Reinicia Todos os 10 Pontos)
 function applyFidelityIntimaRewardToPOS() {
   if (!currentPosClient) return;
   const fKey = `depilclear_fidelity_${currentPosClient.id}`;
-  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
+  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
 
   if (!fData.points || fData.points.length < 10) {
     showToast('O cartão ainda não atingiu os 10 selos completos!', 'error');
     return;
   }
 
-  const intimaSrv = posServices.find(s => normalize(s.name).includes('intima') || normalize(s.shortCode || '').includes('int'));
-  const targetId = intimaSrv ? intimaSrv.id : (posServices[0] ? posServices[0].id : null);
+  // Verifica se a Íntima Completa já está na nota
+  const existingIntimaIdx = posCart.findIndex(item => 
+    normalize(item.name).includes('intima') || normalize(item.shortCode || '').includes('int')
+  );
 
-  if (targetId) {
-    const srv = posServices.find(s => s.id === targetId);
+  if (existingIntimaIdx > -1) {
+    posCart[existingIntimaIdx].price = 0.00;
+    posCart[existingIntimaIdx].isFidelityReward = true;
+  } else {
+    // Insere como procedimento gratuito com valor zerado
+    const intimaSrv = posServices.find(s => normalize(s.name).includes('intima')) || posServices[0];
     posCart.push({
-      id: srv.id,
-      code: srv.code,
-      name: `${srv.name} (Prêmio Fidelidade)`,
+      id: intimaSrv.id,
+      code: intimaSrv.code,
+      name: `${intimaSrv.name} (Prêmio Fidelidade)`,
       price: 0.00,
       qtd: 1,
       isFidelityReward: true
     });
-    renderPosCartTable();
   }
 
+  renderPosCartTable();
+
+  // Reinicia todos os pontos e registra o resgate
   fData.points = [];
+  fData.rewardsClaimed = (fData.rewardsClaimed || 0) + 1;
   localStorage.setItem(fKey, JSON.stringify(fData));
+
+  // Registra no histórico global de resgates para o relatório de fechamento
+  const redeemedLog = JSON.parse(localStorage.getItem('depilclear_fidelity_redeemed_log') || '[]');
+  redeemedLog.push({
+    clientId: currentPosClient.id,
+    clientName: currentPosClient.name,
+    timestamp: new Date().toISOString()
+  });
+  localStorage.setItem('depilclear_fidelity_redeemed_log', JSON.stringify(redeemedLog));
+
   updateClientPerksUI();
   renderPosTotals();
-  showToast('✓ Benefício Íntima Completa Gratuita resgatado!', 'success');
+  showToast('✓ Íntima Completa 100% Gratuita resgatada! Cartão reiniciado.', 'success');
 }
 
 /* ========================================================
@@ -685,6 +739,11 @@ function finalizeSale() {
     rawTotal,
     discount,
     finalTotal,
+    cashAmount: payDinheiro, // Guarda estritamente a parte paga em dinheiro físico
+    pixAmount: payPix,
+    cardCreditAmount: payCredito,
+    cardDebitAmount: payDebito,
+    creditAmount: paySaldo,
     status: 'Finalizada',
     method: paymentsBreakdown.join(' | ') || 'Dinheiro',
     timestamp: new Date().toISOString()
@@ -695,7 +754,7 @@ function finalizeSale() {
 
   if (currentPosClient) {
     const fKey = `depilclear_fidelity_${currentPosClient.id}`;
-    const f = JSON.parse(localStorage.getItem(fKey) || '{"points":[]}');
+    const f = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
     if (f.points.length < 10) {
       f.points.push({ date: new Date().toISOString().split('T')[0], type: 'atendimento', desc: 'Atendimento PDV' });
       localStorage.setItem(fKey, JSON.stringify(f));
@@ -708,7 +767,7 @@ function finalizeSale() {
 }
 
 /* ========================================================
- * GERENCIADOR DE NOTAS (CANCELAMENTO POSTERIOR)
+ * GERENCIADOR DE NOTAS (CANCELAMENTO COM STATUS REAL)
  * ======================================================== */
 function openManageSalesModal() {
   renderSalesManagementTable('');
@@ -727,7 +786,7 @@ function renderSalesManagementTable(search = '') {
   });
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-xs text-slate-400">Nenhuma nota encontrada no histórico.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-xs text-slate-400">Nenhuma nota encontrada.</td></tr>`;
     return;
   }
 
@@ -745,32 +804,36 @@ function renderSalesManagementTable(search = '') {
         <td class="p-3 text-[10px] font-mono text-slate-500 dark:text-slate-400">${s.method}</td>
         <td class="p-3 font-mono font-black ${isCancel ? 'text-rose-500 line-through' : 'text-emerald-500'}">R$ ${s.finalTotal.toFixed(2)}</td>
         <td class="p-3">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isCancel ? 'bg-rose-500/20 text-rose-500' : 'bg-emerald-500/20 text-emerald-500'}">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isCancel ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'}">
             ${s.status}
           </span>
         </td>
         <td class="p-3 text-right">
           ${!isCancel ? `
-            <button type="button" onclick="cancelPreviousSale(\${s.id})" class="px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 font-bold text-xs transition-all shadow-xs">
-              Cancelar Nota
+            <button type="button" onclick="cancelPreviousSale(\${s.id})" class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 font-bold text-xs transition-all shadow-xs flex items-center gap-1 ml-auto">
+              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+              <span>Cancelar Nota</span>
             </button>
-          ` : '<span class="text-xs text-slate-400">-</span>'}
+          ` : '<span class="text-xs text-rose-500 font-bold">Cancelada</span>'}
         </td>
       </tr>
     `;
   }).join('');
+
+  lucide.createIcons({ root: tbody });
 }
 
 function cancelPreviousSale(saleId) {
   const sale = salesLog.find(s => s.id === saleId);
   if (!sale) return;
 
-  if (confirm(`Tem certeza que deseja cancelar a nota de ${sale.clientName} no valor de R$ ${sale.finalTotal.toFixed(2)}?`)) {
-    sale.status = 'Cancelada';
-    localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
-    renderSalesManagementTable(document.getElementById('search-sales-input')?.value || '');
-    showToast(`Nota de ${sale.clientName} foi CANCELADA com sucesso!`, 'warning');
-  }
+  // Atualiza imediatamente o status para Cancelada
+  sale.status = 'Cancelada';
+  localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
+
+  // Re-renderiza a listagem de gerenciamento imediatamente
+  renderSalesManagementTable(document.getElementById('search-sales-input')?.value || '');
+  showToast(`✓ A nota de ${sale.clientName} foi CANCELADA no sistema!`, 'warning');
 }
 
 /* ========================================================
@@ -823,7 +886,7 @@ function handleSaveCashOperation(e) {
 }
 
 /* ========================================================
- * FECHAMENTO & RELATÓRIOS
+ * FECHAMENTO COM SALDO ESTRITAMENTE EM DINHEIRO FÍSICO
  * ======================================================== */
 function openReportModal() {
   const modal = document.getElementById('modal-pos-reports');
@@ -871,16 +934,25 @@ function calculateAndRenderClosingReport() {
   const filteredSales = salesLog.filter(s => s.timestamp >= startFull && s.timestamp <= endFull);
   const filteredOps = cashOperations.filter(o => o.timestamp >= startFull && o.timestamp <= endFull);
 
-  let totalVendas = 0;
+  let totalVendasBrutas = 0;
   let totalCanceladas = 0;
-  const formasMap = {};
+  let entradasEmDinheiro = 0;
+
+  let totalPix = 0;
+  let totalCredito = 0;
+  let totalDebito = 0;
+  let totalSaldoPrePago = 0;
 
   filteredSales.forEach(s => {
     if (s.status === 'Cancelada') {
       totalCanceladas += Number(s.finalTotal);
     } else {
-      totalVendas += Number(s.finalTotal);
-      formasMap[s.method] = (formasMap[s.method] || 0) + Number(s.finalTotal);
+      totalVendasBrutas += Number(s.finalTotal);
+      entradasEmDinheiro += Number(s.cashAmount || 0);
+      totalPix += Number(s.pixAmount || 0);
+      totalCredito += Number(s.cardCreditAmount || 0);
+      totalDebito += Number(s.cardDebitAmount || 0);
+      totalSaldoPrePago += Number(s.creditAmount || 0);
     }
   });
 
@@ -894,26 +966,36 @@ function calculateAndRenderClosingReport() {
     if (o.type === 'sangria') totalSangria += Number(o.amount);
   });
 
-  const saldoFinal = totalFundo + totalVendas + totalSuprimento - totalSangria;
+  // O SALDO FINAL EM CAIXA É APENAS O QUE EXISTE EM DINHEIRO FÍSICO NA GAVETA:
+  const saldoFinalDinheiro = totalFundo + entradasEmDinheiro + totalSuprimento - totalSangria;
+
+  // Resgates de Cartão Fidelidade no período
+  const redeemedLog = JSON.parse(localStorage.getItem('depilclear_fidelity_redeemed_log') || '[]');
+  const fidelidadesNoPeriodo = redeemedLog.filter(r => r.timestamp >= startFull && r.timestamp <= endFull).length;
 
   document.getElementById('t-fundo').innerText = `R$ ${totalFundo.toFixed(2)}`;
-  document.getElementById('t-vendas').innerText = `R$ ${totalVendas.toFixed(2)}`;
+  document.getElementById('t-dinheiro-entradas').innerText = `R$ ${entradasEmDinheiro.toFixed(2)}`;
   document.getElementById('t-suprimentos').innerText = `R$ ${totalSuprimento.toFixed(2)}`;
   document.getElementById('t-sangrias').innerText = `R$ ${totalSangria.toFixed(2)}`;
-  document.getElementById('t-canceladas').innerText = `R$ ${totalCanceladas.toFixed(2)}`;
-  document.getElementById('t-saldo').innerText = `R$ ${saldoFinal.toFixed(2)}`;
+  document.getElementById('t-saldo-dinheiro').innerText = `R$ ${saldoFinalDinheiro.toFixed(2)}`;
   document.getElementById('ticket-period').innerText = `Período: ${startDate.split('-').reverse().join('/')} a ${endDate.split('-').reverse().join('/')}`;
 
-  const formasEl = document.getElementById('t-formas');
-  if (formasEl) {
-    formasEl.innerHTML = Object.entries(formasMap).map(([m, val]) => `
-      <div class="flex justify-between text-[10px]">
-        <span class="truncate pr-2">● ${m}:</span>
-        <span class="font-bold">R$ ${val.toFixed(2)}</span>
-      </div>
-    `).join('') || '<div>Sem vendas concluídas.</div>';
+  document.getElementById('t-vendas-brutas').innerText = `R$ ${totalVendasBrutas.toFixed(2)}`;
+  document.getElementById('t-canceladas').innerText = `R$ ${totalCanceladas.toFixed(2)}`;
+  document.getElementById('t-fidelidade-resgates').innerText = `${fidelidadesNoPeriodo} resgate(s)`;
+
+  // Outras formas que não entram na gaveta
+  const outrasEl = document.getElementById('t-outras-formas');
+  if (outrasEl) {
+    outrasEl.innerHTML = `
+      <div class="flex justify-between"><span>● PIX:</span><strong>R$ ${totalPix.toFixed(2)}</strong></div>
+      <div class="flex justify-between"><span>● Cartão de Crédito:</span><strong>R$ ${totalCredito.toFixed(2)}</strong></div>
+      <div class="flex justify-between"><span>● Cartão de Débito:</span><strong>R$ ${totalDebito.toFixed(2)}</strong></div>
+      <div class="flex justify-between"><span>● Abatido de Saldo:</span><strong>R$ ${totalSaldoPrePago.toFixed(2)}</strong></div>
+    `;
   }
 
+  // Tabela detalhada
   const detTbody = document.getElementById('rep-detailed-table-body');
   if (detTbody) {
     detTbody.innerHTML = filteredSales.map(s => {
@@ -927,12 +1009,39 @@ function calculateAndRenderClosingReport() {
           <td class="p-3 font-mono text-slate-400">${dia} ${hora}</td>
           <td class="p-3 font-bold text-slate-900 dark:text-white">${s.clientName}</td>
           <td class="p-3 text-brand-violet">${itensNomes}</td>
-          <td class="p-3 font-bold ${isCancel ? 'text-rose-500' : 'text-emerald-500'}">${s.status}</td>
+          <td class="p-3 text-[10px] font-mono">${s.method}</td>
+          <td class="p-3 font-bold ${isCancel ? 'text-rose-500 font-black' : 'text-emerald-500'}">${s.status}</td>
           <td class="p-3 text-right font-mono font-black ${isCancel ? 'text-rose-500 line-through' : 'text-emerald-500'}">R$ ${s.finalTotal.toFixed(2)}</td>
         </tr>
       `;
-    }).join('') || `<tr><td colspan="5" class="p-4 text-center text-slate-400">Sem registos.</td></tr>`;
+    }).join('') || `<tr><td colspan="6" class="p-4 text-center text-slate-400">Sem registros no período.</td></tr>`;
   }
+}
+
+function printDetailedReport() {
+  const printWindow = window.open('', '', 'width=900,height=600');
+  const tableContent = document.getElementById('printable-detailed-table-container').innerHTML;
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Relatório Detalhado de Notas - DepilClear</title>
+        <style>
+          body { font-family: sans-serif; font-size: 11px; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #333; padding: 6px; text-align: left; }
+          th { background: #eee; }
+        </style>
+      </head>
+      <body>
+        <h2>DepilClear Women & Men - Relatório de Atendimentos</h2>
+        ${tableContent}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  printWindow.close();
 }
 
 /* ========================================================
@@ -966,6 +1075,9 @@ function showPosContextMenu(e) {
       <button type="button" onclick="openServicesCatalogModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
         <i data-lucide="search" class="w-4 h-4 text-brand-gold"></i> Catálogo / Lupa de Serviços
       </button>
+      <button type="button" onclick="openFidelityManageModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerenciar Cartão Fidelidade
+      </button>
       <button type="button" onclick="openCreditManagementModal()" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
         <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i> Adicionar Saldo de Crédito
       </button>
@@ -989,7 +1101,7 @@ function showPosContextMenu(e) {
   lucide.createIcons({ root: content });
 
   const posX = Math.min(e.clientX, window.innerWidth - 240);
-  const posY = Math.min(e.clientY, window.innerHeight - 320);
+  const posY = Math.min(e.clientY, window.innerHeight - 340);
 
   menu.style.left = `${posX}px`;
   menu.style.top = `${posY}px`;

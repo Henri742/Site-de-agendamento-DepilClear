@@ -3008,76 +3008,37 @@ function generateBusinessReport() {
 }
 
 /* ========================================================
- * 2. CARTÃO FIDELIDADE (10 PONTOS / INDICAÇÕES / PROMOÇÕES)
+ * 2. CARTÃO FIDELIDADE (CARREGAMENTO COMPLETO & MODAL)
  * ======================================================== */
-function getClientFidelity(clientId) {
-  let fData = localStorage.getItem(`depilclear_fidelity_${clientId}`);
-  if (!fData) {
-    return { points: [], rewardsClaimed: 0 };
-  }
-  return JSON.parse(fData);
-}
+function renderFidelidadeCardsGrid(search = '') {
+  const container = document.getElementById('fidelidade-cards-grid');
+  if (!container) return;
 
-function saveClientFidelity(clientId, data) {
-  localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(data));
-}
+  const query = (search || '').toLowerCase().trim();
+  // Exibe TODOS os clientes cadastrados imediatamente sem precisar pesquisar
+  const list = query 
+    ? clientsList.filter(c => c.name.toLowerCase().includes(query) || (c.phone || '').includes(query))
+    : clientsList;
 
-function checkAndAwardFidelityPoint(app) {
-  if (app.status !== 'Finalizado') return;
-
-  const f = getClientFidelity(app.clientId);
-  const jaPontuou = f.points.some(p => p.appId === app.id);
-  if (!jaPontuou && f.points.length < 10) {
-    f.points.push({
-      appId: app.id,
-      date: app.date,
-      type: 'atendimento',
-      desc: app.serviceShort || app.serviceName
-    });
-    saveClientFidelity(app.clientId, f);
-    showToast(`⭐ Selo de fidelidade concedido para ${app.clientName}! (${f.points.length}/10)`, 'success');
-  }
-}
-
-function addManualFidelityPoint(clientId, type = 'indicacao', note = 'Indicação de amiga') {
-  const f = getClientFidelity(clientId);
-  if (f.points.length >= 10) {
-    showToast('O cartão já atingiu os 10 selos completos!', 'warning');
+  if (list.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 col-span-full">Nenhum cliente cadastrado no sistema.</div>`;
     return;
   }
-  const hoje = new Date().toISOString().split('T')[0];
-  f.points.push({
-    date: hoje,
-    type: type,
-    desc: note
-  });
-  saveClientFidelity(clientId, f);
-  showToast(`Selo (${type.toUpperCase()}) adicionado ao cartão!`, 'success');
-  renderFidelidadeCardsGrid();
-  renderClientProfileFidelity(clientId);
-}
 
-function consumeFidelityPoints(clientId, pointsToUse, reason = 'Resgate de benefício') {
-  const f = getClientFidelity(clientId);
-  if (f.points.length < pointsToUse) {
-    showToast(`Pontos insuficientes! A cliente possui apenas ${f.points.length} ponto(s).`, 'error');
-    return false;
-  }
-  f.points.splice(0, pointsToUse);
-  f.rewardsClaimed = (f.rewardsClaimed || 0) + 1;
-  saveClientFidelity(clientId, f);
-  showToast(`✓ ${pointsToUse} ponto(s) utilizado(s) com sucesso: ${reason}`, 'success');
-  renderFidelidadeCardsGrid();
-  renderClientProfileFidelity(clientId);
-  return true;
+  container.innerHTML = list.map(c => {
+    const f = getClientFidelity(c.id);
+    return generateFidelityCardHTML(c, f);
+  }).join('');
+
+  lucide.createIcons({ root: container });
 }
 
 function generateFidelityCardHTML(client, f) {
-  const pointsCount = f.points.length;
+  const pointsCount = f.points ? f.points.length : 0;
   let circlesHTML = '';
 
   for (let i = 0; i < 10; i++) {
-    const pt = f.points[i];
+    const pt = f.points ? f.points[i] : null;
     if (pt) {
       const isIndicacao = pt.type === 'indicacao';
       circlesHTML += `
@@ -3116,22 +3077,111 @@ function generateFidelityCardHTML(client, f) {
 
       <div class="pt-3 border-t border-brand-lightBorder/60 dark:border-brand-darkBorder/60 flex items-center justify-between text-xs gap-2">
         <button type="button" onclick="addManualFidelityPoint(${client.id}, 'indicacao', 'Indicação')" class="flex-1 py-1.5 px-2 bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-brand-gold font-bold rounded-xl transition-all text-[11px]">
-          + Ponto Indicação
+          + Selo Indicação
         </button>
-        <button type="button" onclick="promptDiscountRedeem(${client.id})" class="flex-1 py-1.5 px-2 bg-brand-violet/15 hover:bg-brand-violet hover:text-white text-brand-violet font-bold rounded-xl transition-all text-[11px]">
-          Usar Ponto (%)
+        <button type="button" onclick="openAppFidelityManageModal(${client.id})" class="flex-1 py-1.5 px-2 bg-brand-violet/15 hover:bg-brand-violet hover:text-white text-brand-violet font-bold rounded-xl transition-all text-[11px]">
+          Gerenciar / Resgatar
         </button>
       </div>
     </div>
   `;
 }
 
-function promptDiscountRedeem(clientId) {
-  const perc = prompt('Qual porcentagem de desconto aplicar (Ex: 50 para 50%)?', '50');
-  if (perc) {
-    consumeFidelityPoints(clientId, 1, `Promoção especial ${perc}% off`);
-  }
+function openAppFidelityManageModal(clientId) {
+  const client = clientsList.find(c => c.id === clientId);
+  if (!client) return;
+
+  document.getElementById('app-fid-client-id').value = client.id;
+  document.getElementById('app-fid-client-name').innerText = client.name;
+  
+  const f = getClientFidelity(clientId);
+  document.getElementById('app-fid-modal-count').innerText = `${f.points ? f.points.length : 0} / 10`;
+
+  document.getElementById('modal-app-fidelidade-manage')?.classList.remove('hidden');
+  lucide.createIcons();
 }
+
+function adjustFidelityPointsApp(delta) {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  const f = getClientFidelity(clientId);
+  if (!f.points) f.points = [];
+
+  if (delta > 0 && f.points.length < 10) {
+    f.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
+    showToast('Selo adicionado com sucesso!', 'success');
+  } else if (delta < 0 && f.points.length > 0) {
+    f.points.pop();
+    showToast('Selo removido.', 'info');
+  }
+
+  saveClientFidelity(clientId, f);
+  document.getElementById('app-fid-modal-count').innerText = `${f.points.length} / 10`;
+  renderFidelidadeCardsGrid();
+}
+
+function confirmFidelityPercentageDiscountApp() {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  const perc = parseInt(document.getElementById('app-fid-discount-perc').value || 50, 10);
+  const f = getClientFidelity(clientId);
+
+  if (!f.points || f.points.length === 0) {
+    return showToast('O cliente não possui selos suficientes para resgate!', 'error');
+  }
+
+  f.points.pop();
+  saveClientFidelity(clientId, f);
+
+  closeModal('modal-app-fidelidade-manage');
+  renderFidelidadeCardsGrid();
+  showToast(`✓ Desconto de ${perc}% concedido em troca de 1 selo!`, 'success');
+}
+
+/* ========================================================
+ * BOTÃO DIREITO GLOBAL NO SITE DE AGENDAMENTOS
+ * ======================================================== */
+window.addEventListener('contextmenu', (e) => {
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  e.preventDefault();
+
+  const menu = document.getElementById('custom-context-menu');
+  const content = document.getElementById('custom-context-menu-content');
+  if (!menu || !content) return;
+
+  content.innerHTML = `
+    <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+      Opções do Sistema
+    </div>
+    <div class="py-1.5 space-y-0.5">
+      <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
+      </button>
+      <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Cadastrar Cliente
+      </button>
+      <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Cadastrar Serviço
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('fidelidade');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
+      </button>
+      <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa (PDV)
+      </button>
+    </div>
+  `;
+
+  lucide.createIcons({ root: content });
+
+  const posX = Math.min(e.clientX, window.innerWidth - 240);
+  const posY = Math.min(e.clientY, window.innerHeight - 300);
+
+  menu.style.left = `${posX}px`;
+  menu.style.top = `${posY}px`;
+  menu.classList.remove('hidden');
+}, true);
 
 /* ========================================================
  * GESTÃO DO CARTÃO FIDELIDADE (CARREGAMENTO COMPLETO & MODAL)
