@@ -2,23 +2,98 @@ import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// --- CONFIGURAÇÃO DAS VARIÁVEIS (Segredo estrito na Vercel) ---
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ndzmpnqpokdsvizskkpd.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-const JWT_SECRET = process.env.JWT_SECRET || 'chave-secreta-depilclear-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// --- A) LIMITADOR DE TENTATIVAS EM MEMÓRIA (Brute Force Protection) ---
+const loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutos de bloqueio
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (!record) return { allowed: true };
+
+  // Se já passou o tempo de bloqueio, limpa o histórico do IP
+  if (now > record.blockedUntil) {
+    loginAttempts.delete(ip);
+    return { allowed: true };
+  }
+
+  if (record.count >= MAX_ATTEMPTS) {
+    const minutesLeft = Math.ceil((record.blockedUntil - now) / 60000);
+    return { allowed: false, minutesLeft };
+  }
+
+  return { allowed: true };
+}
+
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0, blockedUntil: 0 };
+  record.count += 1;
+
+  if (record.count >= MAX_ATTEMPTS) {
+    record.blockedUntil = now + LOCK_TIME_MS;
+  }
+  loginAttempts.set(ip, record);
+}
+
+function clearAttempts(ip) {
+  loginAttempts.delete(ip);
+}
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  // Identifica o IP do cliente de forma segura
+  const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ erro: 'Método não permitido.' });
+  // --- D) RESTRIÇÃO DE CORS (Apenas seu domínio oficial) ---
+  const allowedOrigins = [
+    'https://agendamentodepil.vercel.app',
+    'http://localhost:3000',
+    'http://127.0.0.1:5500' // Suporte para Live Server local
+  ];
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://agendamentodepil.vercel.app');
+  }
+
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ erro: 'Método não permitido.' });
+  }
+
+  // --- VALIDAÇÃO DO RATE LIMIT ---
+  const rateLimit = checkRateLimit(clientIp);
+  if (!rateLimit.allowed) {
+    return res.status(429).json({
+      erro: `Muitas tentativas incorretas. Tente novamente em ${rateLimit.minutesLeft} minuto(s).`
+    });
+  }
+
+  // --- B) VALIDAÇÃO DE SEGREDOS DO AMBIENTE ---
+  if (!JWT_SECRET) {
+    console.error('ERRO CRÍTICO: JWT_SECRET não configurado nas Environment Variables.');
+    return res.status(500).json({ erro: 'Configuração interna do servidor pendente.' });
+  }
 
   const { email, password } = req.body || {};
   const sanitizedEmail = (email || '').trim().toLowerCase();
   const cleanPassword = (password || '').trim();
-
-  console.log(`[LOGIN ATTEMPT] Email recebido: "${sanitizedEmail}" | Senha len: ${cleanPassword.length}`);
 
   if (!sanitizedEmail || !cleanPassword) {
     return res.status(400).json({ erro: 'Preencha o e-mail e a senha.' });
@@ -29,14 +104,7 @@ export default async function handler(req, res) {
       auth: { persistSession: false }
     });
 
-    // 1. Busca todos os usuários para conferência no log
-    const { data: todosUsuarios, error: errAll } = await supabase.from('usuarios').select('id, email, senha_hash');
-    console.log('[DEBUG BANCO] Total de usuarios encontrados:', todosUsuarios?.length || 0);
-    if (todosUsuarios) {
-      todosUsuarios.forEach(u => console.log(` -> ID: ${u.id}, Email: "${u.email}", HashLen: ${u.senha_hash?.length}`));
-    }
-
-    // 2. Busca o usuário que está tentando logar
+    // Consulta parametrizada segura via SDK oficial
     const { data: usuarios, error } = await supabase
       .from('usuarios')
       .select('id, nome, email, senha_hash, funcao')
@@ -44,42 +112,39 @@ export default async function handler(req, res) {
       .limit(1);
 
     if (error) {
-      console.error('[ERRO SUPABASE]', error);
-      return res.status(500).json({ erro: `Erro no Supabase: ${error.message}` });
+      console.error('Erro de consulta Supabase:', error);
+      return res.status(500).json({ erro: 'Erro ao conectar à base de dados.' });
     }
 
     if (!usuarios || usuarios.length === 0) {
-      console.warn(`[LOGIN FALHOU] Nenhum usuario encontrado com o email: "${sanitizedEmail}"`);
-      return res.status(401).json({ erro: 'E-mail não encontrado no banco de dados.' });
+      recordFailedAttempt(clientIp);
+      return res.status(401).json({ erro: 'Credenciais inválidas.' });
     }
 
     const usuario = usuarios[0];
-    
-    // Comparação de senha
+
+    // Validação estrita da hash bcrypt (Sem senhas fixas no código)
     const senhaValida = await bcrypt.compare(cleanPassword, usuario.senha_hash);
-    console.log(`[SENHA CHECK] Resultado do bcrypt.compare: ${senhaValida}`);
 
-    // SE A SENHA NÃO FOR VÁLIDA PELO BCRYPT:
-    // Fazemos um fallback seguro: se a senha digitada bater exatamente com texto puro (caso tenha gravado sem hash)
-    // ou se bater com a senha mestra padrão, atualizamos o hash dele automaticamente!
-    let loginAprovado = senhaValida;
-
-    if (!loginAprovado && (cleanPassword === '#depilclear,123DC' || cleanPassword === usuario.senha_hash)) {
-      console.log('[AUTO-FIX] Senha digitada bateu com a mestra! Atualizando hash no banco...');
-      const novoHash = await bcrypt.hash(cleanPassword, 10);
-      await supabase.from('usuarios').update({ senha_hash: novoHash }).eq('id', usuario.id);
-      loginAprovado = true;
+    if (!senhaValida) {
+      recordFailedAttempt(clientIp);
+      return res.status(401).json({ erro: 'Credenciais inválidas.' });
     }
 
-    if (!loginAprovado) {
-      return res.status(401).json({ erro: 'Senha incorreta.' });
-    }
+    // Sucesso no login: limpa o contador do IP
+    clearAttempts(clientIp);
 
-    // Sucesso
+    // Registro seguro de auditoria do acesso
+    await supabase
+      .from('usuarios')
+      .update({ ultimo_login: new Date().toISOString() })
+      .eq('id', usuario.id);
+
+    // Geração do token JWT assinado
     const token = jwt.sign(
       { userId: usuario.id, nome: usuario.nome, email: usuario.email, funcao: usuario.funcao },
       JWT_SECRET,
-      { expiresIn: '12h' }
+      { expiresIn: '8h' }
     );
 
     return res.status(200).json({
@@ -89,7 +154,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('[CATCH ERRO]', err);
-    return res.status(500).json({ erro: `Falha interna: ${err.message}` });
+    console.error('Exceção no login:', err);
+    return res.status(500).json({ erro: 'Falha interna durante a autenticação.' });
   }
 }
