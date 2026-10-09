@@ -1,0 +1,81 @@
+/* ========================================================
+ * DEPILCLEAR WOMEN & MEN - SANDRA RAMOS
+ * Folha de Estilos do Caixa / PDV (caixa.css)
+ * ======================================================== */
+
+/* Suavização na troca de tema */
+html,
+body,
+header,
+main,
+section,
+div,
+table,
+th,
+td,
+input,
+select,
+button {
+  transition: 
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    color 0.3s ease,
+    box-shadow 0.4s ease !important;
+}
+
+/* Barras de rolagem discretas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0a0512;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2e1948;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4eefa;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8b4fe;
+  border-radius: 9999px;
+}
+
+/* Cupom de Fechamento Estilo Térmico */
+.ticket-cupom {
+  background-color: #fefce8;
+  color: #1c1917;
+  border: 1px dashed #d4af37;
+}
+
+/* Estilos de Impressão Direta (Cupom 80mm) */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-ticket, 
+  #printable-ticket * {
+    visibility: visible;
+  }
+  
+  #printable-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+  }
+}

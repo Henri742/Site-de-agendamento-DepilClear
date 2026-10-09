@@ -5,6 +5,8 @@ const LOCAL_ASSETS = [
   '/',
   '/index.html',
   '/caixa.html',
+  '/caixa.css',
+  '/caixa.js',
   '/style.css',
   '/app.js',
   '/logo.png'

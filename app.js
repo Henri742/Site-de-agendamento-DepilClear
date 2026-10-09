@@ -138,7 +138,7 @@ let whatsappTemplates = [
   }
 ];
 
-// Variáveis de Controle e Filtros
+// Variáveis de Controlo e Filtros
 let agendaSelectedStatuses = [];
 let agendaSelectedGender = 'TODOS';
 let agendaFilterInactiveOnly = false;
@@ -546,7 +546,7 @@ function setQuickDateRange(rangeType) {
   let end = new Date(now);
 
   if (rangeType === 'today') {
-    // Mantém o dia atual
+    // Mantém a data de hoje
   } else if (rangeType === 'week') {
     const day = now.getDay();
     const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
@@ -2314,6 +2314,10 @@ function handleLogoUpload(e) {
     saveAllToLocalStorage();
     const preview = document.getElementById('company-logo-preview');
     if (preview) preview.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
+    const sideHolder = document.getElementById('sidebar-company-logo-holder');
+    if (sideHolder) sideHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
+    const mobHolder = document.getElementById('mobile-company-logo-holder');
+    if (mobHolder) mobHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
     showToast('Logotipo atualizado no sistema!', 'success');
   };
   reader.readAsDataURL(file);
