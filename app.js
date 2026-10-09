@@ -272,15 +272,11 @@ function handleLogout() {
 
 function toggleTheme(btnElement = null) {
   const html = document.documentElement;
-  const icons = document.querySelectorAll('.theme-icon-spin');
-  icons.forEach(ic => {
-    ic.classList.add('spinning');
-    setTimeout(() => ic.classList.remove('spinning'), 650);
-  });
-
   html.classList.toggle('dark');
+  
   const isDark = html.classList.contains('dark');
-  showToast(`Modo ${isDark ? 'Escuro' : 'Claro'} ativado.`, 'info');
+  localStorage.setItem('depilclear_theme', isDark ? 'dark' : 'light');
+  
   lucide.createIcons();
 }
 
@@ -2674,7 +2670,24 @@ window.addEventListener('offline', () => {
 
 window.onload = function() {
   loadAllFromLocalStorage();
+
+  // Garante que a vista principal carrega diretamente ao atualizar a página
+  document.getElementById('view-login')?.classList.add('hidden');
+  document.getElementById('view-dashboard')?.classList.remove('hidden');
+
+  // Recupera o e-mail ativo caso exista
+  const savedUser = localStorage.getItem('depilclear_active_user') || 'depilclear.sr742@gmail.com';
+  const userDisplay = document.getElementById('user-display-email');
+  if (userDisplay) userDisplay.innerText = savedUser;
+
   initCalendar();
   renderAllViews();
   lucide.createIcons();
+  
+  // Carrega o tema salvo
+  if (localStorage.getItem('depilclear_theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
 };

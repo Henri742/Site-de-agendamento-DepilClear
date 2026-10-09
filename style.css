@@ -131,63 +131,57 @@ html:not(.dark) .sheet-table td {
     width: 100%;
   }
 }
-/* ========================================================
- * BOTÃO INTERRUPTOR DE TEMA (SUN / MOON TOGGLE ANIMADO)
- * ======================================================== */
+/* Interruptor Cápsula Animado (Sol / Lua) */
 .theme-switch-track {
-  width: 58px;
-  height: 28px;
-  border-radius: 9999px;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  width: 64px !important;
+  height: 32px !important;
+  border-radius: 9999px !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 3px !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  overflow: hidden !important;
 }
 
-/* Fundo em Modo Claro (Céu azul com degrade amarelo suave) */
+/* Fundo no Modo Claro (Gradiente Céu Azul e Dourado) */
 html:not(.dark) .theme-switch-track {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 40%, #facc15 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 45%, #facc15 100%) !important;
 }
 
-/* Fundo em Modo Escuro (Céu noturno violeta/estrelado) */
+/* Fundo no Modo Escuro (Céu Noturno / Violeta Profundo) */
 .dark .theme-switch-track {
-  background: linear-gradient(135deg, #1e1b4b 0%, #311042 50%, #581c87 100%);
-  border-color: rgba(212, 175, 55, 0.3);
+  background: linear-gradient(135deg, #1e1b4b 0%, #3b0764 50%, #581c87 100%) !important;
+  border-color: rgba(212, 175, 55, 0.4) !important;
 }
 
-/* Esfera deslizante animada */
+/* Esfera deslizante */
 .theme-switch-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 9999px;
-  position: absolute;
-  top: 2px;
-  left: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.4s ease, box-shadow 0.4s ease;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 9999px !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.4s ease, box-shadow 0.4s ease !important;
 }
 
-/* Modo Claro: Sol dourado brilhante à esquerda */
+/* Sol (Modo Claro) */
 html:not(.dark) .theme-switch-thumb {
-  transform: translateX(0);
-  background: radial-gradient(circle at 35% 35%, #fffbeb 0%, #facc15 65%, #eab308 100%);
-  box-shadow: 0 0 10px rgba(250, 204, 21, 0.8), 0 2px 4px rgba(0, 0, 0, 0.2);
+  transform: translateX(0px) !important;
+  background: radial-gradient(circle at 30% 30%, #fffbeb 0%, #facc15 60%, #eab308 100%) !important;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.9), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Modo Escuro: Desliza para a direita como Lua prateada */
+/* Lua (Modo Escuro) */
 .dark .theme-switch-thumb {
-  transform: translateX(29px);
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e2e8f0 70%, #94a3b8 100%);
-  box-shadow: 0 0 10px rgba(226, 232, 240, 0.6), 0 2px 4px rgba(0, 0, 0, 0.4);
-}
-
-/* Rotação dos ícones dentro da esfera */
-.theme-switch-thumb i {
-  transition: transform 0.45s ease, opacity 0.3s ease;
+  transform: translateX(30px) !important;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #e2e8f0 65%, #94a3b8 100%) !important;
+  box-shadow: 0 0 10px rgba(226, 232, 240, 0.7), 0 2px 4px rgba(0, 0, 0, 0.4) !important;
 }
