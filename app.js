@@ -201,7 +201,7 @@ function loadAllFromLocalStorage() {
 /* ========================================================
  * NAVEGAÇÃO, AUTENTICAÇÃO E TEMA
  * ======================================================== */
-// Autenticação com a API da Vercel / Supabase
+// Autenticação com a API da Vercel / Supabase (Sessão temporária)
 async function handleLoginSubmit(event) {
   event.preventDefault();
   
@@ -232,10 +232,11 @@ async function handleLoginSubmit(event) {
       return;
     }
 
-    // Guarda a sessão segura
-    localStorage.setItem('depilclear_jwt_token', dados.token);
-    localStorage.setItem('depilclear_active_user', dados.usuario.email);
+    // Guarda apenas na sessão temporária da aba atual
+    sessionStorage.setItem('depilclear_active_session', 'true');
+    sessionStorage.setItem('depilclear_active_user', dados.usuario.email);
 
+    // Oculta o login e mostra o dashboard em formato flex horizontal
     document.getElementById('view-login')?.classList.add('hidden');
     const dash = document.getElementById('view-dashboard');
     if (dash) {
@@ -2681,14 +2682,18 @@ window.addEventListener('offline', () => {
   showToast('Você está offline. O sistema continua gravando normalmente no disco local.', 'warning');
 });
 
-// Função para verificar sessão existente
+// Função para verificar sessão existente (Exige senha sempre que abrir o site)
 function checkUserSession() {
-  const token = localStorage.getItem('depilclear_jwt_token');
-  const user = localStorage.getItem('depilclear_active_user');
+  const isLogged = sessionStorage.getItem('depilclear_active_session');
+  const user = sessionStorage.getItem('depilclear_active_user');
 
-  if (token && user) {
+  if (isLogged && user) {
     document.getElementById('view-login')?.classList.add('hidden');
-    document.getElementById('view-dashboard')?.classList.remove('hidden');
+    const dash = document.getElementById('view-dashboard');
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.classList.add('flex');
+    }
 
     const userDisplay = document.getElementById('user-display-email');
     if (userDisplay) userDisplay.innerText = user;
@@ -2699,12 +2704,10 @@ function checkUserSession() {
     return true;
   }
 
-  document.getElementById('view-login')?.classList.add('hidden');
-  const dash = document.getElementById('view-dashboard');
-  if (dash) {
-    dash.classList.remove('hidden');
-    dash.classList.add('flex');
-  }
+  // Se não estiver autenticado: esconde o dashboard e mostra a tela de login
+  document.getElementById('view-dashboard')?.classList.add('hidden');
+  document.getElementById('view-dashboard')?.classList.remove('flex');
+  document.getElementById('view-login')?.classList.remove('hidden');
   return false;
 }
 
@@ -2718,6 +2721,12 @@ window.onload = function() {
   } else {
     document.documentElement.classList.remove('dark');
   }
+
+  // Limpa campos de credenciais
+  const emailInput = document.getElementById('login-email');
+  const pwdInput = document.getElementById('login-password');
+  if (emailInput) emailInput.value = '';
+  if (pwdInput) pwdInput.value = '';
 
   checkUserSession();
   lucide.createIcons();
