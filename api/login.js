@@ -6,7 +6,10 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false
+  },
+  connectionTimeoutMillis: 5000 // Evita travar a requisição
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'chave-secreta-depilclear-2026';
