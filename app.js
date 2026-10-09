@@ -2782,4 +2782,11 @@ window.onload = function() {
 
   checkUserSession();
   lucide.createIcons();
+
+  // REGISTO DO SERVICE WORKER (Permite recarregar sem internet)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('Service Worker registado com sucesso!'))
+      .catch((err) => console.error('Falha ao registar o Service Worker:', err));
+  }
 };
