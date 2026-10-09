@@ -201,6 +201,7 @@ function loadAllFromLocalStorage() {
 /* ========================================================
  * NAVEGAÇÃO, AUTENTICAÇÃO E TEMA
  * ======================================================== */
+// Autenticação com a API da Vercel / Supabase
 async function handleLoginSubmit(event) {
   event.preventDefault();
   
@@ -211,11 +212,11 @@ async function handleLoginSubmit(event) {
   const password = passwordInput ? passwordInput.value : '';
 
   if (!email || !password) {
-    showToast('Preencha todos os campos.', 'warning');
+    showToast('Preencha seu e-mail e senha.', 'warning');
     return;
   }
 
-  showToast('A verificar credenciais no servidor...', 'info');
+  showToast('A verificar credenciais...', 'info');
 
   try {
     const resposta = await fetch('/api/login', {
@@ -227,12 +228,13 @@ async function handleLoginSubmit(event) {
     const dados = await resposta.json();
 
     if (!resposta.ok) {
-      showToast(dados.erro || 'Falha na autenticação.', 'error');
+      showToast(dados.erro || 'Credenciais inválidas.', 'error');
       return;
     }
 
-    sessionStorage.setItem('depilclear_jwt_token', dados.token);
-    sessionStorage.setItem('depilclear_user_data', JSON.stringify(dados.usuario));
+    // Guarda a sessão segura
+    localStorage.setItem('depilclear_jwt_token', dados.token);
+    localStorage.setItem('depilclear_active_user', dados.usuario.email);
 
     document.getElementById('view-login')?.classList.add('hidden');
     document.getElementById('view-dashboard')?.classList.remove('hidden');
@@ -246,7 +248,7 @@ async function handleLoginSubmit(event) {
     lucide.createIcons();
   } catch (erro) {
     console.error('Erro de conexão:', erro);
-    showToast('Erro ao comunicar com a API de segurança.', 'error');
+    showToast('Erro ao ligar ao servidor.', 'error');
   }
 }
 
@@ -264,10 +266,17 @@ function toggleLoginPassword() {
   lucide.createIcons();
 }
 
+// Botão Sair da conta
 function handleLogout() {
+  localStorage.removeItem('depilclear_jwt_token');
+  localStorage.removeItem('depilclear_active_user');
+
+  const pwdInput = document.getElementById('login-password');
+  if (pwdInput) pwdInput.value = '';
+
   document.getElementById('view-dashboard')?.classList.add('hidden');
   document.getElementById('view-login')?.classList.remove('hidden');
-  showToast('Você saiu do sistema com segurança.', 'info');
+  showToast('Saiu do sistema com segurança.', 'info');
 }
 
 function toggleTheme(btnElement = null) {
@@ -2671,23 +2680,14 @@ window.addEventListener('offline', () => {
 window.onload = function() {
   loadAllFromLocalStorage();
 
-  // Garante que a vista principal carrega diretamente ao atualizar a página
-  document.getElementById('view-login')?.classList.add('hidden');
-  document.getElementById('view-dashboard')?.classList.remove('hidden');
-
-  // Recupera o e-mail ativo caso exista
-  const savedUser = localStorage.getItem('depilclear_active_user') || 'depilclear.sr742@gmail.com';
-  const userDisplay = document.getElementById('user-display-email');
-  if (userDisplay) userDisplay.innerText = savedUser;
-
-  initCalendar();
-  renderAllViews();
-  lucide.createIcons();
-  
-  // Carrega o tema salvo
+  // Aplica o tema guardado
   if (localStorage.getItem('depilclear_theme') === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
+
+  // Verifica se o utilizador está autenticado ou se deve mostrar o login
+  checkUserSession();
+  lucide.createIcons();
 };
