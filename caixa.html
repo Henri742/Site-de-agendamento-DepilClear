@@ -2,498 +2,318 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>DepilClear - PDV Frente de Caixa & Nota Manual</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    @media print {
-      body * { visibility: hidden; }
-      #printable-ticket, #printable-ticket * { visibility: visible; }
-      #printable-ticket { position: absolute; left: 0; top: 0; width: 80mm; font-family: monospace; }
-    }
-  </style>
-</head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
-  <!-- Topo Estilo Certo MEI -->
-  <header class="bg-slate-800 text-white px-6 py-3 flex items-center justify-between border-b-2 border-amber-500 shadow-md">
-    <div class="flex items-center gap-4">
-      <span class="text-xl font-black text-amber-400 tracking-wider">DEPILCLEAR CAIXA</span>
-      <span class="text-xs bg-emerald-600 px-2 py-0.5 rounded font-bold uppercase">Caixa Livre</span>
-    </div>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              darkBg: '#0a0512',
+              darkSurface: '#120b1f',
+              darkCard: '#1a102c',
+              darkBorder: '#2e1948',
+              violet: '#7c3aed',
+              violetLight: '#a78bfa',
+              purpleDeep: '#4c1d95',
+              gold: '#d4af37',
+              goldHover: '#c19c29',
+              lightBg: '#f9f6fc',
+              lightSurface: '#ffffff',
+              lightCard: '#f4eefa',
+              lightBorder: '#e6daf2',
+              lightText: '#180a29'
+            }
+          },
+          fontFamily: {
+            sans: ['Montserrat', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Google Fonts -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Folha de Estilos Externa do Caixa -->
+  <link rel="stylesheet" href="caixa.css">
+</head>
+<body class="bg-brand-lightBg dark:bg-brand-darkBg text-brand-lightText dark:text-slate-100 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- Notificações Toast -->
+  <div id="toast-wrapper" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3"></div>
+
+  <!-- Barra de Cabeçalho Superior (Identidade DepilClear) -->
+  <header class="bg-brand-lightSurface dark:bg-brand-darkSurface border-b border-brand-lightBorder dark:border-brand-darkBorder px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20 shadow-sm">
     <div class="flex items-center gap-3">
-      <button onclick="openCashOperationModal('sangria')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 rounded text-xs font-bold shadow">
-        Sangria (Saída)
+      <img src="logo.png" alt="DepilClear" class="h-8 sm:h-9 w-auto object-contain">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-xs font-black uppercase tracking-wider text-brand-gold">Frente de Caixa (PDV)</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 flex-wrap">
+      <button type="button" onclick="openCashOperationModal('sangria')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-1.5">
+        <i data-lucide="arrow-down-circle" class="w-3.5 h-3.5"></i>
+        <span>Sangria (Saída)</span>
       </button>
-      <button onclick="openCashOperationModal('suprimento')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold shadow">
-        Suprimento (Entrada)
+
+      <button type="button" onclick="openCashOperationModal('suprimento')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1.5">
+        <i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i>
+        <span>Suprimento (Entrada)</span>
       </button>
-      <button onclick="openReportModal()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-xs font-black shadow">
-        Relatórios de Fechamento
+
+      <button type="button" onclick="openReportModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-gold/15 border border-brand-gold/40 text-brand-gold hover:bg-brand-gold hover:text-slate-950 transition-all flex items-center gap-1.5">
+        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+        <span>Fechamento &amp; Relatórios</span>
       </button>
-      <a href="index.html" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold">
-        ← Voltar aos Agendamentos
+
+      <!-- Alternador de Tema Sol / Lua -->
+      <button type="button" onclick="toggleTheme()" class="p-2 rounded-xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightCard dark:bg-brand-darkBg text-slate-500 hover:text-brand-gold transition-all" title="Alternar Tema">
+        <i data-lucide="sun" class="w-4 h-4 block dark:hidden"></i>
+        <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+      </button>
+
+      <a href="index.html" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-200 dark:bg-brand-darkCard hover:bg-brand-violet hover:text-white transition-all flex items-center gap-1.5">
+        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+        <span>Agenda</span>
       </a>
     </div>
   </header>
 
-  <!-- Corpo Principal do PDV -->
-  <main class="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+  <!-- Espaço de Trabalho do Caixa -->
+  <main class="flex-1 p-3.5 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-7xl w-full mx-auto">
     
-    <!-- Lado Esquerdo: Adição de Itens e Grade de Produtos da Nota -->
-    <section class="lg:col-span-8 bg-white p-4 rounded-xl shadow border border-slate-200 flex flex-col justify-between">
-      <div>
-        <!-- Busca de Cliente e Cartão Fidelidade -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 pb-3 border-b border-slate-200">
+    <!-- LADO ESQUERDO: Lançamento de Itens da Nota -->
+    <section class="lg:col-span-8 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
+      <div class="space-y-4">
+        
+        <!-- Seleção de Cliente e Aviso de Cartão Fidelidade -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder">
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">Cliente (F3):</label>
-            <select id="pos-client-select" onchange="checkPosClientFidelity()" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-bold">
-              <option value="">CONSUMIDOR PADRÃO</option>
-            </select>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Cliente Vinculada:</label>
+            <div class="relative">
+              <select id="pos-client-select" onchange="checkPosClientFidelity()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet">
+                <option value="">CONSUMIDOR PADRÃO</option>
+              </select>
+            </div>
           </div>
-          <div id="pos-fidelity-notice" class="hidden p-2 bg-amber-50 border border-amber-300 rounded text-xs text-amber-900 flex items-center justify-between">
-            <span id="pos-fidelity-text">⭐ Cartão Fidelidade: 0/10</span>
-            <button onclick="applyFidelityDiscountToPOS()" class="px-2 py-1 bg-amber-500 text-slate-950 font-black rounded text-[10px]">
+
+          <div id="pos-fidelity-notice" class="hidden p-2.5 rounded-2xl bg-amber-500/10 border border-brand-gold/40 flex items-center justify-between text-xs">
+            <div>
+              <span id="pos-fidelity-text" class="font-extrabold text-brand-gold block">⭐ Fidelidade: 0/10</span>
+              <span class="text-[10px] text-slate-400">Selos acumulados</span>
+            </div>
+            <button type="button" onclick="applyFidelityDiscountToPOS()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-brand-gold text-slate-950 font-black text-[11px] shadow-sm hover:brightness-110">
               Usar Benefício
             </button>
           </div>
         </div>
 
-        <!-- Seletor Rápido de Serviços / Procedimentos -->
-        <div class="mb-4">
-          <label class="block text-xs font-bold text-slate-600 mb-1">Adicionar Procedimento / Serviço:</label>
+        <!-- Inserção de Procedimentos -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Adicionar Procedimento:</label>
           <div class="flex gap-2">
-            <select id="pos-service-select" class="flex-1 bg-slate-50 border border-slate-300 rounded p-2 text-xs font-bold"></select>
-            <button onclick="addServiceToPOS()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs">
-              + Inserir
+            <select id="pos-service-select" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-brand-violet"></select>
+            <button type="button" onclick="addServiceToPOS()" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold shadow-md hover:brightness-110 transition-all flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-4 h-4 text-brand-gold"></i>
+              <span>Inserir</span>
             </button>
           </div>
         </div>
 
-        <!-- Tabela de Itens Lançados -->
-        <div class="overflow-x-auto">
+        <!-- Tabela da Nota Manual -->
+        <div class="overflow-x-auto rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder">
           <table class="w-full text-left text-xs">
-            <thead class="bg-slate-100 uppercase font-black text-slate-600 border-b">
+            <thead class="bg-brand-lightCard dark:bg-brand-darkBg uppercase font-extrabold text-[10px] text-slate-400 border-b border-brand-lightBorder dark:border-brand-darkBorder">
               <tr>
-                <th class="p-2">Item</th>
-                <th class="p-2">Qtd</th>
-                <th class="p-2">Unitário</th>
-                <th class="p-2">Total</th>
-                <th class="p-2 text-right">Ação</th>
+                <th class="p-3">Procedimento</th>
+                <th class="p-3 text-center">Qtd</th>
+                <th class="p-3">Unitário</th>
+                <th class="p-3">Total</th>
+                <th class="p-3 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody id="pos-items-table-body" class="divide-y divide-slate-100"></tbody>
+            <tbody id="pos-items-table-body" class="divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Rodapé da Nota Manual -->
-      <div class="pt-4 border-t border-slate-200 flex justify-between items-center">
-        <span class="text-xs text-slate-400">Pressione F12 ou clique em "Finalizar Pagamento"</span>
+      <!-- Totalizador Inferior -->
+      <div class="pt-4 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between mt-4">
+        <span class="text-[11px] text-slate-400 font-medium">Teclado: Enter para inserir item</span>
         <div class="text-right">
-          <span class="text-xs font-bold text-slate-500 block">Total a Pagar:</span>
-          <span id="pos-grand-total" class="text-3xl font-black text-slate-900">R\$ 0,00</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Total da Nota:</span>
+          <span id="pos-grand-total" class="text-3xl font-black text-brand-violet dark:text-brand-violetLight font-mono">R$ 0,00</span>
         </div>
       </div>
     </section>
 
-    <!-- Lado Direito: Formas de Pagamento e Finalização -->
-    <section class="lg:col-span-4 bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col justify-between">
-      <div>
-        <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Forma de Pagamento</h3>
-        
-        <div class="space-y-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">Método Principal:</label>
-            <select id="pos-payment-method" class="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-xs font-bold">
-              <option value="PIX">PIX</option>
-              <option value="DINHEIRO">DINHEIRO (Espécie)</option>
-              <option value="CARTÃO CRÉDITO">CARTÃO DE CRÉDITO</option>
-              <option value="CARTÃO DÉBITO">CARTÃO DE DÉBITO</option>
-            </select>
-          </div>
+    <!-- LADO DIREITO: Formas de Pagamento e Fechamento da Venda -->
+    <section class="lg:col-span-4 p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl flex flex-col justify-between">
+      <div class="space-y-4">
+        <div class="pb-2 border-b border-brand-lightBorder dark:border-brand-darkBorder">
+          <h3 class="text-xs font-black uppercase tracking-wider text-brand-gold">Formas de Recebimento</h3>
+        </div>
 
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">Desconto Manual (R\$):</label>
-            <input type="number" id="pos-discount" value="0.00" step="0.50" oninput="renderPosTotals()" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono">
-          </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Método de Pagamento:</label>
+          <select id="pos-payment-method" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none">
+            <option value="PIX">PIX</option>
+            <option value="DINHEIRO">DINHEIRO (Espécie)</option>
+            <option value="CARTÃO CRÉDITO">CARTÃO DE CRÉDITO</option>
+            <option value="CARTÃO DÉBITO">CARTÃO DE DÉBITO</option>
+          </select>
+        </div>
 
-          <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">Valor Recebido (Para Troco):</label>
-            <input type="number" id="pos-received-value" value="0.00" step="1.00" oninput="renderPosTotals()" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono">
-          </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Desconto Manual (R$):</label>
+          <input type="number" id="pos-discount" value="0.00" step="0.50" oninput="renderPosTotals()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono text-slate-800 dark:text-white outline-none">
+        </div>
 
-          <div class="p-3 bg-slate-50 rounded-lg border text-xs flex justify-between items-center">
-            <span class="font-bold text-slate-500">Troco:</span>
-            <span id="pos-change-value" class="font-black text-emerald-600 text-base">R\$ 0,00</span>
-          </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Valor Recebido (Para Troco):</label>
+          <input type="number" id="pos-received-value" value="0.00" step="1.00" oninput="renderPosTotals()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Troco:</span>
+          <span id="pos-change-value" class="text-lg font-black text-emerald-500 font-mono">R$ 0,00</span>
         </div>
       </div>
 
-      <div class="mt-6 space-y-2">
-        <button onclick="finalizeSale()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase rounded-xl shadow-lg transition-all">
-          ✓ Finalizar e Gravar Venda (F12)
+      <div class="pt-5 space-y-2">
+        <button type="button" onclick="finalizeSale()" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Gravar e Finalizar Venda</span>
         </button>
-        <button onclick="clearPosCart()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl">
-          Cancelar Venda
+
+        <button type="button" onclick="clearPosCart()" class="w-full py-2.5 rounded-2xl bg-transparent hover:bg-slate-200/50 dark:hover:bg-brand-darkBg text-slate-400 text-xs font-bold transition-all">
+          Cancelar Nota
         </button>
       </div>
     </section>
   </main>
 
-  <!-- MODAL: RELATÓRIOS DE CAIXA E DETALHAMENTO DE VENDAS -->
-  <div id="modal-pos-reports" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-4xl rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center pb-3 border-b">
-        <h3 class="text-base font-black text-slate-900">Relatórios de Caixa e Vendas</h3>
-        <button onclick="closeModal('modal-pos-reports')" class="text-slate-400 hover:text-slate-700 font-black">X</button>
+  <!-- MODAL: SANGRIA & SUPRIMENTO -->
+  <div id="modal-cash-op" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+      <h3 id="cash-op-title" class="text-sm font-black text-slate-900 dark:text-white uppercase mb-4">Operação de Caixa</h3>
+      <form onsubmit="handleSaveCashOperation(event)" class="space-y-3.5">
+        <input type="hidden" id="cash-op-type">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Valor (R$):</label>
+          <input type="number" id="cash-op-amount" step="0.50" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Motivo / Descrição:</label>
+          <input type="text" id="cash-op-desc" placeholder="Ex: Retirada almoço / Fundo de troco" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl p-2.5 text-xs text-slate-900 dark:text-white outline-none">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-cash-op')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white font-bold text-xs rounded-2xl shadow">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: RELATÓRIOS DE FECHAMENTO (CUPOM E DETALHADO) -->
+  <div id="modal-pos-reports" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-4xl rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">Relatórios de Caixa &amp; Fechamento</h3>
+        <button type="button" onclick="closeModal('modal-pos-reports')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
       </div>
 
       <!-- Filtro de Data e Hora -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4 p-3 bg-slate-50 rounded-xl border text-xs">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-4 p-3.5 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder text-xs">
         <div>
-          <label class="block font-bold text-slate-500">Data Inicial:</label>
-          <input type="date" id="rep-box-start-date" class="w-full border p-1 rounded font-mono">
+          <label class="block font-bold text-slate-400 text-[10px] mb-1">Data Inicial:</label>
+          <input type="date" id="rep-box-start-date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-slate-900 dark:text-white text-xs outline-none">
         </div>
         <div>
-          <label class="block font-bold text-slate-500">Hora Inicial:</label>
-          <input type="time" id="rep-box-start-time" value="00:00" class="w-full border p-1 rounded font-mono">
+          <label class="block font-bold text-slate-400 text-[10px] mb-1">Hora Inicial:</label>
+          <input type="time" id="rep-box-start-time" value="00:00" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-slate-900 dark:text-white text-xs outline-none">
         </div>
         <div>
-          <label class="block font-bold text-slate-500">Data Final:</label>
-          <input type="date" id="rep-box-end-date" class="w-full border p-1 rounded font-mono">
+          <label class="block font-bold text-slate-400 text-[10px] mb-1">Data Final:</label>
+          <input type="date" id="rep-box-end-date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-slate-900 dark:text-white text-xs outline-none">
         </div>
         <div>
-          <label class="block font-bold text-slate-500">Hora Final:</label>
-          <input type="time" id="rep-box-end-time" value="23:59" class="w-full border p-1 rounded font-mono">
+          <label class="block font-bold text-slate-400 text-[10px] mb-1">Hora Final:</label>
+          <input type="time" id="rep-box-end-time" value="23:59" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder p-1.5 rounded-xl font-mono text-slate-900 dark:text-white text-xs outline-none">
         </div>
       </div>
 
-      <!-- Seleção do Tipo de Relatório -->
+      <!-- Abas de Relatório -->
       <div class="flex gap-2 mb-4">
-        <button onclick="switchReportTab('fechamento')" id="tab-btn-fechamento" class="px-4 py-2 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow">
+        <button type="button" onclick="switchReportTab('fechamento')" id="tab-btn-fechamento" class="px-4 py-2 bg-brand-violet text-white font-bold text-xs rounded-2xl shadow">
           1. Fechamento de Caixa (Cupom)
         </button>
-        <button onclick="switchReportTab('detalhado')" id="tab-btn-detalhado" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">
-          2. Detalhamento de Vendas por Cliente
+        <button type="button" onclick="switchReportTab('detalhado')" id="tab-btn-detalhado" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg text-slate-500 font-semibold text-xs rounded-2xl hover:text-brand-gold">
+          2. Detalhamento de Clientes do Período
         </button>
       </div>
 
-      <!-- Conteúdo 1: Fechamento de Caixa (Estilo Cupom das Imagens) -->
+      <!-- Conteúdo 1: Cupom de Fechamento -->
       <div id="report-content-fechamento" class="space-y-4">
-        <div id="printable-ticket" class="bg-amber-50/50 p-4 border border-slate-300 rounded font-mono text-xs max-w-sm mx-auto shadow">
-          <p class="font-bold text-center">DEPILCLEAR SANDRA RAMOS</p>
+        <div id="printable-ticket" class="ticket-cupom mx-auto p-4 rounded-xl border border-slate-300 font-mono text-xs max-w-sm shadow">
+          <p class="font-extrabold text-center text-sm">DEPILCLEAR SANDRA RAMOS</p>
           <p class="text-center text-[10px]">FECHAMENTO DE CAIXA DETALHADO</p>
           <p id="ticket-period" class="text-center text-[10px] border-b pb-1 mb-2">--/--/----</p>
           
           <div class="space-y-1 mb-2">
-            <div class="flex justify-between"><span>Vendas:</span><span id="t-vendas">R\$ 0,00</span></div>
-            <div class="flex justify-between"><span>Suprimentos:</span><span id="t-suprimentos">R\$ 0,00</span></div>
-            <div class="flex justify-between"><span>Sangrias:</span><span id="t-sangrias">R\$ 0,00</span></div>
-            <div class="flex justify-between font-black border-t pt-1"><span>SALDO FINAL:</span><span id="t-saldo">R\$ 0,00</span></div>
+            <div class="flex justify-between"><span>Vendas:</span><span id="t-vendas">R$ 0,00</span></div>
+            <div class="flex justify-between"><span>Suprimentos:</span><span id="t-suprimentos">R$ 0,00</span></div>
+            <div class="flex justify-between"><span>Sangrias:</span><span id="t-sangrias">R$ 0,00</span></div>
+            <div class="flex justify-between font-black border-t pt-1"><span>SALDO FINAL:</span><span id="t-saldo">R$ 0,00</span></div>
           </div>
 
           <p class="font-bold border-t pt-1 mb-1">TOTAL POR FORMA DE PAGAMENTO:</p>
           <div id="t-formas" class="space-y-0.5"></div>
         </div>
+
         <div class="text-center">
-          <button onclick="window.print()" class="px-4 py-2 bg-slate-800 text-white font-bold text-xs rounded-xl">
-            Imprimir Cupom
+          <button type="button" onclick="window.print()" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white font-bold text-xs rounded-2xl shadow flex items-center gap-1.5 mx-auto">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Imprimir Cupom 80mm</span>
           </button>
         </div>
       </div>
 
-      <!-- Conteúdo 2: Detalhamento de Clientes do Dia -->
+      <!-- Conteúdo 2: Detalhamento por Cliente -->
       <div id="report-content-detalhado" class="hidden space-y-3">
-        <div class="overflow-x-auto border rounded-xl">
+        <div class="overflow-x-auto rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder">
           <table class="w-full text-left text-xs">
-            <thead class="bg-slate-100 font-bold border-b">
+            <thead class="bg-brand-lightCard dark:bg-brand-darkBg text-slate-400 font-bold border-b border-brand-lightBorder dark:border-brand-darkBorder text-[10px] uppercase">
               <tr>
-                <th class="p-2">Hora</th>
-                <th class="p-2">Cliente</th>
-                <th class="p-2">Serviços</th>
-                <th class="p-2">Forma</th>
-                <th class="p-2 text-right">Valor</th>
+                <th class="p-3">Data/Hora</th>
+                <th class="p-3">Cliente</th>
+                <th class="p-3">Procedimentos</th>
+                <th class="p-3">Forma</th>
+                <th class="p-3 text-right">Valor</th>
               </tr>
             </thead>
-            <tbody id="rep-detailed-table-body" class="divide-y"></tbody>
+            <tbody id="rep-detailed-table-body" class="divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></tbody>
           </table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: SANGRIA & SUPRIMENTO -->
-  <div id="modal-cash-op" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl">
-      <h3 id="cash-op-title" class="text-sm font-black text-slate-800 uppercase mb-3">Operação de Caixa</h3>
-      <form onsubmit="handleSaveCashOperation(event)" class="space-y-3">
-        <input type="hidden" id="cash-op-type">
-        <div>
-          <label class="block text-xs font-bold text-slate-600 mb-1">Valor (R\$):</label>
-          <input type="number" id="cash-op-amount" step="0.50" required class="w-full border rounded p-2 text-xs font-mono font-bold">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-600 mb-1">Descrição / Motivo:</label>
-          <input type="text" id="cash-op-desc" placeholder="Ex: Retirada almoço / Fundo de troco" required class="w-full border rounded p-2 text-xs">
-        </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-cash-op')" class="px-3 py-1.5 text-xs text-slate-500">Cancelar</button>
-          <button type="submit" class="px-4 py-1.5 bg-slate-800 text-white font-bold text-xs rounded-lg">Confirmar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script>
-    // Recupera Clientes e Serviços salvos pelo sistema de agendamento
-    let clientsList = JSON.parse(localStorage.getItem('depilclear_clients') || '[]');
-    let servicesList = JSON.parse(localStorage.getItem('depilclear_services') || '[]');
-    let posSales = JSON.parse(localStorage.getItem('depilclear_pos_sales') || '[]');
-    let cashOperations = JSON.parse(localStorage.getItem('depilclear_cash_ops') || '[]');
-
-    let currentCart = [];
-
-    window.onload = function() {
-      // Popula Select de Clientes
-      const cSelect = document.getElementById('pos-client-select');
-      clientsList.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.name} (${c.phone || ''})`;
-        cSelect.appendChild(opt);
-      });
-
-      // Popula Select de Serviços
-      const sSelect = document.getElementById('pos-service-select');
-      servicesList.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${s.name} - R$ ${Number(s.price).toFixed(2)}`;
-        sSelect.appendChild(opt);
-      });
-
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('rep-box-start-date').value = today;
-      document.getElementById('rep-box-end-date').value = today;
-    };
-
-    function addServiceToPOS() {
-      const sId = parseInt(document.getElementById('pos-service-select').value);
-      const srv = servicesList.find(s => s.id === sId);
-      if (!srv) return;
-
-      currentCart.push({
-        id: srv.id,
-        name: srv.name,
-        price: Number(srv.price)
-      });
-      renderPosTable();
-    }
-
-    function removePosItem(index) {
-      currentCart.splice(index, 1);
-      renderPosTable();
-    }
-
-    function renderPosTable() {
-      const tbody = document.getElementById('pos-items-table-body');
-      tbody.innerHTML = currentCart.map((item, idx) => `
-        <tr>
-          <td class="p-2 font-bold">${item.name}</td>
-          <td class="p-2">1</td>
-          <td class="p-2 font-mono">R$ ${item.price.toFixed(2)}</td>
-          <td class="p-2 font-mono font-bold">R$ ${item.price.toFixed(2)}</td>
-          <td class="p-2 text-right">
-            <button onclick="removePosItem(${idx})" class="text-rose-500 font-bold hover:underline">Remover</button>
-          </td>
-        </tr>
-      `).join('');
-      renderPosTotals();
-    }
-
-    function renderPosTotals() {
-      const subtotal = currentCart.reduce((sum, i) => sum + i.price, 0);
-      const discount = parseFloat(document.getElementById('pos-discount').value || 0);
-      const grandTotal = Math.max(0, subtotal - discount);
-
-      document.getElementById('pos-grand-total').textContent = `R$ ${grandTotal.toFixed(2)}`;
-
-      const received = parseFloat(document.getElementById('pos-received-value').value || 0);
-      const change = Math.max(0, received - grandTotal);
-      document.getElementById('pos-change-value').textContent = `R$ ${change.toFixed(2)}`;
-    }
-
-    function checkPosClientFidelity() {
-      const cId = document.getElementById('pos-client-select').value;
-      const notice = document.getElementById('pos-fidelity-notice');
-      if (!cId) {
-        notice.classList.add('hidden');
-        return;
-      }
-      const f = JSON.parse(localStorage.getItem(`depilclear_fidelity_${cId}`) || '{"points":[]}');
-      document.getElementById('pos-fidelity-text').textContent = `⭐ Cartão Fidelidade: ${f.points.length}/10`;
-      notice.classList.remove('hidden');
-    }
-
-    function applyFidelityDiscountToPOS() {
-      const perc = prompt('Aplicar quantos % de desconto pelo benefício?', '50');
-      if (perc) {
-        const subtotal = currentCart.reduce((sum, i) => sum + i.price, 0);
-        const discValue = (subtotal * (parseFloat(perc) / 100));
-        document.getElementById('pos-discount').value = discValue.toFixed(2);
-        renderPosTotals();
-        alert(`Desconto de ${perc}% aplicado com sucesso!`);
-      }
-    }
-
-    function finalizeSale() {
-      if (currentCart.length === 0) {
-        alert('Insira pelo menos um item na nota!');
-        return;
-      }
-
-      const cId = document.getElementById('pos-client-select').value;
-      const client = clientsList.find(c => c.id == cId);
-      const subtotal = currentCart.reduce((sum, i) => sum + i.price, 0);
-      const discount = parseFloat(document.getElementById('pos-discount').value || 0);
-      const finalAmount = Math.max(0, subtotal - discount);
-      const paymentMethod = document.getElementById('pos-payment-method').value;
-
-      const now = new Date();
-      const sale = {
-        id: Date.now(),
-        date: now.toISOString().split('T')[0],
-        time: now.toTimeString().split(' ')[0].substring(0, 5),
-        clientId: client ? client.id : null,
-        clientName: client ? client.name : 'CONSUMIDOR PADRÃO',
-        services: currentCart.map(i => i.name).join(', '),
-        paymentMethod,
-        subtotal,
-        discount,
-        total: finalAmount
-      };
-
-      posSales.push(sale);
-      localStorage.setItem('depilclear_pos_sales', JSON.stringify(posSales));
-
-      alert('✓ Venda finalizada e gravada com sucesso!');
-      clearPosCart();
-    }
-
-    function clearPosCart() {
-      currentCart = [];
-      document.getElementById('pos-discount').value = '0.00';
-      document.getElementById('pos-received-value').value = '0.00';
-      renderPosTable();
-    }
-
-    // Modal de Sangria e Suprimento
-    function openCashOperationModal(type) {
-      document.getElementById('cash-op-type').value = type;
-      document.getElementById('cash-op-title').textContent = type === 'sangria' ? 'Sangria (Saída de Dinheiro)' : 'Suprimento (Entrada / Fundo de Caixa)';
-      document.getElementById('modal-cash-op').classList.remove('hidden');
-    }
-
-    function handleSaveCashOperation(e) {
-      e.preventDefault();
-      const type = document.getElementById('cash-op-type').value;
-      const amount = parseFloat(document.getElementById('cash-op-amount').value);
-      const desc = document.getElementById('cash-op-desc').value;
-
-      const now = new Date();
-      cashOperations.push({
-        type,
-        amount,
-        desc,
-        date: now.toISOString().split('T')[0],
-        time: now.toTimeString().split(' ')[0].substring(0, 5)
-      });
-
-      localStorage.setItem('depilclear_cash_ops', JSON.stringify(cashOperations));
-      alert('Operação de caixa gravada com sucesso!');
-      closeModal('modal-cash-op');
-    }
-
-    // Modal de Relatórios de Fechamento
-    function openReportModal() {
-      document.getElementById('modal-pos-reports').classList.remove('hidden');
-      generateBoxReport();
-    }
-
-    function switchReportTab(tab) {
-      if (tab === 'fechamento') {
-        document.getElementById('tab-btn-fechamento').className = 'px-4 py-2 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow';
-        document.getElementById('tab-btn-detalhado').className = 'px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl';
-        document.getElementById('report-content-fechamento').classList.remove('hidden');
-        document.getElementById('report-content-detalhado').classList.add('hidden');
-      } else {
-        document.getElementById('tab-btn-detalhado').className = 'px-4 py-2 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow';
-        document.getElementById('tab-btn-fechamento').className = 'px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl';
-        document.getElementById('report-content-detalhado').classList.remove('hidden');
-        document.getElementById('report-content-fechamento').classList.add('hidden');
-      }
-      generateBoxReport();
-    }
-
-    function generateBoxReport() {
-      const sDate = document.getElementById('rep-box-start-date').value;
-      const sTime = document.getElementById('rep-box-start-time').value;
-      const eDate = document.getElementById('rep-box-end-date').value;
-      const eTime = document.getElementById('rep-box-end-time').value;
-
-      // Filtra Vendas por data e hora
-      const salesFiltered = posSales.filter(s => {
-        const full = `${s.date}T${s.time}`;
-        return full >= `${sDate}T${sTime}` && full <= `${eDate}T${eTime}`;
-      });
-
-      // Filtra Sangrias e Suprimentos
-      const opsFiltered = cashOperations.filter(o => {
-        const full = `${o.date}T${o.time}`;
-        return full >= `${sDate}T${sTime}` && full <= `${eDate}T${eTime}`;
-      });
-
-      let totalVendas = 0;
-      const formasMap = {};
-
-      salesFiltered.forEach(s => {
-        totalVendas += s.total;
-        formasMap[s.paymentMethod] = (formasMap[s.paymentMethod] || 0) + s.total;
-      });
-
-      let totalSuprimentos = opsFiltered.filter(o => o.type === 'suprimento').reduce((a, b) => a + b.amount, 0);
-      let totalSangrias = opsFiltered.filter(o => o.type === 'sangria').reduce((a, b) => a + b.amount, 0);
-      let saldo = totalVendas + totalSuprimentos - totalSangrias;
-
-      // 1. Atualiza Cupom Estilo Imagem
-      document.getElementById('ticket-period').textContent = `Período: ${sDate} ${sTime} até ${eDate} ${eTime}`;
-      document.getElementById('t-vendas').textContent = `R$ ${totalVendas.toFixed(2)}`;
-      document.getElementById('t-suprimentos').textContent = `R$ ${totalSuprimentos.toFixed(2)}`;
-      document.getElementById('t-sangrias').textContent = `R$ ${totalSangrias.toFixed(2)}`;
-      document.getElementById('t-saldo').textContent = `R$ ${saldo.toFixed(2)}`;
-
-      document.getElementById('t-formas').innerHTML = Object.entries(formasMap).map(([f, val]) => `
-        <div class="flex justify-between"><span>${f}:</span><span>R$ ${val.toFixed(2)}</span></div>
-      `).join('') || '<span>Nenhuma venda no período</span>';
-
-      // 2. Atualiza Tabela Detalhada de Clientes
-      const tbody = document.getElementById('rep-detailed-table-body');
-      tbody.innerHTML = salesFiltered.map(s => `
-        <tr>
-          <td class="p-2 font-mono">${s.date.split('-').reverse().join('/')} ${s.time}</td>
-          <td class="p-2 font-bold">${s.clientName}</td>
-          <td class="p-2">${s.services}</td>
-          <td class="p-2 font-bold">${s.paymentMethod}</td>
-          <td class="p-2 text-right font-black text-emerald-600">R$ ${s.total.toFixed(2)}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhum registro encontrado.</td></tr>';
-    }
-
-    function closeModal(id) {
-      document.getElementById(id).classList.add('hidden');
-    }
-  </script>
+  <!-- Script Modular do Caixa -->
+  <script src="caixa.js"></script>
 </body>
 </html>
