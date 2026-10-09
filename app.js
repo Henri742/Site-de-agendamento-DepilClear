@@ -1160,6 +1160,10 @@ function handleUpdateAppointmentStatus(appId, newStatus) {
 
   renderAgendaView();
   renderPhysicalReceptionSheet();
+
+  if (newStatus === 'Finalizado') {
+    checkAndAwardFidelityPoint(app);
+  }
 }
 
 function handleDeleteAppointment(id) {
@@ -1934,6 +1938,18 @@ function switchProfileTab(tab) {
     contentHist.classList.remove('hidden');
     contentDados.classList.add('hidden');
   }
+
+  if (tab === 'fidelidade') {
+    btnDados.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20';
+    btnHist.className = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20';
+    document.getElementById('profile-tab-btn-fidelidade').className = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white shadow';
+    
+    document.getElementById('profile-tab-content-dados').classList.add('hidden');
+    document.getElementById('profile-tab-content-historico').classList.add('hidden');
+    document.getElementById('profile-tab-content-fidelidade').classList.remove('hidden');
+    renderClientProfileFidelity(currentViewingClientId);
+  }
+
 }
 
 function renderProfileHistoryTab(clientId) {
@@ -2955,4 +2971,236 @@ function updateMuralCounters() {
 
   if (totalEl) totalEl.textContent = totalAgendadasData;
   if (confirmadasEl) confirmadasEl.textContent = confirmadasData;
+}
+
+/* ========================================================
+ * 1. RELATÓRIOS GERENCIAIS DE ATENDIMENTO E FATURAMENTO
+ * ======================================================== */
+function generateBusinessReport() {
+  const start = document.getElementById('rep-start-date')?.value;
+  const end = document.getElementById('rep-end-date')?.value;
+
+  let filtered = appointmentsList.filter(a => a.status === 'Finalizado');
+  if (start) filtered = filtered.filter(a => a.date >= start);
+  if (end) filtered = filtered.filter(a => a.date <= end);
+
+  // 1. Total de clientes distintos atendidos
+  const distinctClients = new Set(filtered.map(a => a.clientId));
+  document.getElementById('rep-total-clients').textContent = distinctClients.size;
+
+  // 2. Procedimentos e Total Faturado
+  let totalProcedimentos = 0;
+  let faturamentoTotal = 0;
+  const serviceCountMap = {};
+  const proCountMap = {};
+
+  filtered.forEach(app => {
+    faturamentoTotal += Number(app.price || 0);
+
+    const pro = app.professional || 'Sem indicação';
+    proCountMap[pro] = (proCountMap[pro] || 0) + 1;
+
+    (app.services || []).forEach(srv => {
+      totalProcedimentos++;
+      serviceCountMap[srv.name] = (serviceCountMap[srv.name] || { qtd: 0, total: 0 });
+      serviceCountMap[srv.name].qtd++;
+      serviceCountMap[srv.name].total += Number(srv.price || 0);
+    });
+  });
+
+  document.getElementById('rep-total-services').textContent = totalProcedimentos;
+  document.getElementById('rep-total-amount').textContent = `R$ ${faturamentoTotal.toFixed(2)}`;
+
+  // 3. Profissional que mais atendeu
+  let topProName = '-';
+  let topProCount = 0;
+  for (const [pro, qtd] of Object.entries(proCountMap)) {
+    if (qtd > topProCount) {
+      topProCount = qtd;
+      topProName = `${pro} (${qtd} atend.)`;
+    }
+  }
+  document.getElementById('rep-top-pro').textContent = topProName;
+
+  // 4. Detalhamento de Procedimentos
+  const srvContainer = document.getElementById('rep-services-breakdown');
+  if (srvContainer) {
+    srvContainer.innerHTML = Object.entries(serviceCountMap).map(([name, data]) => `
+      <div class="flex items-center justify-between p-2.5 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg text-xs">
+        <div>
+          <span class="font-bold text-slate-800 dark:text-slate-200">${name}</span>
+          <span class="block text-[10px] text-slate-400 font-mono">${data.qtd} realizados</span>
+        </div>
+        <span class="font-black text-emerald-500">R$ ${data.total.toFixed(2)}</span>
+      </div>
+    `).join('') || '<p class="text-xs text-slate-400">Nenhum atendimento no período.</p>';
+  }
+
+  // 5. Produção por Depiladora
+  const proContainer = document.getElementById('rep-pro-breakdown');
+  if (proContainer) {
+    proContainer.innerHTML = Object.entries(proCountMap).map(([name, qtd]) => `
+      <div class="flex items-center justify-between p-2.5 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg text-xs">
+        <span class="font-bold text-slate-800 dark:text-slate-200">👩‍⚕️ ${name}</span>
+        <span class="font-black text-brand-gold">${qtd} clientes atendidas</span>
+      </div>
+    `).join('') || '<p class="text-xs text-slate-400">Sem dados.</p>';
+  }
+}
+
+/* ========================================================
+ * 2. CARTÃO FIDELIDADE (10 PONTOS / INDICAÇÕES / PROMOÇÕES)
+ * ======================================================== */
+function getClientFidelity(clientId) {
+  let fData = localStorage.getItem(`depilclear_fidelity_${clientId}`);
+  if (!fData) {
+    return {
+      points: [], // Array de objetos: { date: 'YYYY-MM-DD', type: 'atendimento' | 'indicacao', note: '' }
+      rewardsClaimed: 0
+    };
+  }
+  return JSON.parse(fData);
+}
+
+function saveClientFidelity(clientId, data) {
+  localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(data));
+}
+
+// Atribui ponto automático ao colocar status como Finalizado
+function checkAndAwardFidelityPoint(app) {
+  if (app.status !== 'Finalizado') return;
+
+  const f = getClientFidelity(app.clientId);
+  // Impede pontuação duplicada do mesmo agendamento
+  const jaPontuou = f.points.some(p => p.appId === app.id);
+  if (!jaPontuou && f.points.length < 10) {
+    f.points.push({
+      appId: app.id,
+      date: app.date,
+      type: 'atendimento',
+      desc: app.serviceShort || app.serviceName
+    });
+    saveClientFidelity(app.clientId, f);
+    showToast(`⭐ Selo de fidelidade concedido para ${app.clientName}! (${f.points.length}/10)`, 'success');
+  }
+}
+
+// Inserir indicação manual com data e tag
+function addManualFidelityPoint(clientId, type = 'indicacao', note = 'Indicação de amiga') {
+  const f = getClientFidelity(clientId);
+  if (f.points.length >= 10) {
+    showToast('O cartão já atingiu os 10 selos completos!', 'warning');
+    return;
+  }
+  const hoje = new Date().toISOString().split('T')[0];
+  f.points.push({
+    date: hoje,
+    type: type,
+    desc: note
+  });
+  saveClientFidelity(clientId, f);
+  showToast(`Selo (${type.toUpperCase()}) adicionado ao cartão!`, 'success');
+  renderFidelidadeCardsGrid();
+  renderClientProfileFidelity(clientId);
+}
+
+// Resgatar / Utilizar benefício do cartão (Ex: 1 ponto por 50% de desconto ou 10 pontos por serviço grátis)
+function consumeFidelityPoints(clientId, pointsToUse, reason = 'Resgate de benefício') {
+  const f = getClientFidelity(clientId);
+  if (f.points.length < pointsToUse) {
+    showToast(`Pontos insuficientes! A cliente possui apenas ${f.points.length} ponto(s).`, 'error');
+    return false;
+  }
+  f.points.splice(0, pointsToUse);
+  f.rewardsClaimed = (f.rewardsClaimed || 0) + 1;
+  saveClientFidelity(clientId, f);
+  showToast(`✓ ${pointsToUse} ponto(s) utilizado(s) com sucesso: ${reason}`, 'success');
+  renderFidelidadeCardsGrid();
+  renderClientProfileFidelity(clientId);
+  return true;
+}
+
+// Renderizar o cartão gráfico de 10 bolhas
+function generateFidelityCardHTML(client, f) {
+  const pointsCount = f.points.length;
+  let circlesHTML = '';
+
+  for (let i = 0; i < 10; i++) {
+    const pt = f.points[i];
+    if (pt) {
+      const isIndicacao = pt.type === 'indicacao';
+      circlesHTML += `
+        <div class="relative group flex flex-col items-center justify-center w-11 h-11 rounded-2xl ${isIndicacao ? 'bg-amber-500 text-slate-950' : 'bg-brand-violet text-white'} shadow-md">
+          <span class="text-xs font-black">${i + 1}</span>
+          <span class="text-[8px] uppercase tracking-tighter font-extrabold">${isIndicacao ? 'IND' : 'OK'}</span>
+          <div class="hidden group-hover:block absolute bottom-full mb-1 z-30 p-1.5 rounded-lg bg-slate-900 text-white text-[9px] whitespace-nowrap shadow-xl">
+            ${pt.date.split('-').reverse().join('/')} - ${pt.desc || ''}
+          </div>
+        </div>
+      `;
+    } else {
+      circlesHTML += `
+        <div class="flex items-center justify-center w-11 h-11 rounded-2xl border-2 border-dashed border-slate-300 dark:border-brand-darkBorder text-slate-400 text-xs font-bold">
+          ${i + 1}
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div class="p-5 rounded-3xl bg-gradient-to-br from-brand-lightSurface to-brand-lightCard dark:from-brand-darkSurface dark:to-brand-darkCard border-2 border-brand-gold/40 shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h4 class="text-sm font-black text-slate-900 dark:text-white">${client.name}</h4>
+          <span class="text-[10px] text-slate-400 font-mono">${client.phone}</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-xl text-xs font-black ${pointsCount === 10 ? 'bg-emerald-500 text-white animate-pulse' : 'bg-brand-gold/15 text-brand-gold'}">
+          ${pointsCount}/10 SELOS
+        </span>
+      </div>
+
+      <!-- Grade com as 10 Bolhas do Cartão -->
+      <div class="grid grid-cols-5 gap-2 my-3">
+        ${circlesHTML}
+      </div>
+
+      <div class="pt-3 border-t border-brand-lightBorder/60 dark:border-brand-darkBorder/60 flex items-center justify-between text-xs gap-2">
+        <button type="button" onclick="addManualFidelityPoint(${client.id}, 'indicacao', 'Indicação')" class="flex-1 py-1.5 px-2 bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-brand-gold font-bold rounded-xl transition-all text-[11px]">
+          + Ponto Indicação
+        </button>
+        <button type="button" onclick="promptDiscountRedeem(${client.id})" class="flex-1 py-1.5 px-2 bg-brand-violet/15 hover:bg-brand-violet hover:text-white text-brand-violet font-bold rounded-xl transition-all text-[11px]">
+          Usar Ponto (%)
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function promptDiscountRedeem(clientId) {
+  const perc = prompt('Qual porcentagem de desconto aplicar (Ex: 50 para 50%)?', '50');
+  if (perc) {
+    consumeFidelityPoints(clientId, 1, `Promoção especial ${perc}% off`);
+  }
+}
+
+function renderFidelidadeCardsGrid(search = '') {
+  const container = document.getElementById('fidelidade-cards-grid');
+  if (!container) return;
+
+  const query = (search || '').toLowerCase();
+  const list = clientsList.filter(c => c.name.toLowerCase().includes(query) || (c.phone || '').includes(query));
+
+  container.innerHTML = list.map(c => {
+    const f = getClientFidelity(c.id);
+    return generateFidelityCardHTML(c, f);
+  }).join('');
+}
+
+function renderClientProfileFidelity(clientId) {
+  const container = document.getElementById('profile-fidelidade-card-container');
+  if (!container) return;
+  const client = clientsList.find(c => c.id === clientId);
+  if (!client) return;
+  const f = getClientFidelity(clientId);
+  container.innerHTML = generateFidelityCardHTML(client, f);
 }

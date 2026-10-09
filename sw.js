@@ -4,6 +4,7 @@ const CACHE_NAME = 'depilclear-offline-v2';
 const LOCAL_ASSETS = [
   '/',
   '/index.html',
+  '/caixa.html',
   '/style.css',
   '/app.js',
   '/logo.png'

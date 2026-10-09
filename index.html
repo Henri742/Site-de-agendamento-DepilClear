@@ -159,7 +159,29 @@
     
     <!-- Sidebar Desktop -->
     <aside id="app-sidebar" class="w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
-      
+      <!-- NOVA ABA: RELATÓRIOS GERENCIAIS -->
+        <button onclick="switchTab('relatorios')" id="nav-relatorios" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-gold"></i>
+          <span>Relatórios &amp; Desempenho</span>
+        </button>
+
+        <!-- NOVA ABA: CARTÃO FIDELIDADE -->
+        <button onclick="switchTab('fidelidade')" id="nav-fidelidade" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i>
+          <span>Cartão Fidelidade</span>
+          <span id="badge-fidelidade-completos" class="ml-auto text-[10px] bg-brand-violet/20 text-brand-violet font-bold px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <!-- ATALHO: ABRIR FRENTE DE CAIXA / NOTA MANUAL -->
+        <div class="pt-2 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
+          <a href="caixa.html" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20 transition-all">
+            <span class="flex items-center gap-2">
+              <i data-lucide="receipt" class="w-4 h-4"></i> Frente de Caixa (PDV)
+            </span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
+          </a>
+        </div>
+
       <!-- Brand Sidebar Header -->
       <div class="p-4 py-5 border-b border-brand-lightBorder dark:border-brand-darkBorder flex flex-col items-center justify-center relative bg-brand-lightCard/30 dark:bg-brand-darkCard/20">
         <img 
@@ -817,6 +839,84 @@
           </div>
         </section>
 
+        <!-- SECTION 9: RELATÓRIOS GERENCIAIS -->
+        <section id="section-relatorios" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Relatórios de Atendimento &amp; Vendas</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Totalização por período de serviços, ranking de profissionais e faturamento bruto.</p>
+            </div>
+            <button onclick="window.print()" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 hover:border-brand-gold">
+              <i data-lucide="printer" class="w-4 h-4 text-brand-gold"></i> Imprimir Relatório
+            </button>
+          </div>
+
+          <!-- Filtro de Período -->
+          <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="font-bold text-slate-400">De:</span>
+              <input type="date" id="rep-start-date" class="bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono outline-none">
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="font-bold text-slate-400">Até:</span>
+              <input type="date" id="rep-end-date" class="bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono outline-none">
+            </div>
+            <button onclick="generateBusinessReport()" class="px-5 py-2 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-xl shadow transition-all">
+              Filtrar Relatório
+            </button>
+          </div>
+
+          <!-- Cards de Métricas do Período -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Clientes no Período</span>
+              <span id="rep-total-clients" class="text-2xl font-black text-slate-900 dark:text-white">0</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Procedimentos Executados</span>
+              <span id="rep-total-services" class="text-2xl font-black text-brand-gold">0</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Profissional Destaque</span>
+              <span id="rep-top-pro" class="text-sm font-black text-brand-violet truncate block mt-1">-</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Faturado</span>
+              <span id="rep-total-amount" class="text-2xl font-black text-emerald-500">R$ 0,00</span>
+            </div>
+          </div>
+
+          <!-- Tabelas de Procedimentos e Profissionais -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-md">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white mb-3">Volume por Procedimento</h3>
+              <div id="rep-services-breakdown" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-md">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white mb-3">Produção por Depiladora</h3>
+              <div id="rep-pro-breakdown" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- SECTION 10: GESTÃO GERAL DE CARTÃO FIDELIDADE -->
+        <section id="section-fidelidade" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cartões Fidelidade (10 Selos)</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Cada atendimento concluído ou indicação gera 1 selo. Ao completar 10, o resgate é liberado no PDV.</p>
+            </div>
+          </div>
+
+          <div class="p-3 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl">
+            <input type="text" id="fidelidade-search-input" oninput="renderFidelidadeCardsGrid(this.value)" placeholder="Buscar cliente por nome ou WhatsApp para ver o cartão virtual..." class="w-full px-4 py-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white outline-none">
+          </div>
+
+          <div id="fidelidade-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -1252,7 +1352,11 @@
           Dados Cadastrais
         </button>
         <button id="profile-tab-btn-historico" onclick="switchProfileTab('historico')" class="px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all">
-          Histórico de Procedimentos
+          Histórico
+        </button>
+        <!-- NOVA ABA NO PERFIL -->
+        <button id="profile-tab-btn-fidelidade" onclick="switchProfileTab('fidelidade')" class="px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all">
+          Cartão Fidelidade
         </button>
       </div>
 
@@ -1302,6 +1406,12 @@
           <div id="profile-appointments-timeline" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
         </div>
       </div>
+
+      <!-- CONTEÚDO DA ABA CARTÃO FIDELIDADE NO PERFIL -->
+      <div id="profile-tab-content-fidelidade" class="hidden space-y-4">
+        <div id="profile-fidelidade-card-container"></div>
+      </div>
+
     </div>
   </div>
 
