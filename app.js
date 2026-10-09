@@ -780,8 +780,63 @@ function showCustomContextMenu(event, type, id) {
 }
 
 function closeContextMenu() {
-  document.getElementById('custom-context-menu')?.classList.add('hidden');
+  const menu = document.getElementById('custom-context-menu');
+  if (menu) menu.classList.add('hidden');
 }
+
+// Ouvinte global para clique com botão direito no index.html
+window.addEventListener('contextmenu', (e) => {
+  // Se for campo de digitação, preserva o comportamento nativo (copiar/colar)
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  e.preventDefault();
+
+  const menu = document.getElementById('custom-context-menu');
+  const content = document.getElementById('custom-context-menu-content');
+  if (!menu || !content) return;
+
+  content.innerHTML = `
+    <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+      Opções do Sistema
+    </div>
+    <div class="py-1.5 space-y-0.5">
+      <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
+      </button>
+      <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Cadastrar Cliente
+      </button>
+      <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Cadastrar Serviço
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('fidelidade');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
+      </button>
+      <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa (PDV)
+      </button>
+    </div>
+  `;
+
+  lucide.createIcons({ root: content });
+
+  const posX = Math.min(e.clientX, window.innerWidth - 240);
+  const posY = Math.min(e.clientY, window.innerHeight - 300);
+
+  menu.style.left = `${posX}px`;
+  menu.style.top = `${posY}px`;
+  menu.classList.remove('hidden');
+}, true);
+
+// Fecha o menu ao clicar com o botão esquerdo fora dele
+window.addEventListener('click', (e) => {
+  const menu = document.getElementById('custom-context-menu');
+  if (menu && !menu.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
 
 function handleCancelAppointmentViaContext(appId) {
   const app = appointmentsList.find(a => a.id === appId);
