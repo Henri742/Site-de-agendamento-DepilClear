@@ -826,6 +826,7 @@ function handleCancelAppointmentViaContext(appId) {
  * VISÃO DA AGENDA
  * ======================================================== */
 function renderAgendaView() {
+  updateAgendaCounters(currentSelectedDate);
   const container = document.getElementById('agenda-list-container');
   const countBadge = document.getElementById('agenda-count-badge');
   const dateTitle = document.getElementById('agenda-date-title');
@@ -979,6 +980,7 @@ function renderAgendaView() {
  * MURAL DA RECEPÇÃO (FOLHA FÍSICA)
  * ======================================================== */
 function renderPhysicalReceptionSheet() {
+  updateMuralCounters();
   const thead = document.getElementById('physical-sheet-thead');
   const tbody = document.getElementById('physical-sheet-body');
   const headerDate = document.getElementById('sheet-header-print-date');
@@ -1146,7 +1148,16 @@ function handleUpdateAppointmentStatus(appId, newStatus) {
 
   app.status = newStatus;
   saveAllToLocalStorage();
-  showToast(`Status atualizado para: ${newStatus}`, 'success');
+  
+  if (newStatus === 'Confirmada') {
+    showToast(`✓ Agendamento de ${app.clientName} CONFIRMADO!`, 'success');
+  } else {
+    showToast(`Status atualizado para: ${newStatus}`, 'info');
+  }
+
+  // Aciona o disparo automático configurado para este estado
+  triggerWhatsAppWebhook(app, newStatus);
+
   renderAgendaView();
   renderPhysicalReceptionSheet();
 }
@@ -1689,6 +1700,44 @@ function selectTimeSlotInModal(time, count) {
 }
 
 /* ========================================================
+ * BUSCA AUTOMÁTICA DE ENDEREÇO VIA CEP (VIACEP)
+ * ======================================================== */
+async function buscarEnderecoPorCEP(cepValue) {
+  const cleanCep = (cepValue || '').replace(/\D/g, '');
+  if (cleanCep.length !== 8) return;
+
+  const loadingIndicator = document.getElementById('cep-loading');
+  if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    const data = await res.json();
+
+    if (!data.erro) {
+      const streetInput = document.getElementById('cli-street');
+      const neighInput = document.getElementById('cli-neighborhood');
+      const cityInput = document.getElementById('cli-city');
+      const stateInput = document.getElementById('cli-state');
+
+      if (streetInput) streetInput.value = data.logradouro || '';
+      if (neighInput) neighInput.value = data.bairro || '';
+      if (cityInput) cityInput.value = data.localidade || '';
+      if (stateInput) stateInput.value = (data.uf || '').toUpperCase();
+
+      document.getElementById('cli-number')?.focus();
+      showToast('Endereço carregado via CEP!', 'success');
+    } else {
+      showToast('CEP não encontrado.', 'warning');
+    }
+  } catch (err) {
+    console.warn('Erro ao consultar CEP:', err);
+  } finally {
+    if (loadingIndicator) loadingIndicator.classList.add('hidden');
+  }
+}
+
+
+/* ========================================================
  * CLIENTES & CPF
  * ======================================================== */
 function validateCPF(cpf) {
@@ -1733,15 +1782,26 @@ function openClientModal(id = null) {
   if (id) {
     const client = clientsList.find(c => c.id === id);
     if (client) {
-      document.getElementById('cli-name').value = client.name;
-      document.getElementById('cli-phone').value = client.phone;
-      document.getElementById('cli-cpf').value = client.cpf;
+      document.getElementById('cli-name').value = client.name || '';
+      document.getElementById('cli-phone').value = client.phone || '';
+      document.getElementById('cli-cpf').value = client.cpf || '';
       document.getElementById('cli-email').value = client.email || '';
       document.getElementById('cli-birth').value = client.birth || '';
       document.getElementById('cli-gender').value = client.gender || 'Feminino';
+
+      const addr = client.address || {};
+      document.getElementById('cli-cep').value = addr.cep || '';
+      document.getElementById('cli-street').value = addr.street || '';
+      document.getElementById('cli-number').value = addr.number || '';
+      document.getElementById('cli-neighborhood').value = addr.neighborhood || '';
+      document.getElementById('cli-reference').value = addr.reference || '';
+      document.getElementById('cli-city').value = addr.city || 'Maceió';
+      document.getElementById('cli-state').value = addr.state || 'AL';
     }
   } else {
     document.getElementById('form-client')?.reset();
+    document.getElementById('cli-city').value = 'Maceió';
+    document.getElementById('cli-state').value = 'AL';
   }
 
   document.getElementById('modal-client')?.classList.remove('hidden');
@@ -1758,19 +1818,40 @@ function handleSaveClient(e) {
   const birth = document.getElementById('cli-birth').value;
   const gender = document.getElementById('cli-gender').value;
 
+  const cep = document.getElementById('cli-cep').value.trim();
+  const street = document.getElementById('cli-street').value.trim();
+  const number = document.getElementById('cli-number').value.trim();
+  const neighborhood = document.getElementById('cli-neighborhood').value.trim();
+  const reference = document.getElementById('cli-reference').value.trim();
+  const city = document.getElementById('cli-city').value.trim();
+  const state = document.getElementById('cli-state').value.trim().toUpperCase();
+
+  const clientData = {
+    name,
+    phone,
+    cpf,
+    email,
+    birth,
+    gender,
+    address: {
+      cep,
+      street,
+      number,
+      neighborhood,
+      reference,
+      city,
+      state
+    }
+  };
+
   if (id) {
     const client = clientsList.find(c => c.id === id);
     if (client) {
-      client.name = name;
-      client.phone = phone;
-      client.cpf = cpf;
-      client.email = email;
-      client.birth = birth;
-      client.gender = gender;
+      Object.assign(client, clientData);
       showToast(`Cliente ${name} atualizado!`, 'success');
     }
   } else {
-    clientsList.push({ id: Date.now(), name, phone, cpf, email, birth, gender });
+    clientsList.push({ id: Date.now(), ...clientData });
     showToast(`Cliente ${name} cadastrado!`, 'success');
   }
 
@@ -2370,6 +2451,51 @@ function renderWhatsAppTemplatesList() {
 }
 
 /* ========================================================
+ * DISPARO SILENCIOSO DE WHATSAPP (VIA BACKEND /api/whatsapp)
+ * ======================================================== */
+async function triggerWhatsAppWebhook(app, triggerStatus) {
+  // Localiza o modelo ativo correspondente ao estado
+  const activeTpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active);
+  if (!activeTpl || !app.phone) return;
+
+  const [y, m, d] = (app.date || '').split('-');
+  const dateFormatted = `${d}/${m}/${y}`;
+
+  // Substituição das variáveis dinâmicas do modelo
+  let msg = activeTpl.text
+    .replace(/{nome}/g, app.clientName)
+    .replace(/{data}/g, dateFormatted)
+    .replace(/{horario}/g, app.time)
+    .replace(/{servico}/g, app.serviceName)
+    .replace(/{profissional}/g, app.professional)
+    .replace(/{valor}/g, Number(app.price).toFixed(2))
+    .replace(/{empresa}/g, companyConfig.name)
+    .replace(/{endereco}/g, `${companyConfig.street}, ${companyConfig.number} - ${companyConfig.bairro}`);
+
+  try {
+    const resposta = await fetch('/api/whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: app.phone,
+        message: msg
+      })
+    });
+
+    const resultado = await resposta.json();
+
+    if (resultado.sucesso) {
+      showToast(`📲 WhatsApp enviado para ${app.clientName}!`, 'success');
+    } else {
+      console.warn('Falha no envio do WhatsApp:', resultado);
+    }
+  } catch (err) {
+    console.error('Erro na requisição do WhatsApp:', err);
+  }
+}
+
+
+/* ========================================================
  * EXPORTAÇÃO EXCEL (.XLSX) COM ESTILOS
  * ======================================================== */
 function handleGenerateMultiSheetExcel(event) {
@@ -2790,3 +2916,29 @@ window.onload = function() {
       .catch((err) => console.error('Falha ao registar o Service Worker:', err));
   }
 };
+
+/* ========================================================
+ * CONTADORES DINÂMICOS (AGENDA E MURAL)
+ * ======================================================== */
+function updateAgendaCounters(selectedDate) {
+  const agendamentosDoDia = appointmentsList.filter(a => a.date === selectedDate && a.status !== 'Cancelado');
+  const totalAgendadas = agendamentosDoDia.filter(a => a.status === 'Agendado' || a.status === 'Confirmada').length;
+  const totalConfirmadas = agendamentosDoDia.filter(a => a.status === 'Confirmada').length;
+
+  const badgeAgendadas = document.getElementById('badge-total-agendadas');
+  const badgeConfirmadas = document.getElementById('badge-total-confirmadas');
+
+  if (badgeAgendadas) badgeAgendadas.textContent = `${totalAgendadas} agendada(s)`;
+  if (badgeConfirmadas) badgeConfirmadas.textContent = `${totalConfirmadas} confirmada(s)`;
+}
+
+function updateMuralCounters() {
+  const totalClientes = clientsList.length;
+  const confirmadasData = appointmentsList.filter(a => a.date === currentSelectedDate && a.status === 'Confirmada').length;
+
+  const totalEl = document.getElementById('mural-total-clientes');
+  const confirmadasEl = document.getElementById('mural-confirmadas-hoje');
+
+  if (totalEl) totalEl.textContent = totalClientes;
+  if (confirmadasEl) confirmadasEl.textContent = confirmadasData;
+}

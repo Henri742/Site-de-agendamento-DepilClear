@@ -383,22 +383,34 @@
                   <button type="button" onclick="resetAgendaMultiFilters()" class="text-[10px] text-brand-gold hover:underline font-bold">Limpar Filtros</button>
                 </div>
 
-                <!-- Filtro por Período de Datas (Início e Fim) -->
+                <!-- SUBSTITUA O BLOCO: "Filtro por Período de Datas" POR ESTE: -->
                 <div>
-                  <label class="flex items-center justify-between text-xs cursor-pointer mb-1.5">
-                    <span class="font-bold text-brand-gold">Filtrar por Período de Datas</span>
-                    <input type="checkbox" id="filter-date-range-cb" onchange="handleDateRangeCheckboxChange()" class="rounded border-brand-gold text-brand-gold">
-                  </label>
-                  <div id="filter-date-range-inputs" class="hidden space-y-1.5 pt-1">
+                  <div class="flex items-center justify-between mb-2 pb-1 border-b border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
+                    <span class="text-xs font-bold text-brand-gold flex items-center gap-1.5">
+                      <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i> Período (Dia X até Dia Y)
+                    </span>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <input type="checkbox" id="filter-date-range-cb" onchange="handleDateRangeCheckboxChange()" class="rounded border-brand-gold text-brand-gold focus:ring-0">
+                      <span>Ativar</span>
+                    </label>
+                  </div>
+                  
+                  <div id="filter-date-range-inputs" class="hidden space-y-2.5 pt-1">
                     <div class="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <span class="text-[10px] text-slate-400 block font-semibold mb-0.5">Data Inicial:</span>
-                        <input type="date" id="filter-date-start" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-1.5 text-slate-900 dark:text-white">
+                        <label for="filter-date-start" class="text-[10px] text-slate-400 block font-semibold mb-1">Do dia (Início):</label>
+                        <input type="date" id="filter-date-start" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono focus:border-brand-gold outline-none">
                       </div>
                       <div>
-                        <span class="text-[10px] text-slate-400 block font-semibold mb-0.5">Data Final:</span>
-                        <input type="date" id="filter-date-end" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-1.5 text-slate-900 dark:text-white">
+                        <label for="filter-date-end" class="text-[10px] text-slate-400 block font-semibold mb-1">Até ao dia (Fim):</label>
+                        <input type="date" id="filter-date-end" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono focus:border-brand-gold outline-none">
                       </div>
+                    </div>
+                    
+                    <div class="flex gap-1.5 pt-1">
+                      <button type="button" onclick="setQuickDateRange('today')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Hoje</button>
+                      <button type="button" onclick="setQuickDateRange('week')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Esta Semana</button>
+                      <button type="button" onclick="setQuickDateRange('month')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Este Mês</button>
                     </div>
                   </div>
                 </div>
@@ -454,11 +466,19 @@
           <!-- Grade Principal -->
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div class="lg:col-span-8 space-y-4">
-              <div class="flex items-center justify-between px-2">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-2">
                 <span id="agenda-date-title" class="text-sm font-bold text-brand-gold flex items-center gap-2">
                   <i data-lucide="calendar-days" class="w-4 h-4"></i> Agendamentos do Dia
                 </span>
-                <span id="agenda-count-badge" class="text-xs text-slate-500 dark:text-slate-400 font-semibold">0 resultado(s)</span>
+                <div class="flex items-center gap-2">
+                  <span id="badge-total-agendadas" class="px-2.5 py-0.5 text-[11px] font-bold rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
+                    0 agendada(s)
+                  </span>
+                  <span id="badge-total-confirmadas" class="px-2.5 py-0.5 text-[11px] font-bold rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30">
+                    0 confirmada(s)
+                  </span>
+                  <span id="agenda-count-badge" class="text-xs text-slate-500 dark:text-slate-400 font-semibold ml-1">0 resultado(s)</span>
+                </div>
               </div>
 
               <div id="agenda-list-container" class="space-y-3">
@@ -511,6 +531,29 @@
         <!-- SECTION 3: MURAL DA RECEPÇÃO -->
         <section id="section-recepcao" class="tab-pane hidden space-y-6">
           <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl space-y-4">
+            
+            <!-- CONTADORES DO MURAL -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block">Total de Clientes</span>
+                  <span id="mural-total-clientes" class="text-lg font-black text-brand-gold">0</span>
+                </div>
+                <div class="p-2 rounded-xl bg-brand-gold/10 text-brand-gold">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="p-3 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block">Confirmadas na Data</span>
+                  <span id="mural-confirmadas-hoje" class="text-lg font-black text-emerald-500">0</span>
+                </div>
+                <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                  <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                </div>
+              </div>
+            </div>
+
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div class="flex items-center gap-2">
@@ -917,28 +960,34 @@
     </div>
   </div>
 
-  <!-- MODAL: CLIENTE -->
+  <!-- MODAL: CLIENTE COMPLETO -->
   <div id="modal-client" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
-      <button onclick="closeModal('modal-client')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-2xl rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button type="button" onclick="closeModal('modal-client')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
 
       <div class="mb-4">
         <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Cadastro de Cliente</span>
         <h3 id="modal-client-title" class="text-lg font-black text-slate-900 dark:text-white">Novo Cliente</h3>
-        <p class="text-xs text-brand-lightMuted dark:text-slate-400">Validação matemática oficial do CPF e separação Feminino / Masculino.</p>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400">Preencha os dados completos e o CEP para preenchimento automático do endereço.</p>
       </div>
 
       <form id="form-client" onsubmit="handleSaveClient(event)" class="space-y-3.5">
         <input type="hidden" id="cli-edit-id">
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
-          <input type="text" id="cli-name" required placeholder="Ex: Sandra Ramos da Silva" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
+            <input type="text" id="cli-name" required placeholder="Ex: Sandra Ramos da Silva" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nascimento *</label>
+            <input type="date" id="cli-birth" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">WhatsApp *</label>
             <input type="tel" id="cli-phone" required placeholder="82987223360" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
@@ -948,6 +997,13 @@
             <input type="text" id="cli-cpf" maxlength="14" onblur="validateCPFInputUI(this)" placeholder="000.000.000-00" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
             <span id="cpf-validation-feedback" class="text-[10px] mt-0.5 block font-semibold"></span>
           </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sexo *</label>
+            <select id="cli-gender" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+              <option value="Feminino">Feminino</option>
+              <option value="Masculino">Masculino</option>
+            </select>
+          </div>
         </div>
 
         <div>
@@ -955,17 +1011,47 @@
           <input type="email" id="cli-email" placeholder="cliente@email.com" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-brand-gold mb-2">Endereço Residencial</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data de Nascimento</label>
-            <input type="date" id="cli-birth" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CEP</label>
+            <div class="relative">
+              <input type="text" id="cli-cep" maxlength="9" onblur="buscarEnderecoPorCEP(this.value)" placeholder="00000-000" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+              <span id="cep-loading" class="hidden absolute right-3 top-2.5 text-[10px] font-bold text-brand-violet">Buscando...</span>
+            </div>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Rua / Logradouro</label>
+            <input type="text" id="cli-street" placeholder="Rua das Flores" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Número</label>
+            <input type="text" id="cli-number" placeholder="123 ou S/N" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sexo *</label>
-            <select id="cli-gender" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
-              <option value="Feminino">Feminino</option>
-              <option value="Masculino">Masculino</option>
-            </select>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Bairro</label>
+            <input type="text" id="cli-neighborhood" placeholder="Centro" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Ponto de Referência</label>
+            <input type="text" id="cli-reference" placeholder="Próximo à padaria" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Cidade</label>
+            <input type="text" id="cli-city" placeholder="Maceió" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado (UF)</label>
+            <input type="text" id="cli-state" maxlength="2" placeholder="AL" class="uppercase w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
           </div>
         </div>
 
