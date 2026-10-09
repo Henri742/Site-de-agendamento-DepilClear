@@ -237,7 +237,11 @@ async function handleLoginSubmit(event) {
     localStorage.setItem('depilclear_active_user', dados.usuario.email);
 
     document.getElementById('view-login')?.classList.add('hidden');
-    document.getElementById('view-dashboard')?.classList.remove('hidden');
+    const dash = document.getElementById('view-dashboard');
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.classList.add('flex');
+    }
 
     const userDisplay = document.getElementById('user-display-email');
     if (userDisplay) userDisplay.innerText = dados.usuario.email;
@@ -2677,17 +2681,44 @@ window.addEventListener('offline', () => {
   showToast('Você está offline. O sistema continua gravando normalmente no disco local.', 'warning');
 });
 
+// Função para verificar sessão existente
+function checkUserSession() {
+  const token = localStorage.getItem('depilclear_jwt_token');
+  const user = localStorage.getItem('depilclear_active_user');
+
+  if (token && user) {
+    document.getElementById('view-login')?.classList.add('hidden');
+    document.getElementById('view-dashboard')?.classList.remove('hidden');
+
+    const userDisplay = document.getElementById('user-display-email');
+    if (userDisplay) userDisplay.innerText = user;
+
+    initCalendar();
+    renderAllViews();
+    lucide.createIcons();
+    return true;
+  }
+
+  document.getElementById('view-login')?.classList.add('hidden');
+  const dash = document.getElementById('view-dashboard');
+  if (dash) {
+    dash.classList.remove('hidden');
+    dash.classList.add('flex');
+  }
+  return false;
+}
+
+// Inicialização da aplicação
 window.onload = function() {
   loadAllFromLocalStorage();
 
-  // Aplica o tema guardado
+  // Aplica o tema previamente selecionado
   if (localStorage.getItem('depilclear_theme') === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
 
-  // Verifica se o utilizador está autenticado ou se deve mostrar o login
   checkUserSession();
   lucide.createIcons();
 };
