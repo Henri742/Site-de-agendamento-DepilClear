@@ -1,13 +1,13 @@
-import pg from 'pg';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const { Client } = pg;
-
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ndzmpnqpokdsvizskkpd.supabase.co';
+// A Service Role Key ou Anon Key pública do seu projeto Supabase
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'chave-secreta-depilclear-2026';
 
 export default async function handler(req, res) {
-  // Configura headers CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -23,51 +23,48 @@ export default async function handler(req, res) {
   const { email, password } = req.body || {};
 
   if (!email || !password) {
-    return res.status(400).json({ erro: 'Preencha o e-mail e a senha.' });
+    return res.status(400).json({ erro: 'Preencha o e-mail e a palavra-passe.' });
   }
 
-  const dbUrl = process.env.DATABASE_URL;
-
-  if (!dbUrl) {
-    console.error('ERRO: Vercel não possui DATABASE_URL configurada nas Environment Variables!');
-    return res.status(500).json({ erro: 'Variável de banco de dados não configurada na Vercel.' });
+  if (!SUPABASE_KEY) {
+    return res.status(500).json({ erro: 'Chave de acesso ao Supabase em falta nas variáveis da Vercel.' });
   }
-
-  // Cria cliente direto sob demanda para Serverless
-  const client = new Client({
-    connectionString: dbUrl,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 8000
-  });
 
   try {
-    await client.connect();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false }
+    });
 
     const sanitizedEmail = email.trim().toLowerCase();
-    const query = 'SELECT id, nome, email, senha_hash, funcao FROM usuarios WHERE LOWER(email) = \$1 LIMIT 1';
-    const result = await client.query(query, [sanitizedEmail]);
 
-    if (result.rows.length === 0) {
-      await client.end();
-      return res.status(401).json({ erro: 'E-mail ou senha incorretos.' });
+    // Consulta à tabela de utilizadores por HTTPS
+    const { data: usuarios, error } = await supabase
+      .from('usuarios')
+      .select('id, nome, email, senha_hash, funcao')
+      .ilike('email', sanitizedEmail)
+      .limit(1);
+
+    if (error) {
+      console.error('Erro ao consultar Supabase:', error);
+      return res.status(500).json({ erro: `Erro no Supabase: ${error.message}` });
     }
 
-    const usuario = result.rows[0];
+    if (!usuarios || usuarios.length === 0) {
+      return res.status(401).json({ erro: 'E-mail ou palavra-passe incorretos.' });
+    }
+
+    const usuario = usuarios[0];
     const senhaValida = await bcrypt.compare(password, usuario.senha_hash);
 
     if (!senhaValida) {
-      await client.end();
-      return res.status(401).json({ erro: 'E-mail ou senha incorretos.' });
+      return res.status(401).json({ erro: 'E-mail ou palavra-passe incorretos.' });
     }
 
-    // Registra último login
-    try {
-      await client.query('UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE id = \$1', [usuario.id]);
-    } catch (ignoreErr) {
-      // Ignora erro secundário de log
-    }
-
-    await client.end();
+    // Registo de último acesso
+    await supabase
+      .from('usuarios')
+      .update({ ultimo_login: new Date().toISOString() })
+      .eq('id', usuario.id);
 
     const token = jwt.sign(
       { userId: usuario.id, nome: usuario.nome, email: usuario.email, funcao: usuario.funcao },
@@ -80,10 +77,8 @@ export default async function handler(req, res) {
       token,
       usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, funcao: usuario.funcao }
     });
-
   } catch (err) {
-    console.error('Erro de conexão detalhado:', err);
-    try { await client.end(); } catch (e) {}
-    return res.status(500).json({ erro: `Erro ao conectar no banco: ${err.message || 'Falha de conexão'}` });
+    console.error('Exceção no login:', err);
+    return res.status(500).json({ erro: `Falha interna: ${err.message || 'Erro desconhecido'}` });
   }
 }
