@@ -1,25 +1,31 @@
-const CACHE_NAME = 'depilclear-cache-v1';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './style.css',
-  './app.js',
-  './logo.png',
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/lucide@latest',
-  'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+const CACHE_NAME = 'depilclear-offline-v2';
+
+// Ficheiros locais estritamente essenciais da sua aplicação
+const LOCAL_ASSETS = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/logo.png'
 ];
 
-// Instalação do Service Worker e gravação dos ficheiros em cache
+// Instalação: grava os arquivos locais sem deixar o processo falhar
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const asset of LOCAL_ASSETS) {
+        try {
+          await cache.add(asset);
+        } catch (err) {
+          console.warn(`Não foi possível salvar o recurso ${asset} no cache:`, err);
+        }
+      }
+    })
   );
 });
 
-// Ativação e limpeza de caches antigas
+// Ativação: assume o controlo imediato das abas abertas
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -34,28 +40,52 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Interceção de pedidos de rede: responde com a cache caso não haja internet
+// Interceção de pedidos de rede
 self.addEventListener('fetch', (event) => {
-  // Ignora chamadas de API (como o login) para não colocar credenciais em cache
-  if (event.request.url.includes('/api/')) {
+  const request = event.request;
+
+  // Ignora chamadas de API do servidor (login)
+  if (request.url.includes('/api/')) {
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // Se a rede estiver online, atualiza a cache com o ficheiro mais recente
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
+  // Se o utilizador estiver a recarregar a página ou a aceder à raiz
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put('/index.html', responseClone);
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          // OFFLINE: devolve o index.html guardado para não dar tela de dinossauro
+          return caches.match('/index.html') || caches.match('/');
+        })
+    );
+    return;
+  }
+
+  // Para estilos, imagens e scripts: tenta a cache primeiro; se não tiver, busca na rede
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseClone);
           });
         }
         return networkResponse;
-      })
-      .catch(() => {
-        // Sem internet: devolve o ficheiro que já está guardado em cache
-        return caches.match(event.request);
-      })
+      }).catch(() => {
+        // Recurso sem rede e sem cache prévio
+        return new Response('', { status: 408, statusText: 'Offline' });
+      });
+    })
   );
 });
