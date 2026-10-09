@@ -55,7 +55,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 
-<body class="bg-brand-lightBg dark:bg-brand-darkBg text-brand-lightText dark:text-slate-100 font-sans min-h-screen antialiased flex flex-col selection:bg-brand-violet selection:text-white transition-colors duration-200">
+<!-- SUBSTITUA A LINHA DO <body> POR ESTA: -->
+<body class="bg-brand-lightBg dark:bg-brand-darkBg text-brand-lightText dark:text-slate-100 font-sans min-h-screen antialiased selection:bg-brand-violet selection:text-white transition-colors duration-200 m-0 p-0 overflow-x-hidden">
 
   <!-- Toast Notification Wrapper -->
   <div id="toast-wrapper" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3"></div>
@@ -154,10 +155,10 @@
   <!-- ========================================== -->
   <!-- 2. PAINEL PRINCIPAL (DASHBOARD)            -->
   <!-- ========================================== -->
-  <div id="view-dashboard" class="hidden h-screen w-full flex flex-col md:flex-row overflow-hidden">
+  <div id="view-dashboard" class="hidden w-full h-screen flex-col md:flex-row overflow-hidden">
     
     <!-- Sidebar Desktop -->
-    <aside id="app-sidebar" class="w-full md:w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
+    <aside id="app-sidebar" class="w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
       
       <!-- Brand Sidebar Header -->
       <div class="p-4 py-5 border-b border-brand-lightBorder dark:border-brand-darkBorder flex flex-col items-center justify-center relative bg-brand-lightCard/30 dark:bg-brand-darkCard/20">
