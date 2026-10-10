@@ -1,6 +1,6 @@
-const CACHE_NAME = 'depilclear-offline-v2';
+// Service Worker - DepilClear (offline-first para o sistema de agendamentos)
+const CACHE_NAME = 'depilclear-offline-v3';
 
-// Ficheiros locais estritamente essenciais da sua aplicação
 const LOCAL_ASSETS = [
   '/',
   '/index.html',
@@ -12,83 +12,110 @@ const LOCAL_ASSETS = [
   '/logo.png'
 ];
 
-// Instalação: grava os arquivos locais sem deixar o processo falhar
+// Bibliotecas externas das quais as telas dependem (sem elas o layout quebra offline)
+const CDN_HOSTS = [
+  'cdn.tailwindcss.com',
+  'unpkg.com',
+  'cdn.jsdelivr.net',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com'
+];
+
+const CDN_ASSETS = [
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/lucide@latest',
+  'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+];
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       for (const asset of LOCAL_ASSETS) {
-        try {
-          await cache.add(asset);
-        } catch (err) {
-          console.warn(`Não foi possível salvar o recurso ${asset} no cache:`, err);
-        }
+        try { await cache.add(asset); }
+        catch (err) { console.warn(`Não foi possível salvar ${asset}:`, err); }
+      }
+      // CDNs: no-cors gera resposta "opaque", suficiente para <script> e <link>
+      for (const url of CDN_ASSETS) {
+        try { await cache.add(new Request(url, { mode: 'no-cors' })); }
+        catch (err) { console.warn(`Não foi possível salvar ${url}:`, err); }
       }
     })
   );
 });
 
-// Ativação: assume o controlo imediato das abas abertas
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Interceção de pedidos de rede
+function isCacheable(response) {
+  return response && (response.status === 200 || response.type === 'opaque');
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  const url = new URL(request.url);
 
-  // Ignora chamadas de API do servidor (login)
-  if (request.url.includes('/api/')) {
-    return;
-  }
+  // Só intercepta GET; APIs (login, WhatsApp, fidelidade) sempre vão direto à rede
+  if (request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
 
-  // Se o utilizador estiver a recarregar a página ou a aceder à raiz
+  // Navegação entre páginas: rede primeiro; cada página é guardada na SUA própria URL
+  // (antes, abrir o caixa sobrescrevia o index.html no cache)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put('/index.html', responseClone);
-          });
+          if (isCacheable(networkResponse)) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return networkResponse;
         })
-        .catch(() => {
-          // OFFLINE: devolve o index.html guardado para não dar tela de dinossauro
-          return caches.match('/index.html') || caches.match('/');
+        .catch(async () => {
+          const cached = await caches.match(request, { ignoreSearch: true });
+          if (cached) return cached;
+          const fallback = url.pathname.endsWith('caixa.html')
+            ? await caches.match('/caixa.html')
+            : await caches.match('/index.html');
+          return fallback || (await caches.match('/')) || new Response('Offline', { status: 503 });
         })
     );
     return;
   }
 
-  // Para estilos, imagens e scripts: tenta a cache primeiro; se não tiver, busca na rede
+  // CDNs e fontes: usa o cache e atualiza em segundo plano
+  if (CDN_HOSTS.includes(url.hostname)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const network = fetch(request)
+          .then((res) => {
+            if (isCacheable(res)) {
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // Arquivos locais: rede primeiro (pega atualizações do app.js), cache se estiver offline
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+    fetch(request)
+      .then((res) => {
+        if (isCacheable(res)) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
-        return networkResponse;
-      }).catch(() => {
-        // Recurso sem rede e sem cache prévio
-        return new Response('', { status: 408, statusText: 'Offline' });
-      });
-    })
+        return res;
+      })
+      .catch(() => caches.match(request).then((c) => c || new Response('', { status: 408, statusText: 'Offline' })))
   );
 });

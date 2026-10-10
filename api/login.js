@@ -47,6 +47,15 @@ function clearAttempts(ip) {
   loginAttempts.delete(ip);
 }
 
+// "_" e "%" são curingas no ILIKE: escapa para o e-mail ser comparado literalmente
+// (ex.: maria_silva@x.com não pode casar com mariaXsilva@x.com)
+function escapeLike(value) {
+  return value.replace(/[\\%_]/g, (ch) => '\\' + ch);
+}
+
+// Hash falso para gastar o mesmo tempo quando o e-mail não existe (evita descobrir e-mails válidos pelo tempo de resposta)
+const DUMMY_HASH = bcrypt.hashSync('senha-falsa-para-igualar-tempo', 10);
+
 export default async function handler(req, res) {
   // Identifica o IP do cliente de forma segura
   const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
@@ -108,7 +117,7 @@ export default async function handler(req, res) {
     const { data: usuarios, error } = await supabase
       .from('usuarios')
       .select('id, nome, email, senha_hash, funcao')
-      .ilike('email', sanitizedEmail)
+      .ilike('email', escapeLike(sanitizedEmail))
       .limit(1);
 
     if (error) {
@@ -117,6 +126,7 @@ export default async function handler(req, res) {
     }
 
     if (!usuarios || usuarios.length === 0) {
+      await bcrypt.compare(cleanPassword, DUMMY_HASH);
       recordFailedAttempt(clientIp);
       return res.status(401).json({ erro: 'Credenciais inválidas.' });
     }

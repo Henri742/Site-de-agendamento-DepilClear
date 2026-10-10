@@ -1,8 +1,8 @@
-\# DepilClear Women \& Men - Sandra Ramos
+\# DepilClear Women & Men - Sandra Ramos
 
 
 
-Sistema web integrado para gerenciamento operacional de atendimentos, recepção e agendamentos da clínica \*\*DepilClear Women \& Men - Sandra Ramos\*\*.
+Sistema web integrado para gerenciamento operacional de atendimentos, recepção e agendamentos da clínica **DepilClear Women & Men - Sandra Ramos**.
 
 
 
@@ -10,7 +10,7 @@ Desenvolvido para oferecer controle de horários em intervalos de 15 minutos, mu
 
 
 
-\---
+---
 
 
 
@@ -18,51 +18,51 @@ Desenvolvido para oferecer controle de horários em intervalos de 15 minutos, mu
 
 
 
-\* \*\*Mural Físico da Recepção (Planilha Interativa):\*\*
+* **Mural Físico da Recepção (Planilha Interativa):**
 
-&#x20; \* Grade diária das 08:00 às 18:00 com autoajuste dinâmico de colunas para comportar múltiplos clientes simultâneos no mesmo horário.
+ * Grade diária das 08:00 às 18:00 com autoajuste dinâmico de colunas para comportar múltiplos clientes simultâneos no mesmo horário.
 
-&#x20; \* Marcação visual de presença em 1 clique (destaque em verde suave).
+ * Marcação visual de presença em 1 clique (destaque em verde suave).
 
-&#x20; \* Classificação e ordenação prioritária de procedimentos por categoria (Epilação e Estética corporal).
+ * Classificação e ordenação prioritária de procedimentos por categoria (Epilação e Estética corporal).
 
-\* \*\*Gestão de Agendamentos \& Calendário:\*\*
+* **Gestão de Agendamentos & Calendário:**
 
-&#x20; \* Calendário integrado mensal com visão de ocupação por slot.
+ * Calendário integrado mensal com visão de ocupação por slot.
 
-&#x20; \* Busca inteligente e tolerante a digitação no histórico completo de clientes.
+ * Busca inteligente e tolerante a digitação no histórico completo de clientes.
 
-&#x20; \* Filtros avançados combinados por status, gênero, clientes inativas (>3 meses) e período de datas (Data Inicial e Final).
+ * Filtros avançados combinados por status, gênero, clientes inativas (>3 meses) e período de datas (Data Inicial e Final).
 
-&#x20; \* Identificação de primeiro atendimento com tag "1ª vez".
+ * Identificação de primeiro atendimento com tag "1ª vez".
 
-\* \*\*Exportação Profissional (.xlsx \& Imagem):\*\*
+* **Exportação Profissional (.xlsx & Imagem):**
 
-&#x20; \* Geração de planilhas Excel (`.xlsx`) com estilos nativos, cores e bordas contínuas utilizando `xlsx-js-style`, divididas em abas diárias individuais.
+ * Geração de planilhas Excel (`.xlsx`) com estilos nativos, cores e bordas contínuas utilizando `xlsx-js-style`, divididas em abas diárias individuais.
 
-&#x20; \* Renderização direta do mural em imagem de alta definição para envio rápido via WhatsApp Web ou download em PNG.
+ * Renderização direta do mural em imagem de alta definição para envio rápido via WhatsApp Web ou download em PNG.
 
-\* \*\*Resiliência e Operação Offline:\*\*
+* **Resiliência e Operação Offline:**
 
-&#x20; \* Persistência de dados consolidada diretamente no disco local via `localStorage`.
+ * Persistência de dados consolidada diretamente no disco local via `localStorage`.
 
-&#x20; \* Detecção dinâmica de status de rede (`Online` / `Modo Offline`).
+ * Detecção dinâmica de status de rede (`Online` / `Modo Offline`).
 
-&#x20; \* Preservação integral dos dados mesmo mediante oscilações de conexão ou desligamento repentino.
+ * Preservação integral dos dados mesmo mediante oscilações de conexão ou desligamento repentino.
 
-\* \*\*Automação \& Customização:\*\*
+* **Automação & Customização:**
 
-&#x20; \* Gerenciador de templates de mensagens de WhatsApp com variáveis dinâmicas (`{nome}`, `{data}`, `{horario}`, `{servico}`, etc.).
+ * Gerenciador de templates de mensagens de WhatsApp com variáveis dinâmicas (`{nome}`, `{data}`, `{horario}`, `{servico}`, etc.).
 
-&#x20; \* Cadastro de equipe de profissionais com avatar personalizado.
+ * Cadastro de equipe de profissionais com avatar personalizado.
 
-&#x20; \* Paleta de 20 tons pastéis para harmonização de categorias no mural.
+ * Paleta de 20 tons pastéis para harmonização de categorias no mural.
 
-&#x20; \* Alternância entre Modo Claro (Light) e Modo Escuro (Dark).
+ * Alternância entre Modo Claro (Light) e Modo Escuro (Dark).
 
 
 
-\---
+---
 
 
 
@@ -70,41 +70,47 @@ Desenvolvido para oferecer controle de horários em intervalos de 15 minutos, mu
 
 
 
-\* \*\*HTML5:\*\* Estrutura semântica e acessível.
+* **HTML5:** Estrutura semântica e acessível.
 
-\* \*\*CSS3 \& Tailwind CSS (CDN):\*\* Estilização utilitária, responsiva e suporte a tema escuro.
+* **CSS3 & Tailwind CSS (CDN):** Estilização utilitária, responsiva e suporte a tema escuro.
 
-\* \*\*JavaScript (ES6+):\*\* Lógica reativa modular, persistência local e renderização em Canvas.
+* **JavaScript (ES6+):** Lógica reativa modular, persistência local e renderização em Canvas.
 
-\* \*\*Lucide Icons:\*\* Conjunto de ícones vetoriais modernos.
+* **Lucide Icons:** Conjunto de ícones vetoriais modernos.
 
-\* \*\*SheetJS (xlsx-js-style):\*\* Motor de geração e estilização de arquivos de planilhas.
+* **SheetJS (xlsx-js-style):** Motor de geração e estilização de arquivos de planilhas.
 
 
 
-\---
+---
 
 
 
 \## 📂 Estrutura de Arquivos
 
-
-
 ```text
-
 depilclear-sistema/
+├── index.html         # Sistema de agendamentos (agenda, mural, clientes, fidelidade)
+├── app.js             # Lógica principal, persistência e utilitários
+├── style.css          # Estilos gerais, mural e impressão
+├── caixa.html         # Frente de Caixa (PDV)
+├── caixa.js           # Lógica do PDV (multi-pagamento, fidelidade, fechamento)
+├── caixa.css          # Estilos do PDV e cupom 80mm
+├── sw.js              # Service Worker (modo offline)
+├── logo.png           # Logotipo oficial
+├── package.json       # Dependências das funções serverless
+├── api/               # Funções serverless da Vercel
+│   ├── _auth.js       # CORS restrito + validação do token JWT (não vira rota)
+│   ├── login.js       # POST /api/login
+│   ├── whatsapp.js    # POST /api/whatsapp (exige login)
+│   └── fidelidade.js  # GET/POST/DELETE /api/fidelidade (exige login)
+└── README.md
+```
 
-├── index.html         # Estrutura principal da interface e modais
+## ⚙️ Variáveis de ambiente (Vercel)
 
-├── style.css          # Estilização visual, grid do mural e impressão
-
-├── app.js             # Lógica de negócio, persistência e controladores
-
-├── logo.png           # Logotipo oficial da marca DepilClear
-
-├── LICENSE            # Termos de direitos autorais e uso proprietário
-
-├── CONTRIBUTING.md    # Diretrizes de manutenção interna
-
-└── README.md          # Documentação geral do repositório
-
+| Variável | Uso |
+|---|---|
+| `JWT_SECRET` | Assinatura/validação do token de login (obrigatória) |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Banco de usuários e fidelidade |
+| `WPP_API_URL` / `WPP_API_TOKEN` / `WPP_INSTANCE` | Gateway de WhatsApp (sem elas, o envio é apenas simulado) |

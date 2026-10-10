@@ -1,11 +1,8 @@
 // api/whatsapp.js
+import { applyCors, requireAuth } from './_auth.js';
 
 export default async function handler(req, res) {
-  // Configurações de CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -15,10 +12,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ erro: 'Método não permitido.' });
   }
 
+  // Só usuários logados podem disparar mensagens (antes qualquer pessoa na internet podia)
+  const usuario = requireAuth(req, res);
+  if (!usuario) return;
+
   const { phone, message } = req.body || {};
 
-  if (!phone || !message) {
+  if (!phone || !message || typeof phone !== 'string' || typeof message !== 'string') {
     return res.status(400).json({ erro: 'Telefone e mensagem são obrigatórios.' });
+  }
+  if (message.length > 2000) {
+    return res.status(400).json({ erro: 'Mensagem muito longa.' });
   }
 
   // Higieniza o número: remove caracteres não numéricos
@@ -27,6 +31,9 @@ export default async function handler(req, res) {
   // Adiciona o DDI 55 (Brasil) caso não venha no número
   if (cleanPhone.length === 10 || cleanPhone.length === 11) {
     cleanPhone = '55' + cleanPhone;
+  }
+  if (cleanPhone.length < 12 || cleanPhone.length > 13) {
+    return res.status(400).json({ erro: 'Número de WhatsApp inválido.' });
   }
 
   // Variáveis de ambiente configuradas na Vercel

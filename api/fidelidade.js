@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { applyCors, requireAuth } from './_auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,11 +7,13 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  applyCors(req, res, 'GET, POST, DELETE, OPTIONS');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Esta rota usa a SERVICE ROLE KEY do Supabase: sem login, qualquer pessoa leria/apagaria os selos
+  const usuario = requireAuth(req, res);
+  if (!usuario) return;
 
   const { clientId } = req.query;
 
@@ -28,6 +31,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { clientId, clientName, origem, descricao } = req.body || {};
+    if (!clientId) return res.status(400).json({ erro: 'clientId é obrigatório.' });
     try {
       const { count } = await supabase
         .from('fidelidade_pontos')
@@ -54,6 +58,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     const { clientId, quantidade } = req.body || {};
+    if (!clientId) return res.status(400).json({ erro: 'clientId é obrigatório.' });
     try {
       if (quantidade === 10 || !quantidade) {
         await supabase.from('fidelidade_pontos').delete().eq('client_id', clientId);
