@@ -723,7 +723,7 @@ function showCustomContextMenu(event, type, id) {
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Histórico completo
         </button>
-        <button type="button" onclick="closeContextMenu(); openAppFidelityManageModal(${app.clientId})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${app.clientId}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
         </button>
       </div>
@@ -750,7 +750,7 @@ function showCustomContextMenu(event, type, id) {
         <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Ver histórico
         </button>
-        <button type="button" onclick="closeContextMenu(); openAppFidelityManageModal(${client.id})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${client.id}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
           <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
         </button>
       </div>
@@ -1628,8 +1628,7 @@ function openNewAppointmentModal() {
   selectedProfessionalInModal = 'Sem preferência';
   selectedTimeInModal = '';
 
-  const firstTimeToggle = document.getElementById('app-first-time-toggle');
-  if (firstTimeToggle) firstTimeToggle.checked = false;
+  setFirstTime(false);
 
   document.getElementById('app-status-select').value = 'Agendado';
 
@@ -1657,8 +1656,7 @@ function openEditAppointmentModal(id) {
   selectedProfessionalInModal = app.professional || 'Sem preferência';
   selectedTimeInModal = app.time;
 
-  const firstTimeToggle = document.getElementById('app-first-time-toggle');
-  if (firstTimeToggle) firstTimeToggle.checked = Boolean(app.isFirstTime);
+  setFirstTime(Boolean(app.isFirstTime));
 
   document.getElementById('app-status-select').value = app.status;
 
@@ -3356,6 +3354,11 @@ function generateFidelityCardHTML(client, f) {
         ${circlesHTML}
       </div>
 
+      <div class="flex items-center justify-between gap-2 text-[11px] font-semibold mb-3">
+        <span class="text-slate-500 dark:text-slate-400">🤝 Indicações: <b class="text-brand-gold">${countIndicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE}</b> para Íntima grátis</span>
+        ${f.freeIntimas > 0 ? `<span class="px-2 py-0.5 rounded-lg bg-emerald-500 text-white font-black">🎁 ${f.freeIntimas} Íntima grátis</span>` : ''}
+      </div>
+
       <div class="pt-3 border-t border-brand-lightBorder/60 dark:border-brand-darkBorder/60 flex items-center justify-between text-xs gap-2">
         <button type="button" onclick="addManualFidelityPoint(${client.id}, 'indicacao', 'Indicação')" class="flex-1 py-1.5 px-2 bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-brand-gold font-bold rounded-xl transition-all text-[11px]">
           + Selo Indicação
@@ -3376,10 +3379,26 @@ function openAppFidelityManageModal(clientId) {
   document.getElementById('app-fid-client-name').innerText = client.name;
   
   const f = getClientFidelity(clientId);
-  document.getElementById('app-fid-modal-count').innerText = `${f.points ? f.points.length : 0} / 10`;
+  updateAppFidModalInfo(clientId);
 
   document.getElementById('modal-app-fidelidade-manage')?.classList.remove('hidden');
   lucide.createIcons();
+}
+
+function updateAppFidModalInfo(clientId) {
+  const f = getClientFidelity(clientId);
+  const countEl = document.getElementById('app-fid-modal-count');
+  if (countEl) countEl.innerText = `${f.points.length} / 10`;
+  const extra = document.getElementById('app-fid-modal-extra');
+  if (extra) {
+    extra.innerText = `Indicações: ${countIndicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE}` +
+      (f.freeIntimas > 0 ? ` • 🎁 ${f.freeIntimas} Íntima(s) grátis disponível(is)` : '');
+  }
+}
+
+function addIndicacaoFromAppModal() {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  if (addManualFidelityPoint(clientId, 'indicacao', 'Indicação')) updateAppFidModalInfo(clientId);
 }
 
 function adjustFidelityPointsApp(delta) {
@@ -3391,12 +3410,16 @@ function adjustFidelityPointsApp(delta) {
     f.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
     showToast('Selo adicionado com sucesso!', 'success');
   } else if (delta < 0 && f.points.length > 0) {
-    f.points.pop();
+    const removed = f.points.pop();
+    if (removed.type === 'indicacao' && removed.rewarded) {
+      f.freeIntimas = Math.max(0, (f.freeIntimas || 0) - 1);
+      f.points.filter(p => p.type === 'indicacao' && p.rewarded).slice(-(INDICACOES_PARA_BRINDE - 1)).forEach(p => { p.rewarded = false; });
+    }
     showToast('Selo removido.', 'info');
   }
 
   saveClientFidelity(clientId, f);
-  document.getElementById('app-fid-modal-count').innerText = `${f.points.length} / 10`;
+  updateAppFidModalInfo(clientId);
   refreshFidelityViews(clientId);
 }
 
@@ -3428,10 +3451,11 @@ function getClientFidelity(clientId) {
     const f = raw ? JSON.parse(raw) : {};
     if (!Array.isArray(f.points)) f.points = [];
     if (typeof f.rewardsClaimed !== 'number') f.rewardsClaimed = 0;
+    if (typeof f.freeIntimas !== 'number') f.freeIntimas = 0;
     return f;
   } catch (err) {
     console.error('Fidelidade corrompida para o cliente', clientId, err);
-    return { points: [], rewardsClaimed: 0 };
+    return { points: [], rewardsClaimed: 0, freeIntimas: 0 };
   }
 }
 
@@ -3450,21 +3474,49 @@ function refreshFidelityViews(clientId) {
   if (profileOpen && currentViewingClientId === clientId) renderClientProfileFidelity(clientId);
 }
 
+// Regra: a cada 3 selos de indicação a cliente ganha 1 Íntima Completa grátis
+// (os selos continuam no cartão; só ficam marcados como "já premiados").
+const INDICACOES_PARA_BRINDE = 3;
+
+function countIndicacoesPendentes(f) {
+  return f.points.filter(p => p.type === 'indicacao' && !p.rewarded).length;
+}
+
+function processIndicacaoReward(f) {
+  const pendentes = f.points.filter(p => p.type === 'indicacao' && !p.rewarded);
+  if (pendentes.length >= INDICACOES_PARA_BRINDE) {
+    pendentes.slice(0, INDICACOES_PARA_BRINDE).forEach(p => { p.rewarded = true; });
+    f.freeIntimas = (f.freeIntimas || 0) + 1;
+    return true;
+  }
+  return false;
+}
+
 // Selo extra (ex.: indicação) concedido manualmente no cartão
 function addManualFidelityPoint(clientId, type = 'indicacao', desc = 'Indicação') {
   const client = clientsList.find(c => c.id === clientId);
-  if (!client) return;
+  if (!client) return false;
 
   const f = getClientFidelity(clientId);
   if (f.points.length >= 10) {
     showToast(`${client.name} já completou 10 selos. Faça o resgate no caixa.`, 'warning');
-    return;
+    return false;
   }
 
   f.points.push({ date: localDateStr(), type, desc });
+  let brinde = false;
+  if (type === 'indicacao') brinde = processIndicacaoReward(f);
   saveClientFidelity(clientId, f);
-  showToast(`Selo de ${desc.toLowerCase()} adicionado para ${client.name} (${f.points.length}/10).`, 'success');
+
+  if (brinde) {
+    showToast(`🎁 ${client.name} completou 3 indicações e ganhou 1 Íntima Completa GRÁTIS! Resgate no caixa.`, 'success');
+  } else if (type === 'indicacao') {
+    showToast(`Selo de indicação para ${client.name} (${countIndicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE} para a Íntima grátis).`, 'success');
+  } else {
+    showToast(`Selo adicionado para ${client.name} (${f.points.length}/10).`, 'success');
+  }
   refreshFidelityViews(clientId);
+  return true;
 }
 
 // Concede 1 selo quando um atendimento é finalizado (no máximo 1 por agendamento e 1 por dia/cliente,
@@ -3492,15 +3544,338 @@ function checkAndAwardFidelityPoint(appointment) {
 
 // Aba "Fidelidade" dentro do perfil da cliente
 function renderClientProfileFidelity(clientId) {
-  const box = document.getElementById('profile-fidelity-container');
-  if (!box) return;
+  let box = document.getElementById('profile-fidelity-container');
+  if (!box) {
+    const parent = document.getElementById('profile-tab-content-fidelidade');
+    if (!parent) return;
+    box = document.createElement('div');
+    box.id = 'profile-fidelity-container';
+    parent.appendChild(box);
+  }
   const client = clientsList.find(c => c.id === clientId);
-  if (!client) { box.innerHTML = ''; return; }
-  box.innerHTML = generateFidelityCardHTML(client, getClientFidelity(clientId));
-  lucide.createIcons({ root: box });
+  if (!client) { box.innerHTML = '<p class="text-xs text-slate-400">Cliente não encontrada.</p>'; return; }
+  try {
+    box.innerHTML = generateFidelityCardHTML(client, getClientFidelity(clientId));
+    lucide.createIcons({ root: box });
+  } catch (err) {
+    console.error('Erro ao montar cartão fidelidade:', err);
+    box.innerHTML = '<p class="text-xs text-rose-500">Não foi possível exibir o cartão. Recarregue a página.</p>';
+  }
 }
 
 // Busca na tela de Clientes (chamada pelo oninput do campo de busca)
 function filterClientsList() {
   renderClientsView();
+}
+
+
+/* ========================================================
+ * BOTÃO "1ª VEZ" (abaixo do nome da cliente)
+ * ======================================================== */
+function setFirstTime(value) {
+  const input = document.getElementById('app-first-time-toggle');
+  if (input) input.checked = Boolean(value);
+  const btn = document.getElementById('btn-first-time');
+  if (!btn) return;
+  const on = Boolean(value);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.className = on
+    ? 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-amber-500 text-slate-950 border border-amber-500 shadow transition-all'
+    : 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-brand-lightSurface dark:bg-brand-darkSurface text-amber-500 border border-amber-500/50 hover:bg-amber-500/15 transition-all';
+  btn.innerText = on ? '⭐ 1ª vez ✓' : '⭐ 1ª vez';
+}
+
+function toggleFirstTime() {
+  setFirstTime(!document.getElementById('app-first-time-toggle')?.checked);
+}
+
+/* ========================================================
+ * CONSTRUTOR DE RELATÓRIOS PERSONALIZADOS
+ * Escolha o que aparece (seções, colunas, status, período) e imprima / salve em PDF.
+ * ======================================================== */
+const REPORT_SECTIONS = [
+  { key: 'resumo', label: 'Resumo (totais)' },
+  { key: 'servicos', label: 'Por procedimento' },
+  { key: 'profissionais', label: 'Por depiladora' },
+  { key: 'lista', label: 'Lista de atendimentos' },
+  { key: 'inativas', label: 'Clientes inativas' },
+  { key: 'caixa', label: 'Fechamento de caixa (PDV)' }
+];
+const REPORT_METRICS = [
+  { key: 'clientes', label: 'Total de clientes' },
+  { key: 'atendimentos', label: 'Total de atendimentos' },
+  { key: 'procedimentos', label: 'Procedimentos' },
+  { key: 'bruto', label: 'Faturamento bruto' },
+  { key: 'ticket', label: 'Ticket médio' },
+  { key: 'primeira', label: '1ª vez' }
+];
+const REPORT_COLUMNS = [
+  { key: 'data', label: 'Data' },
+  { key: 'hora', label: 'Hora' },
+  { key: 'nome', label: 'Cliente' },
+  { key: 'telefone', label: 'Telefone' },
+  { key: 'genero', label: 'Gênero' },
+  { key: 'servicos', label: 'Procedimentos' },
+  { key: 'profissional', label: 'Depiladora' },
+  { key: 'valor', label: 'Valor' },
+  { key: 'status', label: 'Status' }
+];
+const REPORT_STATUSES = ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar', 'Cancelado'];
+
+const REPORT_PRESETS = {
+  completo: {
+    label: 'Relatório completo', title: 'Relatório Completo', period: 'mes',
+    sections: ['resumo', 'servicos', 'profissionais', 'lista', 'caixa'],
+    metrics: ['clientes', 'atendimentos', 'procedimentos', 'bruto', 'ticket', 'primeira'],
+    columns: ['data', 'hora', 'nome', 'telefone', 'genero', 'servicos', 'profissional', 'valor', 'status'],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar']
+  },
+  mensal: {
+    label: 'Mês com valores brutos', title: 'Relatório Mensal - Valores Brutos', period: 'mes',
+    sections: ['resumo', 'servicos', 'profissionais'],
+    metrics: ['clientes', 'atendimentos', 'procedimentos', 'bruto', 'ticket'],
+    columns: ['data', 'nome', 'servicos', 'valor'],
+    statuses: ['Finalizado']
+  },
+  atendimentos: {
+    label: 'Lista de atendimentos', title: 'Lista de Atendimentos', period: 'hoje',
+    sections: ['lista'],
+    metrics: [],
+    columns: ['data', 'hora', 'nome', 'servicos', 'profissional', 'valor', 'status'],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar']
+  },
+  inativas: {
+    label: 'Clientes inativas', title: 'Clientes Inativas', period: 'tudo',
+    sections: ['inativas'], metrics: [], columns: [], statuses: ['Finalizado']
+  },
+  fechamento: {
+    label: 'Fechamento de caixa', title: 'Fechamento de Caixa', period: 'hoje',
+    sections: ['caixa'], metrics: [], columns: [], statuses: ['Finalizado']
+  }
+};
+
+function reportChip(group, key, label, checked) {
+  return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brand-lightBorder dark:border-brand-darkBorder text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+    <input type="checkbox" data-rp-group="${group}" value="${escapeHtml(key)}" ${checked ? 'checked' : ''}> ${escapeHtml(label)}</label>`;
+}
+
+function getReportChecked(group) {
+  return [...document.querySelectorAll(`input[data-rp-group="${group}"]:checked`)].map(i => i.value);
+}
+
+function setReportChecked(group, keys) {
+  document.querySelectorAll(`input[data-rp-group="${group}"]`).forEach(i => { i.checked = keys.includes(i.value); });
+}
+
+function setReportPeriod(kind) {
+  const now = new Date();
+  let start = '', end = '';
+  if (kind === 'hoje') { start = end = localDateStr(now); }
+  else if (kind === 'mes') {
+    start = localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    end = localDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  } else if (kind === 'mesPassado') {
+    start = localDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    end = localDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
+  }
+  document.getElementById('rp-start').value = start;
+  document.getElementById('rp-end').value = end;
+}
+
+function applyReportPreset(name) {
+  const p = REPORT_PRESETS[name];
+  if (!p) return;
+  document.getElementById('rp-title').value = p.title;
+  setReportPeriod(p.period);
+  setReportChecked('sections', p.sections);
+  setReportChecked('metrics', p.metrics);
+  setReportChecked('columns', p.columns);
+  setReportChecked('statuses', p.statuses);
+  document.getElementById('rp-preview')?.classList.add('hidden');
+}
+
+function openPrintReportModal() {
+  document.getElementById('rp-presets').innerHTML = Object.entries(REPORT_PRESETS).map(([k, p]) =>
+    `<button type="button" onclick="applyReportPreset('${k}')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-brand-violet/10 text-brand-violet border border-brand-violet/40 hover:bg-brand-violet hover:text-white transition-all">${escapeHtml(p.label)}</button>`).join('');
+  document.getElementById('rp-sections').innerHTML = REPORT_SECTIONS.map(x => reportChip('sections', x.key, x.label, false)).join('');
+  document.getElementById('rp-metrics').innerHTML = REPORT_METRICS.map(x => reportChip('metrics', x.key, x.label, false)).join('');
+  document.getElementById('rp-columns').innerHTML = REPORT_COLUMNS.map(x => reportChip('columns', x.key, x.label, false)).join('');
+  document.getElementById('rp-statuses').innerHTML = REPORT_STATUSES.map(x => reportChip('statuses', x, x, false)).join('');
+
+  applyReportPreset('completo');
+  // Se já havia período escolhido na tela de relatórios, usa ele
+  const s0 = document.getElementById('rep-start-date')?.value;
+  const e0 = document.getElementById('rep-end-date')?.value;
+  if (s0 || e0) {
+    document.getElementById('rp-start').value = s0 || '';
+    document.getElementById('rp-end').value = e0 || '';
+  }
+  document.getElementById('modal-print-report').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function reportMoney(n) {
+  return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',');
+}
+
+function buildReportHTML() {
+  const title = document.getElementById('rp-title').value.trim() || 'Relatório';
+  const start = document.getElementById('rp-start').value;
+  const end = document.getElementById('rp-end').value;
+  const gender = document.getElementById('rp-gender').value;
+  const sections = getReportChecked('sections');
+  const metrics = getReportChecked('metrics');
+  const columns = REPORT_COLUMNS.filter(c => getReportChecked('columns').includes(c.key));
+  const statuses = getReportChecked('statuses');
+  const inactiveDays = Math.max(1, parseInt(document.getElementById('rp-inactive-days').value, 10) || 90);
+  const includeNever = document.getElementById('rp-inactive-never').checked;
+
+  if (sections.length === 0) return { error: 'Marque pelo menos uma seção para mostrar no relatório.' };
+  if (sections.includes('lista') && columns.length === 0) return { error: 'Marque pelo menos uma coluna para a lista de atendimentos.' };
+
+  const fmtDate = d => (d || '').split('-').reverse().join('/');
+  const periodText = (start || end) ? `${start ? fmtDate(start) : 'início'} a ${end ? fmtDate(end) : 'hoje'}` : 'Todo o histórico';
+
+  const apps = appointmentsList
+    .filter(a => (!start || a.date >= start) && (!end || a.date <= end))
+    .filter(a => statuses.includes(a.status))
+    .filter(a => gender === 'TODOS' || a.gender === gender)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+  const th = 'style="text-align:left;border-bottom:2px solid #000;padding:4px 6px;font-size:11px;"';
+  const td = 'style="border-bottom:1px solid #bbb;padding:4px 6px;font-size:11px;vertical-align:top;"';
+  const h2 = 'style="font-size:14px;margin:18px 0 6px;border-bottom:1px solid #000;padding-bottom:3px;"';
+  const table = (heads, rows) => rows.length === 0
+    ? '<p style="font-size:11px;color:#555;">Nenhum registro.</p>'
+    : `<table style="width:100%;border-collapse:collapse;"><thead><tr>${heads.map(h => `<th ${th}>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td ${td}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+  let html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;padding:8px;">
+    <h1 style="font-size:18px;margin:0;">${escapeHtml(companyConfig.name || 'DepilClear')}</h1>
+    <h2 style="font-size:15px;margin:2px 0 0;">${escapeHtml(title)}</h2>
+    <p style="font-size:11px;margin:2px 0 0;color:#444;">Período: ${periodText}${gender !== 'TODOS' ? ' • Gênero: ' + gender : ''} • Emitido em ${new Date().toLocaleString('pt-BR')}</p>`;
+
+  const totalBruto = apps.reduce((t, a) => t + Number(a.price || 0), 0);
+  const uniqueClients = new Set(apps.map(a => a.clientId)).size;
+  const totalProcs = apps.reduce((t, a) => t + ((a.services && a.services.length) || 1), 0);
+
+  if (sections.includes('resumo')) {
+    const cards = [];
+    if (metrics.includes('clientes')) cards.push(['Clientes atendidas', uniqueClients]);
+    if (metrics.includes('atendimentos')) cards.push(['Atendimentos', apps.length]);
+    if (metrics.includes('procedimentos')) cards.push(['Procedimentos', totalProcs]);
+    if (metrics.includes('bruto')) cards.push(['Faturamento bruto', reportMoney(totalBruto)]);
+    if (metrics.includes('ticket')) cards.push(['Ticket médio', reportMoney(apps.length ? totalBruto / apps.length : 0)]);
+    if (metrics.includes('primeira')) cards.push(['Clientes de 1ª vez', apps.filter(a => a.isFirstTime).length]);
+    html += `<h3 ${h2}>Resumo</h3>` + (cards.length
+      ? `<table style="border-collapse:collapse;"><tr>${cards.map(c => `<td style="border:1px solid #000;padding:6px 12px;text-align:center;"><div style="font-size:10px;color:#444;">${c[0]}</div><div style="font-size:15px;font-weight:bold;">${c[1]}</div></td>`).join('')}</tr></table>`
+      : '<p style="font-size:11px;color:#555;">Nenhum indicador selecionado.</p>');
+  }
+
+  if (sections.includes('servicos')) {
+    const map = {};
+    apps.forEach(a => {
+      const list = (a.services && a.services.length) ? a.services : [{ name: a.serviceName, price: a.price }];
+      list.forEach(s => {
+        const k = s.name || 'Sem nome';
+        map[k] = map[k] || { qtd: 0, total: 0 };
+        map[k].qtd++; map[k].total += Number(s.price || 0);
+      });
+    });
+    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, reportMoney(v.total)]);
+    html += `<h3 ${h2}>Por procedimento</h3>` + table(['Procedimento', 'Qtd', 'Valor bruto'], rows);
+  }
+
+  if (sections.includes('profissionais')) {
+    const map = {};
+    apps.forEach(a => {
+      const k = a.professional || 'Sem preferência';
+      map[k] = map[k] || { qtd: 0, total: 0 };
+      map[k].qtd++; map[k].total += Number(a.price || 0);
+    });
+    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, reportMoney(v.total)]);
+    html += `<h3 ${h2}>Por depiladora</h3>` + table(['Depiladora', 'Atendimentos', 'Valor bruto'], rows);
+  }
+
+  if (sections.includes('lista')) {
+    const cell = {
+      data: a => fmtDate(a.date), hora: a => escapeHtml(a.time), nome: a => escapeHtml(a.clientName) + (a.isFirstTime ? ' ⭐' : ''),
+      telefone: a => escapeHtml(a.phone || ''), genero: a => escapeHtml(a.gender || ''),
+      servicos: a => escapeHtml(a.serviceName || ''), profissional: a => escapeHtml(a.professional || ''),
+      valor: a => reportMoney(a.price), status: a => escapeHtml(a.status)
+    };
+    const rows = apps.map(a => columns.map(c => cell[c.key](a)));
+    html += `<h3 ${h2}>Lista de atendimentos (${apps.length})</h3>` + table(columns.map(c => c.label), rows);
+    if (columns.some(c => c.key === 'valor')) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;"><b>Total: ${reportMoney(totalBruto)}</b></p>`;
+  }
+
+  if (sections.includes('inativas')) {
+    const limite = Date.now() - inactiveDays * 86400000;
+    const rows = [];
+    clientsList.filter(c => gender === 'TODOS' || c.gender === gender).forEach(c => {
+      const datas = appointmentsList.filter(a => a.clientId === c.id && a.status !== 'Cancelado')
+        .map(a => a.date).sort();
+      const ultima = datas[datas.length - 1];
+      if (!ultima) { if (includeNever) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), 'Nunca atendida', '-']); return; }
+      const t = new Date(ultima + 'T12:00:00').getTime();
+      if (t < limite) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), fmtDate(ultima), Math.floor((Date.now() - t) / 86400000) + ' dias']);
+    });
+    rows.sort((a, b) => a[0].localeCompare(b[0]));
+    html += `<h3 ${h2}>Clientes inativas há mais de ${inactiveDays} dias (${rows.length})</h3>` + table(['Cliente', 'Telefone', 'Último atendimento', 'Sem vir há'], rows);
+  }
+
+  if (sections.includes('caixa')) {
+    const startMs = start ? new Date(start + 'T00:00:00').getTime() : -Infinity;
+    const endMs = end ? new Date(end + 'T23:59:59.999').getTime() : Infinity;
+    const inPeriod = ts => { const t = new Date(ts).getTime(); return !isNaN(t) && t >= startMs && t <= endMs; };
+    let sales = [], ops = [];
+    try { sales = JSON.parse(localStorage.getItem('depilclear_sales_log') || '[]').filter(x => inPeriod(x.timestamp)); } catch (e) { /* ignora */ }
+    try { ops = JSON.parse(localStorage.getItem('depilclear_cash_ops') || '[]').filter(x => inPeriod(x.timestamp)); } catch (e) { /* ignora */ }
+
+    const t = { bruto: 0, cancel: 0, dinheiro: 0, pix: 0, credito: 0, debito: 0, saldo: 0, qtd: 0, fundo: 0, supr: 0, sangria: 0 };
+    sales.forEach(x => {
+      if (x.status === 'Cancelada') { t.cancel += Number(x.finalTotal || 0); return; }
+      t.qtd++; t.bruto += Number(x.finalTotal || 0); t.dinheiro += Number(x.cashAmount || 0);
+      t.pix += Number(x.pixAmount || 0); t.credito += Number(x.cardCreditAmount || 0);
+      t.debito += Number(x.cardDebitAmount || 0); t.saldo += Number(x.creditAmount || 0);
+    });
+    ops.forEach(o => {
+      if (o.type === 'fundo') t.fundo += Number(o.amount);
+      if (o.type === 'suprimento' || o.type === 'recarga_credito') t.supr += Number(o.amount);
+      if (o.type === 'sangria') t.sangria += Number(o.amount);
+    });
+    const gaveta = t.fundo + t.dinheiro + t.supr - t.sangria;
+    html += `<h3 ${h2}>Fechamento de caixa (PDV)</h3>` + table(['Item', 'Valor'], [
+      ['Notas finalizadas', t.qtd], ['Vendas brutas', reportMoney(t.bruto)], ['Notas canceladas', reportMoney(t.cancel)],
+      ['Dinheiro recebido (líquido de troco)', reportMoney(t.dinheiro)], ['PIX', reportMoney(t.pix)],
+      ['Cartão de crédito', reportMoney(t.credito)], ['Cartão de débito', reportMoney(t.debito)], ['Saldo em crédito usado', reportMoney(t.saldo)],
+      ['Fundo de troco', reportMoney(t.fundo)], ['Suprimentos', reportMoney(t.supr)], ['Sangrias', reportMoney(t.sangria)],
+      ['<b>Dinheiro esperado na gaveta</b>', `<b>${reportMoney(gaveta)}</b>`]
+    ]);
+  }
+
+  html += '</div>';
+  return { html };
+}
+
+function previewCustomReport() {
+  const r = buildReportHTML();
+  const box = document.getElementById('rp-preview');
+  if (r.error) { showToast(r.error, 'warning'); return; }
+  box.innerHTML = r.html;
+  box.classList.remove('hidden');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function printCustomReport() {
+  const r = buildReportHTML();
+  if (r.error) { showToast(r.error, 'warning'); return; }
+  const target = document.getElementById('printable-report-target');
+  target.innerHTML = r.html;
+  document.body.classList.add('printing-report');
+  const cleanup = () => {
+    document.body.classList.remove('printing-report');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(() => window.print(), 50);
 }

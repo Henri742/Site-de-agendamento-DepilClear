@@ -244,3 +244,22 @@ html:not(.dark) .theme-switch-thumb {
 .dark .theme-switch-thumb {
   box-shadow: 0 0 14px rgba(226, 232, 240, 0.85), 0 0 22px rgba(167, 139, 250, 0.4) !important;
 }
+
+/* ========================================================
+ * RELATÓRIO PERSONALIZADO (área de impressão dedicada)
+ * ======================================================== */
+#printable-report-target { display: none; }
+
+@media print {
+  body.printing-report { background: #ffffff !important; }
+  body.printing-report > *:not(#printable-report-target) { display: none !important; }
+  body.printing-report #printable-report-target {
+    display: block !important;
+    visibility: visible;
+    position: static;
+    width: 100%;
+    background: #ffffff;
+    color: #000000;
+  }
+  body.printing-report #printable-report-target * { visibility: visible; }
+}

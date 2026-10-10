@@ -839,7 +839,7 @@
               <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Relatórios de Atendimento &amp; Vendas</h2>
               <p class="text-xs text-brand-lightMuted dark:text-slate-400">Totalização por período de serviços, ranking de profissionais e faturamento bruto.</p>
             </div>
-            <button onclick="window.print()" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 hover:border-brand-gold">
+            <button onclick="openPrintReportModal()" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 hover:border-brand-gold">
               <i data-lucide="printer" class="w-4 h-4 text-brand-gold"></i> Imprimir Relatório
             </button>
           </div>
@@ -960,6 +960,10 @@
 
               <div id="client-autocomplete-dropdown" class="hidden absolute top-full left-0 right-0 z-30 mt-1 max-h-52 overflow-y-auto bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl shadow-2xl divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></div>
             </div>
+            <div class="pt-1">
+              <input type="checkbox" id="app-first-time-toggle" class="hidden">
+              <button type="button" id="btn-first-time" onclick="toggleFirstTime()" aria-pressed="false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-brand-lightSurface dark:bg-brand-darkSurface text-amber-500 border border-amber-500/50 hover:bg-amber-500/15 transition-all">⭐ 1ª vez</button>
+            </div>
 
             <div id="selected-client-chip" class="hidden p-3 rounded-2xl bg-brand-violet/10 border border-brand-violet/30 flex items-center justify-between text-xs">
               <div class="flex items-center gap-2">
@@ -1034,11 +1038,7 @@
           </div>
 
           <div class="flex items-center gap-3 w-full sm:w-auto">
-            <label class="flex items-center gap-2 cursor-pointer bg-brand-lightSurface dark:bg-brand-darkSurface px-3 py-2 rounded-xl border border-brand-lightBorder dark:border-brand-darkBorder shrink-0">
-              <input type="checkbox" id="app-first-time-toggle" class="rounded border-amber-500 text-amber-500 focus:ring-0">
-              <span class="text-xs font-bold text-amber-500">⭐ 1° vez</span>
-            </label>
-            <div class="w-full sm:w-auto">
+                        <div class="w-full sm:w-auto">
               <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Status:</label>
               <select id="app-status-select" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-bold">
                 <option value="Agendado">Agendado</option>
@@ -1371,6 +1371,9 @@
           <button type="button" onclick="adjustFidelityPointsApp(1)" class="flex-1 py-2.5 rounded-xl bg-amber-500/20 text-brand-gold font-bold text-xs hover:bg-amber-500 hover:text-slate-950 transition-all">+ Adicionar Selo</button>
         </div>
 
+        <button type="button" onclick="addIndicacaoFromAppModal()" class="w-full py-2.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-all">🤝 + Selo por Indicação</button>
+        <div id="app-fid-modal-extra" class="text-[11px] text-center text-slate-500 dark:text-slate-400 font-semibold"></div>
+
         <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder space-y-2">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Desconto Promocional (%):</label>
           <div class="flex gap-2">
@@ -1561,6 +1564,56 @@
       </div>
     </div>
   </div>
+
+
+  <!-- MODAL: CONSTRUTOR DE RELATÓRIOS -->
+  <div id="modal-print-report" onclick="handleBackdropClick(event, 'modal-print-report')" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/60 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-6 shadow-2xl relative gold-border-glow">
+      <button type="button" onclick="closeModal('modal-print-report')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-xl"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Relatórios</span>
+      <h3 class="text-lg font-black text-slate-900 dark:text-white mb-4">Montar e Imprimir Relatório</h3>
+
+      <div class="mb-4">
+        <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Modelos prontos</span>
+        <div id="rp-presets" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+        <div class="sm:col-span-2"><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Título</label><input id="rp-title" type="text" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+        <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Data inicial</label><input id="rp-start" type="date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+        <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Data final</label><input id="rp-end" type="date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button type="button" onclick="setReportPeriod('hoje')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Hoje</button>
+        <button type="button" onclick="setReportPeriod('mes')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Este mês</button>
+        <button type="button" onclick="setReportPeriod('mesPassado')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Mês passado</button>
+        <button type="button" onclick="setReportPeriod('tudo')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Todo o histórico</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">O que mostrar (seções)</span><div id="rp-sections" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Indicadores do resumo</span><div id="rp-metrics" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Colunas da lista de atendimentos</span><div id="rp-columns" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Status incluídos</span><div id="rp-statuses" class="flex flex-wrap gap-1.5"></div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Gênero</label><select id="rp-gender" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"><option value="TODOS">Todos</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Inativas há (dias)</label><input id="rp-inactive-days" type="number" min="1" value="90" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+          </div>
+          <label class="flex items-center gap-2 mt-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300"><input type="checkbox" id="rp-inactive-never"> Incluir quem nunca foi atendida</label>
+        </div>
+      </div>
+
+      <div id="rp-preview" class="hidden mb-4 p-4 rounded-2xl bg-white text-black border border-brand-lightBorder max-h-96 overflow-auto"></div>
+
+      <div class="flex flex-wrap justify-end gap-2 pt-2">
+        <button type="button" onclick="previewCustomReport()" class="px-5 py-2.5 rounded-2xl border border-brand-violet/50 text-brand-violet text-xs font-bold hover:bg-brand-violet/10">Pré-visualizar</button>
+        <button type="button" onclick="printCustomReport()" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-2xl shadow flex items-center gap-1.5"><i data-lucide="printer" class="w-4 h-4"></i> Imprimir / Salvar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Área exclusiva de impressão do relatório (só aparece no Ctrl+P) -->
+  <div id="printable-report-target"></div>
 
   <!-- MENU DE CONTEXTO GLOBAL (BOTÃO DIREITO) -->
     <div id="custom-context-menu" class="hidden fixed z-[999999] bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/50 rounded-2xl shadow-2xl py-2 min-w-[230px] text-xs text-slate-800 dark:text-slate-200 gold-border-glow backdrop-blur-md">

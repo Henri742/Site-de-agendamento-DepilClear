@@ -108,25 +108,60 @@ function normalize(str) {
   return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+let posSearchMatches = [];
+let posSearchIndex = 0;
+
+// Quanto menor a nota, mais "certo" é o resultado
+function scoreServiceMatch(s, q) {
+  const code = String(s.code || '').toLowerCase();
+  const short = normalize(s.shortCode || '');
+  const name = normalize(s.name);
+  if (code === q) return 0;
+  if (short === q || name === q) return 1;
+  if (code.startsWith(q)) return 2;
+  if (short.startsWith(q) || name.startsWith(q)) return 3;
+  if (name.split(/\s+/).some(w => w.startsWith(q))) return 4;
+  if (name.includes(q) || short.includes(q)) return 5;
+  if (code.includes(q)) return 6;
+  if (Number(s.price).toFixed(2).includes(q)) return 7;
+  return -1;
+}
+
+function renderServiceDropdown() {
+  const dropdown = document.getElementById('pos-service-autocomplete-dropdown');
+  if (!dropdown) return;
+  dropdown.innerHTML = posSearchMatches.map((s, i) => `
+    <div onclick="addServiceDirectlyToPOS(${s.id})" class="p-2.5 cursor-pointer flex items-center justify-between text-xs transition-colors ${i === posSearchIndex ? 'bg-brand-violet/25' : 'hover:bg-brand-violet/15'}">
+      <div class="flex items-center gap-2">
+        <span class="px-1.5 py-0.5 rounded bg-brand-violet/20 text-brand-violet font-mono font-black text-[10px]">${escapeHtml(s.code || '-')}</span>
+        <span class="font-bold text-slate-900 dark:text-white">${escapeHtml(s.name)}</span>
+        <span class="text-[10px] text-slate-400">(${s.duration}m)</span>
+        ${i === posSearchIndex ? '<span class="text-[9px] font-bold text-brand-violet">↵ Enter</span>' : ''}
+      </div>
+      <span class="font-mono font-bold text-brand-gold">R$ ${Number(s.price).toFixed(2)}</span>
+    </div>
+  `).join('');
+}
+
 function handleServiceLiveSearch(query) {
   const dropdown = document.getElementById('pos-service-autocomplete-dropdown');
   if (!dropdown) return;
 
   const q = normalize(query.trim());
   if (!q) {
+    posSearchMatches = [];
     dropdown.classList.add('hidden');
     return;
   }
 
-  const matches = posServices.filter(s => {
-    const codeMatch = (s.code || '').toString().includes(q);
-    const nameMatch = normalize(s.name).includes(q);
-    const shortMatch = normalize(s.shortCode || '').includes(q);
-    const priceMatch = Number(s.price).toFixed(2).includes(q);
-    return codeMatch || nameMatch || shortMatch || priceMatch;
-  });
+  posSearchMatches = posServices
+    .map(s => ({ s, score: scoreServiceMatch(s, q) }))
+    .filter(x => x.score >= 0)
+    .sort((a, b) => a.score - b.score || a.s.name.localeCompare(b.s.name))
+    .map(x => x.s);
+  posSearchIndex = 0;
 
-  if (matches.length === 0) {
+  if (posSearchMatches.length === 0) {
     dropdown.innerHTML = `
       <div class="p-3 text-center text-xs text-slate-400">
         Nenhum procedimento encontrado.
@@ -137,18 +172,31 @@ function handleServiceLiveSearch(query) {
     return;
   }
 
-  dropdown.innerHTML = matches.map(s => `
-    <div onclick="addServiceDirectlyToPOS(${s.id})" class="p-2.5 hover:bg-brand-violet/15 cursor-pointer flex items-center justify-between text-xs transition-colors">
-      <div class="flex items-center gap-2">
-        <span class="px-1.5 py-0.5 rounded bg-brand-violet/20 text-brand-violet font-mono font-black text-[10px]">${s.code || '-'}</span>
-        <span class="font-bold text-slate-900 dark:text-white">${s.name}</span>
-        <span class="text-[10px] text-slate-400">(${s.duration}m)</span>
-      </div>
-      <span class="font-mono font-bold text-brand-gold">R$ ${Number(s.price).toFixed(2)}</span>
-    </div>
-  `).join('');
-
+  renderServiceDropdown();
   dropdown.classList.remove('hidden');
+}
+
+// Enter = adiciona o primeiro (melhor) resultado; setas = escolhem outro
+function handleServiceSearchKeydown(e) {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (posSearchMatches.length === 0) return;
+    e.preventDefault();
+    posSearchIndex = (posSearchIndex + (e.key === 'ArrowDown' ? 1 : -1) + posSearchMatches.length) % posSearchMatches.length;
+    renderServiceDropdown();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (posSearchMatches.length === 0) {
+      handleServiceLiveSearch(e.target.value);
+    }
+    if (posSearchMatches.length > 0) {
+      addServiceDirectlyToPOS(posSearchMatches[posSearchIndex].id);
+      posSearchMatches = [];
+    } else if (e.target.value.trim()) {
+      showToast('Nenhum procedimento encontrado para essa busca.', 'warning');
+    }
+  } else if (e.key === 'Escape') {
+    document.getElementById('pos-service-autocomplete-dropdown')?.classList.add('hidden');
+  }
 }
 
 function addServiceDirectlyToPOS(serviceId) {
@@ -533,30 +581,156 @@ function handleAddClientCredit(e) {
   updateClientPerksUI();
 }
 
+const INDICACOES_PARA_BRINDE = 3;
+
+function getFidelityData(clientId) {
+  let f;
+  try { f = JSON.parse(localStorage.getItem(`depilclear_fidelity_${clientId}`) || '{}'); } catch (e) { f = {}; }
+  if (!Array.isArray(f.points)) f.points = [];
+  if (typeof f.rewardsClaimed !== 'number') f.rewardsClaimed = 0;
+  if (typeof f.freeIntimas !== 'number') f.freeIntimas = 0;
+  return f;
+}
+
+function saveFidelityData(clientId, f) {
+  localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(f));
+}
+
+function indicacoesPendentes(f) {
+  return f.points.filter(p => p.type === 'indicacao' && !p.rewarded).length;
+}
+
+function refreshFidelityModal() {
+  if (!currentPosClient) return;
+  const f = getFidelityData(currentPosClient.id);
+  document.getElementById('fid-modal-client-name').innerText = currentPosClient.name;
+  document.getElementById('fid-modal-count').innerText = `${f.points.length} / 10`;
+  const extra = document.getElementById('fid-modal-extra');
+  if (extra) {
+    extra.innerText = `Indicações: ${indicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE}` +
+      (f.freeIntimas > 0 ? ` • 🎁 ${f.freeIntimas} Íntima(s) grátis disponível(is)` : '');
+  }
+  const btn = document.getElementById('btn-redeem-indicacao');
+  if (btn) btn.classList.toggle('hidden', f.freeIntimas < 1);
+}
+
 function openFidelityManageModal() {
   if (!currentPosClient) return showToast('Selecione uma cliente primeiro!', 'warning');
-  const fData = JSON.parse(localStorage.getItem(`depilclear_fidelity_${currentPosClient.id}`) || '{"points":[],"rewardsClaimed":0}');
-  document.getElementById('fid-modal-client-name').innerText = currentPosClient.name;
-  document.getElementById('fid-modal-count').innerText = `${fData.points ? fData.points.length : 0} / 10`;
+  refreshFidelityModal();
   document.getElementById('modal-fidelidade-manage')?.classList.remove('hidden');
 }
 
 function adjustFidelityPoints(delta) {
   if (!currentPosClient) return;
-  const fKey = `depilclear_fidelity_${currentPosClient.id}`;
-  const fData = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
-  if (!fData.points) fData.points = [];
+  const f = getFidelityData(currentPosClient.id);
 
-  if (delta > 0 && fData.points.length < 10) {
-    fData.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
-  } else if (delta < 0 && fData.points.length > 0) {
-    fData.points.pop();
+  if (delta > 0 && f.points.length < 10) {
+    f.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
+  } else if (delta < 0 && f.points.length > 0) {
+    const removed = f.points.pop();
+    if (removed.type === 'indicacao' && removed.rewarded) {
+      f.freeIntimas = Math.max(0, f.freeIntimas - 1);
+      f.points.filter(p => p.type === 'indicacao' && p.rewarded).slice(-(INDICACOES_PARA_BRINDE - 1)).forEach(p => { p.rewarded = false; });
+    }
   }
 
-  localStorage.setItem(fKey, JSON.stringify(fData));
-  document.getElementById('fid-modal-count').innerText = `${fData.points.length} / 10`;
+  saveFidelityData(currentPosClient.id, f);
+  refreshFidelityModal();
   updateClientPerksUI();
   renderPosTotals();
+}
+
+// Selo por indicação: a cada 3, a cliente ganha 1 Íntima Completa grátis
+function addIndicacaoPoint() {
+  if (!currentPosClient) return;
+  const f = getFidelityData(currentPosClient.id);
+  if (f.points.length >= 10) {
+    showToast('O cartão está completo (10 selos). Resgate o prêmio antes de adicionar mais.', 'warning');
+    return;
+  }
+
+  f.points.push({ date: localDateStr(), type: 'indicacao', desc: 'Indicação' });
+
+  const pendentes = f.points.filter(p => p.type === 'indicacao' && !p.rewarded);
+  let brinde = false;
+  if (pendentes.length >= INDICACOES_PARA_BRINDE) {
+    pendentes.slice(0, INDICACOES_PARA_BRINDE).forEach(p => { p.rewarded = true; });
+    f.freeIntimas += 1;
+    brinde = true;
+  }
+
+  saveFidelityData(currentPosClient.id, f);
+  refreshFidelityModal();
+  updateClientPerksUI();
+  showToast(brinde
+    ? '🎁 3 indicações completas! Íntima Completa GRÁTIS liberada para resgate.'
+    : `Selo de indicação adicionado (${indicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE}).`, 'success');
+}
+
+// Escolhe a "Íntima Completa" certa (masculina/feminina) conforme o gênero da cliente
+function pickIntimaService(client) {
+  const candidatos = posServices.filter(x => normalize(x.name).includes('intima'));
+  if (candidatos.length === 0) return posServices[0] || null;
+  if (candidatos.length === 1 || !client) return candidatos[0];
+
+  let cats = [];
+  try { cats = JSON.parse(localStorage.getItem('depilclear_categories') || '[]'); } catch (e) { cats = []; }
+  const quer = normalize(client.gender || '').startsWith('masc') ? 'masc' : 'fem';
+  const doGenero = candidatos.find(x => {
+    const cat = cats.find(c => c.id === x.categoryId);
+    return cat && normalize(cat.name).includes(quer);
+  });
+  return doGenero || candidatos[0];
+}
+
+// Põe 1 Íntima Completa grátis na nota (se já havia uma paga, converte 1 unidade em prêmio)
+function addFreeIntimaToCart(label) {
+  const srv = pickIntimaService(currentPosClient);
+  if (!srv) {
+    showToast('Cadastre o serviço "Íntima Completa" para usar o prêmio.', 'error');
+    return false;
+  }
+  const idx = posCart.findIndex(i => i.id === srv.id && !i.isFidelityReward);
+  if (idx > -1) {
+    if (posCart[idx].qtd > 1) posCart[idx].qtd--; else posCart.splice(idx, 1);
+  }
+  posCart.push({
+    id: srv.id, code: srv.code, name: `${srv.name} (${label})`,
+    price: 0.00, qtd: 1, isFidelityReward: true
+  });
+  renderPosCartTable();
+  return true;
+}
+
+function logFidelityRedeem(origem) {
+  const redeemedLog = JSON.parse(localStorage.getItem('depilclear_fidelity_redeemed_log') || '[]');
+  redeemedLog.push({
+    clientId: currentPosClient.id,
+    clientName: currentPosClient.name,
+    origem,
+    timestamp: new Date().toISOString()
+  });
+  localStorage.setItem('depilclear_fidelity_redeemed_log', JSON.stringify(redeemedLog));
+}
+
+function applyIndicacaoIntimaRewardToPOS() {
+  if (!currentPosClient) return;
+  const f = getFidelityData(currentPosClient.id);
+  if (f.freeIntimas < 1) {
+    showToast('Esta cliente não tem Íntima grátis por indicação.', 'error');
+    return;
+  }
+  if (!addFreeIntimaToCart('Prêmio Indicação')) return;
+
+  f.freeIntimas -= 1;
+  saveFidelityData(currentPosClient.id, f);
+  logFidelityRedeem('indicacao');
+
+  refreshFidelityModal();
+  closeModal('modal-fidelidade-manage');
+  updateClientPerksUI();
+  renderPosTotals();
+  showToast('🎁 Íntima Completa grátis (3 indicações) adicionada à nota!', 'success');
 }
 
 function applyFidelityPercentageReward() {
@@ -581,26 +755,7 @@ function applyFidelityIntimaRewardToPOS() {
     return;
   }
 
-  // Verifica se a Íntima Completa já está na nota
-  const existingIntimaIdx = posCart.findIndex(item => 
-    normalize(item.name).includes('intima') || normalize(item.shortCode || '').includes('int')
-  );
-
-  if (existingIntimaIdx > -1) {
-    posCart[existingIntimaIdx].price = 0.00;
-    posCart[existingIntimaIdx].isFidelityReward = true;
-  } else {
-    // Insere como procedimento gratuito com valor zerado
-    const intimaSrv = posServices.find(s => normalize(s.name).includes('intima')) || posServices[0];
-    posCart.push({
-      id: intimaSrv.id,
-      code: intimaSrv.code,
-      name: `${intimaSrv.name} (Prêmio Fidelidade)`,
-      price: 0.00,
-      qtd: 1,
-      isFidelityReward: true
-    });
-  }
+  if (!addFreeIntimaToCart('Prêmio Fidelidade')) return;
 
   renderPosCartTable();
 
@@ -634,6 +789,7 @@ function removePosItem(index) {
 
 function changeItemQtd(index, delta) {
   if (!posCart[index]) return;
+  if (posCart[index].isFidelityReward && delta > 0) return; // prêmio é sempre 1 unidade
   posCart[index].qtd += delta;
   if (posCart[index].qtd <= 0) posCart.splice(index, 1);
   renderPosCartTable();
@@ -798,6 +954,8 @@ function finalizeSale() {
     if (f.points.length < 10 && !jaGanhouHoje) {
       f.points.push({ date: hoje, type: 'atendimento', desc: 'Atendimento PDV' });
       localStorage.setItem(fKey, JSON.stringify(f));
+      saleRecord.awardedPoint = true;
+      localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
     }
   }
 
@@ -839,8 +997,8 @@ function renderSalesManagementTable(search = '') {
     return `
       <tr class="${isCancel ? 'bg-rose-500/10' : 'hover:bg-brand-lightCard/40 dark:hover:bg-brand-darkBg/40'}">
         <td class="p-3 font-mono text-slate-400">${dia} ${hora}</td>
-        <td class="p-3 font-bold text-slate-900 dark:text-white">${s.clientName}</td>
-        <td class="p-3 text-brand-violet">${itensNomes}</td>
+        <td class="p-3 font-bold text-slate-900 dark:text-white">${escapeHtml(s.clientName)}</td>
+        <td class="p-3 text-brand-violet">${escapeHtml(itensNomes)}</td>
         <td class="p-3 text-[10px] font-mono text-slate-500 dark:text-slate-400">${s.method}</td>
         <td class="p-3 font-mono font-black ${isCancel ? 'text-rose-500 line-through' : 'text-emerald-500'}">R$ ${s.finalTotal.toFixed(2)}</td>
         <td class="p-3">
@@ -850,11 +1008,11 @@ function renderSalesManagementTable(search = '') {
         </td>
         <td class="p-3 text-right">
           ${!isCancel ? `
-            <button type="button" onclick="cancelPreviousSale(\${s.id})" class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 font-bold text-xs transition-all shadow-xs flex items-center gap-1 ml-auto">
+            <button type="button" onclick="cancelPreviousSale(${s.id})" class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 hover:text-white text-rose-500 font-bold text-xs transition-all shadow-xs flex items-center gap-1 ml-auto">
               <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
               <span>Cancelar Nota</span>
             </button>
-          ` : '<span class="text-xs text-rose-500 font-bold">Cancelada</span>'}
+          ` : '<span class="text-xs text-slate-400">—</span>'}
         </td>
       </tr>
     `;
@@ -864,16 +1022,32 @@ function renderSalesManagementTable(search = '') {
 }
 
 function cancelPreviousSale(saleId) {
-  const sale = salesLog.find(s => s.id === saleId);
-  if (!sale) return;
+  const sale = salesLog.find(x => x.id === saleId);
+  if (!sale || sale.status === 'Cancelada') return;
 
-  // Atualiza imediatamente o status para Cancelada
+  if (!confirm(`Cancelar a nota de ${sale.clientName} (R$ ${Number(sale.finalTotal).toFixed(2)})? Esta ação não pode ser desfeita.`)) return;
+
   sale.status = 'Cancelada';
-  localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
+  sale.canceledAt = new Date().toISOString();
 
-  // Re-renderiza a listagem de gerenciamento imediatamente
+  // Devolve o saldo pré-pago que a nota consumiu
+  if (sale.clientId && Number(sale.creditAmount) > 0) {
+    setClientCredit(sale.clientId, getClientCredit(sale.clientId) + Number(sale.creditAmount));
+  }
+
+  // Retira o selo de fidelidade que essa venda gerou
+  if (sale.awardedPoint && sale.clientId) {
+    const fKey = `depilclear_fidelity_${sale.clientId}`;
+    const f = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
+    const dia = localDateStr(new Date(sale.timestamp));
+    const idx = (f.points || []).map(p => p.type === 'atendimento' && p.desc === 'Atendimento PDV' && p.date === dia).lastIndexOf(true);
+    if (idx > -1) { f.points.splice(idx, 1); localStorage.setItem(fKey, JSON.stringify(f)); }
+  }
+
+  localStorage.setItem('depilclear_sales_log', JSON.stringify(salesLog));
   renderSalesManagementTable(document.getElementById('search-sales-input')?.value || '');
-  showToast(`✓ A nota de ${sale.clientName} foi CANCELADA no sistema!`, 'warning');
+  if (typeof updateClientPerksUI === 'function') updateClientPerksUI();
+  showToast(`A nota de ${sale.clientName} foi CANCELADA.`, 'warning');
 }
 
 /* ========================================================
