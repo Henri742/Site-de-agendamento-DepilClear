@@ -3,6 +3,26 @@
  * caixa.js - PDV com Multi-pagamento, Código de Serviço e Fidelidade
  * ======================================================== */
 
+// O caixa só abre para quem fez login no sistema (sessão da aba atual)
+if (!sessionStorage.getItem('depilclear_active_session')) {
+  window.location.replace('index.html');
+}
+
+// Se o CDN do Lucide não carregar (offline), o PDV segue funcionando sem ícones
+if (typeof window.lucide === 'undefined') {
+  window.lucide = { createIcons() {} };
+}
+
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
 let posServices = [];
 let posClients = [];
 let posCart = [];
@@ -528,7 +548,7 @@ function adjustFidelityPoints(delta) {
   if (!fData.points) fData.points = [];
 
   if (delta > 0 && fData.points.length < 10) {
-    fData.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
+    fData.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
   } else if (delta < 0 && fData.points.length > 0) {
     fData.points.pop();
   }
@@ -743,6 +763,10 @@ function finalizeSale() {
   if (payDebito > 0) paymentsBreakdown.push(`Débito: R$ ${payDebito.toFixed(2)}`);
   if (paySaldo > 0) paymentsBreakdown.push(`Saldo: R$ ${paySaldo.toFixed(2)}`);
 
+  // O troco sai do dinheiro físico: só o que ficou na gaveta entra no caixa
+  const troco = Math.max(0, totalPaid - finalTotal);
+  const cashKept = Math.max(0, payDinheiro - troco);
+
   const saleRecord = {
     id: Date.now(),
     clientId: currentPosClient ? currentPosClient.id : null,
@@ -751,7 +775,8 @@ function finalizeSale() {
     rawTotal,
     discount,
     finalTotal,
-    cashAmount: payDinheiro, // Guarda estritamente a parte paga em dinheiro físico
+    cashAmount: cashKept, // Dinheiro que realmente ficou no caixa (já descontado o troco)
+    changeGiven: troco,
     pixAmount: payPix,
     cardCreditAmount: payCredito,
     cardDebitAmount: payDebito,
@@ -767,8 +792,11 @@ function finalizeSale() {
   if (currentPosClient) {
     const fKey = `depilclear_fidelity_${currentPosClient.id}`;
     const f = JSON.parse(localStorage.getItem(fKey) || '{"points":[],"rewardsClaimed":0}');
-    if (f.points.length < 10) {
-      f.points.push({ date: new Date().toISOString().split('T')[0], type: 'atendimento', desc: 'Atendimento PDV' });
+    if (!Array.isArray(f.points)) f.points = [];
+    const hoje = localDateStr();
+    const jaGanhouHoje = f.points.some(p => p.type === 'atendimento' && p.date === hoje);
+    if (f.points.length < 10 && !jaGanhouHoje) {
+      f.points.push({ date: hoje, type: 'atendimento', desc: 'Atendimento PDV' });
       localStorage.setItem(fKey, JSON.stringify(f));
     }
   }
@@ -902,7 +930,7 @@ function handleSaveCashOperation(e) {
  * ======================================================== */
 function openReportModal() {
   const modal = document.getElementById('modal-pos-reports');
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
 
   const startInput = document.getElementById('rep-box-start-date');
   const endInput = document.getElementById('rep-box-end-date');
@@ -940,11 +968,17 @@ function calculateAndRenderClosingReport() {
   const startTime = document.getElementById('rep-box-start-time')?.value || '00:00';
   const endTime = document.getElementById('rep-box-end-time')?.value || '23:59';
 
-  const startFull = `${startDate}T${startTime}:00`;
-  const endFull = `${endDate}T${endTime}:59`;
+  // Os registros são gravados em UTC (ISO com "Z"); o período digitado é horário local.
+  // Compara sempre por instante (ms) para não "perder" vendas feitas à noite.
+  const startMs = new Date(`${startDate}T${startTime}:00`).getTime();
+  const endMs = new Date(`${endDate}T${endTime}:59.999`).getTime();
+  const inPeriod = (ts) => {
+    const t = new Date(ts).getTime();
+    return !isNaN(t) && t >= startMs && t <= endMs;
+  };
 
-  const filteredSales = salesLog.filter(s => s.timestamp >= startFull && s.timestamp <= endFull);
-  const filteredOps = cashOperations.filter(o => o.timestamp >= startFull && o.timestamp <= endFull);
+  const filteredSales = salesLog.filter(s => inPeriod(s.timestamp));
+  const filteredOps = cashOperations.filter(o => inPeriod(o.timestamp));
 
   let totalVendasBrutas = 0;
   let totalCanceladas = 0;
@@ -983,7 +1017,7 @@ function calculateAndRenderClosingReport() {
 
   // Resgates de Cartão Fidelidade no período
   const redeemedLog = JSON.parse(localStorage.getItem('depilclear_fidelity_redeemed_log') || '[]');
-  const fidelidadesNoPeriodo = redeemedLog.filter(r => r.timestamp >= startFull && r.timestamp <= endFull).length;
+  const fidelidadesNoPeriodo = redeemedLog.filter(r => inPeriod(r.timestamp)).length;
 
   document.getElementById('t-fundo').innerText = `R$ ${totalFundo.toFixed(2)}`;
   document.getElementById('t-dinheiro-entradas').innerText = `R$ ${entradasEmDinheiro.toFixed(2)}`;
@@ -1173,7 +1207,7 @@ function showToast(message, type = 'info') {
   };
 
   toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-xl text-xs font-semibold transform transition-all duration-300 translate-y-3 opacity-0 ${typeStyles[type] || typeStyles.info}`;
-  toast.innerHTML = `<span>${message}</span>`;
+  toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
 
   wrapper.appendChild(toast);
   requestAnimationFrame(() => { toast.classList.remove('translate-y-3', 'opacity-0'); });

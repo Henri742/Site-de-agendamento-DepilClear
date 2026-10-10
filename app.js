@@ -3,6 +3,42 @@
  * app.js - Lógica Principal, Persistência e Utilitários
  * ======================================================== */
 
+
+/* ========================================================
+ * HELPERS GLOBAIS (proteções e utilitários)
+ * ======================================================== */
+// Se o CDN do Lucide não carregar (offline), o app continua funcionando sem ícones
+if (typeof window.lucide === 'undefined') {
+  window.lucide = { createIcons() {} };
+}
+
+// Data local (YYYY-MM-DD). toISOString() usa UTC e, em Maceió (UTC-3),
+// vira "amanhã" a partir das 21h.
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
+function getAuthToken() {
+  return sessionStorage.getItem('depilclear_token') || '';
+}
+
+// fetch que já envia o token JWT recebido no login
+function authFetch(url, options = {}) {
+  const headers = Object.assign({}, options.headers || {}, {
+    Authorization: `Bearer ${getAuthToken()}`
+  });
+  return fetch(url, Object.assign({}, options, { headers }));
+}
+
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -49,7 +85,7 @@ let companyConfig = {
 };
 
 const today = new Date();
-let currentSelectedDate = today.toISOString().split('T')[0];
+let currentSelectedDate = localDateStr(today);
 let calendarViewYear = today.getFullYear();
 let calendarViewMonth = today.getMonth();
 
@@ -235,6 +271,7 @@ async function handleLoginSubmit(event) {
     }
 
     sessionStorage.setItem('depilclear_active_session', 'true');
+    sessionStorage.setItem('depilclear_token', dados.token || '');
     sessionStorage.setItem('depilclear_active_user', dados.usuario.email);
 
     document.getElementById('view-login')?.classList.add('hidden');
@@ -247,6 +284,7 @@ async function handleLoginSubmit(event) {
     const userDisplay = document.getElementById('user-display-email');
     if (userDisplay) userDisplay.innerText = dados.usuario.email;
 
+    applyCompanyConfigToUI();
     initCalendar();
     renderAllViews();
     showToast(`Bem-vindo(a), ${dados.usuario.nome}!`, 'success');
@@ -276,6 +314,7 @@ function toggleLoginPassword() {
 function handleLogout() {
   sessionStorage.removeItem('depilclear_active_session');
   sessionStorage.removeItem('depilclear_active_user');
+  sessionStorage.removeItem('depilclear_token');
 
   const pwdInput = document.getElementById('login-password');
   if (pwdInput) pwdInput.value = '';
@@ -356,7 +395,7 @@ function showToast(message, type = 'info') {
   toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-xl text-xs font-semibold transform transition-all duration-300 translate-y-3 opacity-0 ${styleClass}`;
   toast.innerHTML = `
     <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
-    <span class="flex-1">${message}</span>
+    <span class="flex-1">${escapeHtml(message)}</span>
   `;
 
   wrapper.appendChild(toast);
@@ -457,9 +496,9 @@ function generate15MinSlots() {
 
 function isClientInactive(clientId) {
   const clientApps = appointmentsList.filter(a => a.clientId === clientId && a.status !== 'Cancelado');
-  if (clientApps.length === 0) return true;
-  const dates = clientApps.map(a => new Date(a.date).getTime()).filter(t => !isNaN(t));
-  if (dates.length === 0) return true;
+  if (clientApps.length === 0) return false; // cliente nova (ainda sem atendimento)
+  const dates = clientApps.map(a => new Date(a.date + 'T12:00:00').getTime()).filter(t => !isNaN(t));
+  if (dates.length === 0) return false;
   const lastDate = Math.max(...dates);
   const diffDays = (new Date().getTime() - lastDate) / (1000 * 60 * 60 * 24);
   return diffDays > 90;
@@ -651,49 +690,6 @@ function clearAgendaSearch() {
   document.getElementById('agenda-clear-search-btn')?.classList.add('hidden');
   renderAgendaView();
 }
-
-/* ========================================================
- * MENUS DE CONTEXTO E BOTÃO DIREITO NA PÁGINA PRINCIPAL
- * ======================================================== */
-document.addEventListener('contextmenu', (e) => {
-  // Se clicar em inputs ou selects, mantém o menu padrão do navegador
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
-  e.preventDefault();
-  
-  // Abre o menu contextual geral caso não tenha clicado num card específico
-  const customMenu = document.getElementById('custom-context-menu');
-  if (customMenu && customMenu.classList.contains('hidden')) {
-    const content = document.getElementById('custom-context-menu-content');
-    if (content) {
-      content.innerHTML = `
-        <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-          Opções do Sistema
-        </div>
-        <div class="py-1.5 space-y-0.5">
-          <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-            <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
-          </button>
-          <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-            <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Novo Cliente
-          </button>
-          <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-            <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Novo Serviço
-          </button>
-          <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-            <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
-          </button>
-          <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-            <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa
-          </button>
-        </div>
-      `;
-      lucide.createIcons({ root: content });
-      customMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 240)}px`;
-      customMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 260)}px`;
-      customMenu.classList.remove('hidden');
-    }
-  }
-});
 
 /* ========================================================
  * MENUS DE CONTEXTO (BOTÃO DIREITO GLOBAL E NOS ELEMENTOS)
@@ -1178,9 +1174,20 @@ function handleSaveAppointment(e) {
   const status = document.getElementById('app-status-select').value;
   const isFirstTime = document.getElementById('app-first-time-toggle')?.checked || false;
 
+  // Aviso (não bloqueia) quando o horário já atingiu a capacidade configurada
+  const sameSlot = appointmentsList.filter(a => a.date === date && a.time === selectedTimeInModal && a.status !== 'Cancelado' && a.id !== editId).length;
+  if (status !== 'Cancelado' && sameSlot >= companyConfig.maxClientsPerSlot) {
+    if (!confirm(`O horário ${selectedTimeInModal} já tem ${sameSlot} cliente(s) (limite configurado: ${companyConfig.maxClientsPerSlot}). Deseja agendar mesmo assim?`)) return;
+  }
+
+  let savedApp = null;
+  let previousStatus = null;
+
   if (editId) {
     const app = appointmentsList.find(a => a.id === editId);
     if (app) {
+      previousStatus = app.status;
+      savedApp = app;
       app.clientId = client.id;
       app.clientName = client.name;
       app.gender = client.gender;
@@ -1216,10 +1223,17 @@ function handleSaveAppointment(e) {
       receptionStatus: 'Agendada'
     };
     appointmentsList.push(newApp);
+    savedApp = newApp;
     showToast(`Agendamento de ${client.name} realizado com sucesso!`, 'success');
   }
 
   saveAllToLocalStorage();
+
+  // Dispara WhatsApp do status (novo agendamento ou status alterado na edição)
+  if (savedApp && savedApp.status !== previousStatus) {
+    triggerWhatsAppWebhook(savedApp, savedApp.status);
+    if (savedApp.status === 'Finalizado') checkAndAwardFidelityPoint(savedApp);
+  }
   currentSelectedDate = date;
   closeModal('modal-appointment');
   initCalendar();
@@ -1375,7 +1389,7 @@ function renderInModalCalendar() {
     grid.appendChild(blank);
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
 
   for (let day = 1; day <= totalDays; day++) {
     const dayStr = `${inModalCalYear}-${String(inModalCalMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -1490,19 +1504,19 @@ function selectReceptionDateFromModal(dateStr) {
 function selectQuickReceptionDate(offsetDays) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  selectReceptionDateFromModal(d.toISOString().split('T')[0]);
+  selectReceptionDateFromModal(localDateStr(d));
 }
 
 function shiftReceptionDate(delta) {
   const [y, m, d] = currentSelectedDate.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   date.setDate(date.getDate() + delta);
-  currentSelectedDate = date.toISOString().split('T')[0];
+  currentSelectedDate = localDateStr(date);
   renderAllViews();
 }
 
 function setReceptionToToday() {
-  currentSelectedDate = new Date().toISOString().split('T')[0];
+  currentSelectedDate = localDateStr();
   renderAllViews();
 }
 
@@ -1911,6 +1925,14 @@ function handleSaveClient(e) {
   const city = document.getElementById('cli-city').value.trim();
   const state = document.getElementById('cli-state').value.trim().toUpperCase();
 
+  if (!name) { showToast('Informe o nome da cliente.', 'error'); return; }
+  if (cpf && !validateCPF(cpf)) { showToast('CPF inválido. Corrija antes de salvar.', 'error'); return; }
+  const cpfDigits = cpf.replace(/\D/g, '');
+  if (cpfDigits && clientsList.some(c => c.id !== id && (c.cpf || '').replace(/\D/g, '') === cpfDigits)) {
+    showToast('Já existe uma cliente cadastrada com este CPF.', 'error');
+    return;
+  }
+
   const clientData = {
     name,
     phone,
@@ -1949,7 +1971,13 @@ function handleDeleteClient(id) {
   const idx = clientsList.findIndex(c => c.id === id);
   if (idx > -1) {
     const name = clientsList[idx].name;
+    const temAgendamentos = appointmentsList.some(a => a.clientId === id && a.status !== 'Cancelado');
+    const aviso = temAgendamentos
+      ? `${name} possui agendamentos ativos. Excluir mesmo assim? (o histórico dos agendamentos será mantido)`
+      : `Excluir a cliente ${name}?`;
+    if (!confirm(aviso)) return;
     clientsList.splice(idx, 1);
+    localStorage.removeItem(`depilclear_fidelity_${id}`);
     saveAllToLocalStorage();
     showToast(`Cliente ${name} excluído!`, 'warning');
     renderAllViews();
@@ -2097,6 +2125,20 @@ function renderClientsView() {
 
   let list = clientsList;
   if (currentClientGenderFilter !== 'TODOS') list = list.filter(c => c.gender === currentClientGenderFilter);
+
+  const q = normalizeStr(document.getElementById('search-client-input')?.value || '');
+  if (q) {
+    const qDigits = q.replace(/\D/g, '');
+    list = list.filter(c =>
+      normalizeStr(c.name).includes(q) ||
+      (qDigits && ((c.cpf || '').replace(/\D/g, '').includes(qDigits) || (c.phone || '').replace(/\D/g, '').includes(qDigits)))
+    );
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-xs text-slate-400">Nenhuma cliente encontrada.</td></tr>`;
+    return;
+  }
 
   tbody.innerHTML = list.map(c => {
     const inactive = isClientInactive(c.id);
@@ -2445,19 +2487,55 @@ function renderProfessionalsView() {
 function handleLogoUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Selecione um arquivo de imagem.', 'error');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(evt) {
-    companyConfig.logoUrl = evt.target.result;
-    saveAllToLocalStorage();
-    const preview = document.getElementById('company-logo-preview');
-    if (preview) preview.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
-    const sideHolder = document.getElementById('sidebar-company-logo-holder');
-    if (sideHolder) sideHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
-    const mobHolder = document.getElementById('mobile-company-logo-holder');
-    if (mobHolder) mobHolder.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover">`;
-    showToast('Logotipo atualizado no sistema!', 'success');
+    // Reduz a imagem para não estourar a cota do localStorage (~5 MB)
+    const img = new Image();
+    img.onload = function() {
+      const maxSide = 480;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      companyConfig.logoUrl = canvas.toDataURL('image/png');
+      saveAllToLocalStorage();
+      applyCompanyConfigToUI();
+      showToast('Logotipo atualizado no sistema!', 'success');
+    };
+    img.onerror = () => showToast('Não foi possível ler a imagem.', 'error');
+    img.src = evt.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+// Aplica logo e dados da empresa salvos em toda a interface
+function applyCompanyConfigToUI() {
+  const logo = companyConfig.logoUrl || 'logo.png';
+  document.querySelectorAll('[data-company-logo]').forEach(img => { img.src = logo; });
+
+  const preview = document.getElementById('company-logo-preview');
+  if (preview && companyConfig.logoUrl) {
+    preview.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover" alt="Logo">`;
+  }
+
+  const fields = {
+    'cfg-company-name': companyConfig.name,
+    'cfg-street': companyConfig.street,
+    'cfg-number': companyConfig.number,
+    'cfg-bairro': companyConfig.bairro,
+    'cfg-cep': companyConfig.cep,
+    'cfg-complement': companyConfig.complement,
+    'cfg-whatsapp': companyConfig.whatsapp
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = val || '';
+  });
 }
 
 function handleSaveCompanyInfo(e) {
@@ -2576,30 +2654,41 @@ async function triggerWhatsAppWebhook(app, triggerStatus) {
   if (!activeTpl || !app.phone) return;
 
   const [y, m, d] = (app.date || '').split('-');
-  const dateFormatted = `${d}/${m}/${y}`;
+  const vars = {
+    nome: app.clientName,
+    data: `${d}/${m}/${y}`,
+    horario: app.time,
+    servico: app.serviceName,
+    profissional: app.professional,
+    valor: Number(app.price).toFixed(2),
+    empresa: companyConfig.name,
+    endereco: `${companyConfig.street}, ${companyConfig.number} - ${companyConfig.bairro}`
+  };
+  // Usa função de substituição para que "$" em nomes não quebre o texto
+  const msg = activeTpl.text.replace(/\{(\w+)\}/g, (full, key) => (key in vars ? vars[key] : full));
 
-  let msg = activeTpl.text
-    .replace(/{nome}/g, app.clientName)
-    .replace(/{data}/g, dateFormatted)
-    .replace(/{horario}/g, app.time)
-    .replace(/{servico}/g, app.serviceName)
-    .replace(/{profissional}/g, app.professional)
-    .replace(/{valor}/g, Number(app.price).toFixed(2))
-    .replace(/{empresa}/g, companyConfig.name)
-    .replace(/{endereco}/g, `${companyConfig.street}, ${companyConfig.number} - ${companyConfig.bairro}`);
+  if (!navigator.onLine) {
+    showToast('Sem internet: a mensagem de WhatsApp não foi enviada.', 'warning');
+    return;
+  }
 
   try {
-    const resposta = await fetch('/api/whatsapp', {
+    const resposta = await authFetch('/api/whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: app.phone, message: msg })
     });
-    const resultado = await resposta.json();
-    if (resultado.sucesso) {
-      showToast(`📲 WhatsApp enviado para ${app.clientName}!`, 'success');
+    const resultado = await resposta.json().catch(() => ({}));
+    if (resposta.ok && resultado.sucesso) {
+      showToast(resultado.simulacao
+        ? `📲 WhatsApp SIMULADO para ${app.clientName} (API não configurada).`
+        : `📲 WhatsApp enviado para ${app.clientName}!`, resultado.simulacao ? 'warning' : 'success');
+    } else {
+      showToast(resultado.erro || 'Não foi possível enviar o WhatsApp.', 'error');
     }
   } catch (err) {
     console.error('Erro no envio do WhatsApp:', err);
+    showToast('Falha de conexão ao enviar WhatsApp.', 'error');
   }
 }
 
@@ -2774,7 +2863,7 @@ function openExportSpreadsheetModal() {
   document.getElementById('export-sheet-start-date').value = currentSelectedDate;
   const future = new Date();
   future.setDate(future.getDate() + 6);
-  document.getElementById('export-sheet-end-date').value = future.toISOString().split('T')[0];
+  document.getElementById('export-sheet-end-date').value = localDateStr(future);
   document.getElementById('modal-export-spreadsheet').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -2948,6 +3037,7 @@ function renderAllViews() {
   renderCategoriesView();
   renderProfessionalsView();
   renderWhatsAppTemplatesList();
+  renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
 }
 
 window.addEventListener('online', () => {
@@ -2983,6 +3073,7 @@ function checkUserSession() {
     const userDisplay = document.getElementById('user-display-email');
     if (userDisplay) userDisplay.innerText = user;
 
+    applyCompanyConfigToUI();
     initCalendar();
     renderAllViews();
     lucide.createIcons();
@@ -3010,6 +3101,8 @@ window.onload = function() {
   if (pwdInput) pwdInput.value = '';
 
   checkUserSession();
+  applyCompanyConfigToUI();
+  if (!navigator.onLine) window.dispatchEvent(new Event('offline'));
   lucide.createIcons();
 
   if ('serviceWorker' in navigator) {
@@ -3234,7 +3327,7 @@ function generateFidelityCardHTML(client, f) {
           <span class="text-xs font-black">${i + 1}</span>
           <span class="text-[8px] uppercase tracking-tighter font-extrabold">${isIndicacao ? 'IND' : 'OK'}</span>
           <div class="hidden group-hover:block absolute bottom-full mb-1 z-30 p-1.5 rounded-lg bg-slate-900 text-white text-[9px] whitespace-nowrap shadow-xl">
-            ${pt.date.split('-').reverse().join('/')} - ${pt.desc || ''}
+            ${(pt.date || '').split('-').reverse().join('/')} - ${escapeHtml(pt.desc || '')}
           </div>
         </div>
       `;
@@ -3251,7 +3344,7 @@ function generateFidelityCardHTML(client, f) {
     <div class="p-5 rounded-3xl bg-gradient-to-br from-brand-lightSurface to-brand-lightCard dark:from-brand-darkSurface dark:to-brand-darkCard border-2 border-brand-gold/40 shadow-xl relative overflow-hidden">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h4 class="text-sm font-black text-slate-900 dark:text-white">${client.name}</h4>
+          <h4 class="text-sm font-black text-slate-900 dark:text-white">${escapeHtml(client.name)}</h4>
           <span class="text-[10px] text-slate-400 font-mono">${client.phone}</span>
         </div>
         <span class="px-2.5 py-1 rounded-xl text-xs font-black ${pointsCount === 10 ? 'bg-emerald-500 text-white animate-pulse' : 'bg-brand-gold/15 text-brand-gold'}">
@@ -3295,7 +3388,7 @@ function adjustFidelityPointsApp(delta) {
   if (!f.points) f.points = [];
 
   if (delta > 0 && f.points.length < 10) {
-    f.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
+    f.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
     showToast('Selo adicionado com sucesso!', 'success');
   } else if (delta < 0 && f.points.length > 0) {
     f.points.pop();
@@ -3304,7 +3397,7 @@ function adjustFidelityPointsApp(delta) {
 
   saveClientFidelity(clientId, f);
   document.getElementById('app-fid-modal-count').innerText = `${f.points.length} / 10`;
-  renderFidelidadeCardsGrid();
+  refreshFidelityViews(clientId);
 }
 
 function confirmFidelityPercentageDiscountApp() {
@@ -3320,231 +3413,94 @@ function confirmFidelityPercentageDiscountApp() {
   saveClientFidelity(clientId, f);
 
   closeModal('modal-app-fidelidade-manage');
-  renderFidelidadeCardsGrid();
+  refreshFidelityViews(clientId);
   showToast(`✓ Desconto de ${perc}% concedido em troca de 1 selo!`, 'success');
 }
 
 /* ========================================================
- * BOTÃO DIREITO GLOBAL NO SITE DE AGENDAMENTOS
+ * CARTÃO FIDELIDADE - FUNÇÕES BASE (estavam ausentes)
+ * Mesmo formato usado pelo caixa.js:
+ *   depilclear_fidelity_<id> = { points: [{date,type,desc}], rewardsClaimed }
  * ======================================================== */
-window.addEventListener('contextmenu', (e) => {
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-  e.preventDefault();
+function getClientFidelity(clientId) {
+  try {
+    const raw = localStorage.getItem(`depilclear_fidelity_${clientId}`);
+    const f = raw ? JSON.parse(raw) : {};
+    if (!Array.isArray(f.points)) f.points = [];
+    if (typeof f.rewardsClaimed !== 'number') f.rewardsClaimed = 0;
+    return f;
+  } catch (err) {
+    console.error('Fidelidade corrompida para o cliente', clientId, err);
+    return { points: [], rewardsClaimed: 0 };
+  }
+}
 
-  const menu = document.getElementById('custom-context-menu');
-  const content = document.getElementById('custom-context-menu-content');
-  if (!menu || !content) return;
+function saveClientFidelity(clientId, fidelity) {
+  try {
+    localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(fidelity));
+  } catch (err) {
+    console.error('Erro ao salvar fidelidade:', err);
+    showToast('Não foi possível salvar o cartão fidelidade.', 'error');
+  }
+}
 
-  content.innerHTML = `
-    <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-      Opções do Sistema
-    </div>
-    <div class="py-1.5 space-y-0.5">
-      <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
-      </button>
-      <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Cadastrar Cliente
-      </button>
-      <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Cadastrar Serviço
-      </button>
-      <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
-      </button>
-      <button type="button" onclick="closeContextMenu(); switchTab('fidelidade');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
-      </button>
-      <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa (PDV)
-      </button>
-    </div>
-  `;
+function refreshFidelityViews(clientId) {
+  renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
+  const profileOpen = !document.getElementById('modal-client-profile')?.classList.contains('hidden');
+  if (profileOpen && currentViewingClientId === clientId) renderClientProfileFidelity(clientId);
+}
 
-  lucide.createIcons({ root: content });
+// Selo extra (ex.: indicação) concedido manualmente no cartão
+function addManualFidelityPoint(clientId, type = 'indicacao', desc = 'Indicação') {
+  const client = clientsList.find(c => c.id === clientId);
+  if (!client) return;
 
-  const posX = Math.min(e.clientX, window.innerWidth - 240);
-  const posY = Math.min(e.clientY, window.innerHeight - 300);
-
-  menu.style.left = `${posX}px`;
-  menu.style.top = `${posY}px`;
-  menu.classList.remove('hidden');
-}, true);
-
-/* ========================================================
- * GESTÃO DO CARTÃO FIDELIDADE (CARREGAMENTO COMPLETO & MODAL)
- * ======================================================== */
-function renderFidelidadeCardsGrid(search = '') {
-  const container = document.getElementById('fidelidade-cards-grid');
-  if (!container) return;
-
-  const query = (search || '').toLowerCase().trim();
-  // Se estiver vazio, exibe TODOS os clientes cadastrados imediatamente
-  const list = query 
-    ? clientsList.filter(c => c.name.toLowerCase().includes(query) || (c.phone || '').includes(query))
-    : clientsList;
-
-  if (list.length === 0) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 col-span-full">Nenhum cliente cadastrado.</div>`;
+  const f = getClientFidelity(clientId);
+  if (f.points.length >= 10) {
+    showToast(`${client.name} já completou 10 selos. Faça o resgate no caixa.`, 'warning');
     return;
   }
 
-  container.innerHTML = list.map(c => {
-    const f = getClientFidelity(c.id);
-    return generateFidelityCardHTML(c, f);
-  }).join('');
-
-  lucide.createIcons({ root: container });
+  f.points.push({ date: localDateStr(), type, desc });
+  saveClientFidelity(clientId, f);
+  showToast(`Selo de ${desc.toLowerCase()} adicionado para ${client.name} (${f.points.length}/10).`, 'success');
+  refreshFidelityViews(clientId);
 }
 
-function generateFidelityCardHTML(client, f) {
-  const pointsCount = f.points ? f.points.length : 0;
-  let circlesHTML = '';
+// Concede 1 selo quando um atendimento é finalizado (no máximo 1 por agendamento e 1 por dia/cliente,
+// para não duplicar com o selo que o caixa também concede na venda).
+function checkAndAwardFidelityPoint(appointment) {
+  if (!appointment || !appointment.clientId) return;
 
-  for (let i = 0; i < 10; i++) {
-    const pt = f.points ? f.points[i] : null;
-    if (pt) {
-      const isIndicacao = pt.type === 'indicacao';
-      circlesHTML += `
-        <div class="relative group flex flex-col items-center justify-center w-11 h-11 rounded-2xl ${isIndicacao ? 'bg-amber-500 text-slate-950' : 'bg-brand-violet text-white'} shadow-md">
-          <span class="text-xs font-black">${i + 1}</span>
-          <span class="text-[8px] uppercase tracking-tighter font-extrabold">${isIndicacao ? 'IND' : 'OK'}</span>
-          <div class="hidden group-hover:block absolute bottom-full mb-1 z-30 p-1.5 rounded-lg bg-slate-900 text-white text-[9px] whitespace-nowrap shadow-xl">
-            ${pt.date.split('-').reverse().join('/')} - ${pt.desc || ''}
-          </div>
-        </div>
-      `;
-    } else {
-      circlesHTML += `
-        <div class="flex items-center justify-center w-11 h-11 rounded-2xl border-2 border-dashed border-slate-300 dark:border-brand-darkBorder text-slate-400 text-xs font-bold">
-          ${i + 1}
-        </div>
-      `;
-    }
-  }
+  const f = getClientFidelity(appointment.clientId);
+  if (f.points.length >= 10) return;
 
-  return `
-    <div class="p-5 rounded-3xl bg-gradient-to-br from-brand-lightSurface to-brand-lightCard dark:from-brand-darkSurface dark:to-brand-darkCard border-2 border-brand-gold/40 shadow-xl relative overflow-hidden">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h4 class="text-sm font-black text-slate-900 dark:text-white">${client.name}</h4>
-          <span class="text-[10px] text-slate-400 font-mono">${client.phone}</span>
-        </div>
-        <span class="px-2.5 py-1 rounded-xl text-xs font-black ${pointsCount === 10 ? 'bg-emerald-500 text-white animate-pulse' : 'bg-brand-gold/15 text-brand-gold'}">
-          ${pointsCount}/10 SELOS
-        </span>
-      </div>
+  const jaTemDoAgendamento = f.points.some(p => p.appId === appointment.id);
+  const jaTemNoDia = f.points.some(p => p.type === 'atendimento' && p.date === appointment.date);
+  if (jaTemDoAgendamento || jaTemNoDia) return;
 
-      <div class="grid grid-cols-5 gap-2 my-3">
-        ${circlesHTML}
-      </div>
-
-      <div class="pt-3 border-t border-brand-lightBorder/60 dark:border-brand-darkBorder/60 flex items-center justify-between text-xs gap-2">
-        <button type="button" onclick="addManualFidelityPoint(${client.id}, 'indicacao', 'Indicação')" class="flex-1 py-1.5 px-2 bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-brand-gold font-bold rounded-xl transition-all text-[11px]">
-          + Selo Indicação
-        </button>
-        <button type="button" onclick="openAppFidelityManageModal(${client.id})" class="flex-1 py-1.5 px-2 bg-brand-violet/15 hover:bg-brand-violet hover:text-white text-brand-violet font-bold rounded-xl transition-all text-[11px]">
-          Gerenciar / Resgatar
-        </button>
-      </div>
-    </div>
-  `;
+  f.points.push({
+    date: appointment.date || localDateStr(),
+    type: 'atendimento',
+    desc: `Atendimento: ${appointment.serviceShort || appointment.serviceName || ''}`.trim(),
+    appId: appointment.id
+  });
+  saveClientFidelity(appointment.clientId, f);
+  showToast(`⭐ Selo fidelidade concedido a ${appointment.clientName} (${f.points.length}/10).`, 'success');
+  refreshFidelityViews(appointment.clientId);
 }
 
-function openAppFidelityManageModal(clientId) {
+// Aba "Fidelidade" dentro do perfil da cliente
+function renderClientProfileFidelity(clientId) {
+  const box = document.getElementById('profile-fidelity-container');
+  if (!box) return;
   const client = clientsList.find(c => c.id === clientId);
-  if (!client) return;
-
-  document.getElementById('app-fid-client-id').value = client.id;
-  document.getElementById('app-fid-client-name').innerText = client.name;
-  
-  const f = getClientFidelity(clientId);
-  document.getElementById('app-fid-modal-count').innerText = `${f.points ? f.points.length : 0} / 10`;
-
-  document.getElementById('modal-app-fidelidade-manage')?.classList.remove('hidden');
-  lucide.createIcons();
+  if (!client) { box.innerHTML = ''; return; }
+  box.innerHTML = generateFidelityCardHTML(client, getClientFidelity(clientId));
+  lucide.createIcons({ root: box });
 }
 
-function adjustFidelityPointsApp(delta) {
-  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
-  const f = getClientFidelity(clientId);
-  if (!f.points) f.points = [];
-
-  if (delta > 0 && f.points.length < 10) {
-    f.points.push({ date: new Date().toISOString().split('T')[0], type: 'manual', desc: 'Ajuste Manual' });
-    showToast('Selo adicionado com sucesso!', 'success');
-  } else if (delta < 0 && f.points.length > 0) {
-    f.points.pop();
-    showToast('Selo removido.', 'info');
-  }
-
-  saveClientFidelity(clientId, f);
-  document.getElementById('app-fid-modal-count').innerText = `${f.points.length} / 10`;
-  renderFidelidadeCardsGrid();
+// Busca na tela de Clientes (chamada pelo oninput do campo de busca)
+function filterClientsList() {
+  renderClientsView();
 }
-
-function confirmFidelityPercentageDiscountApp() {
-  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
-  const perc = parseInt(document.getElementById('app-fid-discount-perc').value || 50, 10);
-  const f = getClientFidelity(clientId);
-
-  if (!f.points || f.points.length === 0) {
-    return showToast('O cliente não possui selos suficientes para resgate!', 'error');
-  }
-
-  // Consome 1 ponto em troca do benefício
-  f.points.pop();
-  saveClientFidelity(clientId, f);
-
-  closeModal('modal-app-fidelidade-manage');
-  renderFidelidadeCardsGrid();
-  showToast(`✓ Desconto de ${perc}% concedido em troca de 1 selo!`, 'success');
-}
-
-/* ========================================================
- * CLIQUE DIREITO GLOBAL (SEMPRE ATIVO NO AGENDAMENTO)
- * ======================================================== */
-window.addEventListener('contextmenu', (e) => {
-  // Ignora apenas se for campo de texto editável
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-  e.preventDefault();
-
-  const menu = document.getElementById('custom-context-menu');
-  const content = document.getElementById('custom-context-menu-content');
-  if (!menu || !content) return;
-
-  content.innerHTML = `
-    <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
-      Opções do Sistema
-    </div>
-    <div class="py-1.5 space-y-0.5">
-      <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
-      </button>
-      <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Cadastrar Cliente
-      </button>
-      <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Cadastrar Serviço
-      </button>
-      <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
-      </button>
-      <button type="button" onclick="closeContextMenu(); switchTab('fidelidade');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
-      </button>
-      <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
-        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa (PDV)
-      </button>
-    </div>
-  `;
-
-  lucide.createIcons({ root: content });
-
-  const posX = Math.min(e.clientX, window.innerWidth - 240);
-  const posY = Math.min(e.clientY, window.innerHeight - 300);
-
-  menu.style.left = `${posX}px`;
-  menu.style.top = `${posY}px`;
-  menu.classList.remove('hidden');
-}, true);
