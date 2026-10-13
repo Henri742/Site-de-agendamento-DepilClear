@@ -3,24 +3,15 @@
  * Folha de Estilos do Caixa / PDV (caixa.css)
  * ======================================================== */
 
-/* Suavização na troca de tema */
-html,
-body,
-header,
-main,
-section,
-div,
-table,
-th,
-td,
-input,
-select,
-button {
-  transition: 
-    background-color 0.4s ease,
-    border-color 0.4s ease,
-    color 0.3s ease,
-    box-shadow 0.4s ease !important;
+/* Troca de tema suave: só durante a animação (não deixa os botões lentos) */
+html.theme-animating,
+html.theme-animating body,
+html.theme-animating *:not(.theme-switch-thumb) {
+  transition:
+    background-color 0.45s ease,
+    border-color 0.45s ease,
+    color 0.35s ease,
+    box-shadow 0.45s ease !important;
 }
 
 /* Barras de rolagem discretas */

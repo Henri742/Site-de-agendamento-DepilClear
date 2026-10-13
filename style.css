@@ -190,32 +190,37 @@ html:not(.dark) .theme-switch-thumb {
  * TRANSIÇÃO ATMOSFÉRICA GLOBAL (DIA / NOITE)
  * ======================================================== */
 
-/* Suavização de todos os contentores que mudam com o tema */
-html,
-body,
-aside,
-header,
-main,
-section,
-div,
-table,
-th,
-td,
+/* Interações rápidas e fluidas (hover / clique) */
+button,
+a,
 input,
 select,
 textarea,
-button {
-  transition: 
-    background-color 0.65s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.65s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.45s ease,
-    box-shadow 0.65s cubic-bezier(0.4, 0, 0.2, 1),
-    filter 0.65s cubic-bezier(0.4, 0, 0.2, 1) !important;
+label,
+.nav-item {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease,
+    opacity 0.15s ease;
 }
 
-/* Transição do fundo geral imitando crepúsculo / aurora */
-body {
-  transition: background 0.75s cubic-bezier(0.4, 0, 0.2, 1), color 0.45s ease !important;
+button:not(:disabled):active,
+.nav-item:active {
+  transform: scale(0.96);
+}
+
+/* Transição suave Dia/Noite: só existe durante a troca de tema (não pesa nos botões) */
+html.theme-animating,
+html.theme-animating body,
+html.theme-animating *:not(.theme-switch-thumb) {
+  transition:
+    background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.4s ease,
+    box-shadow 0.5s ease !important;
 }
 
 /* Brilho dourado e bordas suaves no anoitecer */
@@ -262,4 +267,31 @@ html:not(.dark) .theme-switch-thumb {
     color: #000000;
   }
   body.printing-report #printable-report-target * { visibility: visible; }
+}
+
+
+/* ========================================================
+ * RESPONSIVIDADE (celular, tablet, notebook, desktop)
+ * ======================================================== */
+@supports (height: 100dvh) {
+  #view-dashboard { height: 100dvh; }
+}
+
+/* iOS dá zoom automático em campos com fonte < 16px */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+  body { -webkit-text-size-adjust: 100%; }
+}
+
+/* Alvos de toque confortáveis em telas sensíveis ao toque */
+@media (pointer: coarse) {
+  button, .nav-item { min-height: 36px; }
+}
+
+img { max-width: 100%; }
+
+/* Diálogo de confirmação no padrão do sistema */
+@keyframes confirmPop {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }

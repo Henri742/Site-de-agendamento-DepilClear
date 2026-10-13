@@ -27,6 +27,51 @@ function escapeHtml(str) {
   ));
 }
 
+// Substitui o confirm() feio do navegador por um diálogo no padrão do sistema.
+// Uso: if (!(await showConfirm({ title, message, confirmText, danger }))) return;
+function showConfirm({ title = 'Confirmar ação', message = '', confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" class="w-full max-w-sm bg-brand-lightSurface dark:bg-brand-darkSurface border-2 ${danger ? 'border-rose-500/50' : 'border-brand-gold/60'} rounded-3xl p-6 shadow-2xl gold-border-glow" style="animation: confirmPop .16s ease-out">
+        <div class="flex items-start gap-3 mb-3">
+          <div class="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${danger ? 'bg-rose-500/15 text-rose-500' : 'bg-brand-gold/15 text-brand-gold'}">
+            <i data-lucide="${danger ? 'alert-triangle' : 'help-circle'}" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-gold">Atenção</span>
+            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${escapeHtml(title)}</h3>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 whitespace-pre-line">${escapeHtml(message)}</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" data-act="no" class="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">${escapeHtml(cancelText)}</button>
+          <button type="button" data-act="yes" class="px-5 py-2.5 rounded-2xl text-xs font-black text-white shadow ${danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-brand-violet hover:bg-brand-purpleDeep'}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    try { lucide.createIcons({ root: overlay }); } catch (e) { /* sem ícones */ }
+
+    const finish = (value) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') finish(false);
+      if (ev.key === 'Enter') finish(true);
+    };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) finish(false);
+      const act = ev.target.closest('[data-act]')?.dataset.act;
+      if (act) finish(act === 'yes');
+    });
+    overlay.querySelector('[data-act="yes"]').focus();
+  });
+}
+
 function getAuthToken() {
   return sessionStorage.getItem('depilclear_token') || '';
 }
@@ -75,6 +120,8 @@ let companyConfig = {
   number: 'S/N',
   bairro: 'Maceió',
   cep: '57000-000',
+  city: 'Maceió',
+  state: 'AL',
   complement: 'Sala Spa',
   whatsapp: '(82) 98722-3360',
   openTime: '08:00',
@@ -285,6 +332,8 @@ async function handleLoginSubmit(event) {
     if (userDisplay) userDisplay.innerText = dados.usuario.email;
 
     applyCompanyConfigToUI();
+    fillCompanyConfigForm();
+    startWhatsAppScheduler();
     initCalendar();
     renderAllViews();
     showToast(`Bem-vindo(a), ${dados.usuario.nome}!`, 'success');
@@ -315,6 +364,7 @@ function handleLogout() {
   sessionStorage.removeItem('depilclear_active_session');
   sessionStorage.removeItem('depilclear_active_user');
   sessionStorage.removeItem('depilclear_token');
+  document.documentElement.classList.remove('has-session');
 
   const pwdInput = document.getElementById('login-password');
   if (pwdInput) pwdInput.value = '';
@@ -334,6 +384,11 @@ function toggleTheme(btnElement = null) {
     }, 200);
   }
 
+  // A transição lenta de cores só vale durante a troca (deixa os botões rápidos)
+  html.classList.add('theme-animating');
+  clearTimeout(window.__themeAnimTimer);
+  window.__themeAnimTimer = setTimeout(() => html.classList.remove('theme-animating'), 650);
+
   html.classList.toggle('dark');
   const isDark = html.classList.contains('dark');
   localStorage.setItem('depilclear_theme', isDark ? 'dark' : 'light');
@@ -342,10 +397,19 @@ function toggleTheme(btnElement = null) {
 
 function toggleMobileMenu() {
   const sidebar = document.getElementById('app-sidebar');
-  if (sidebar) sidebar.classList.toggle('-translate-x-full');
+  if (!sidebar) return;
+  const willOpen = sidebar.classList.contains('-translate-x-full');
+  sidebar.classList.toggle('-translate-x-full', !willOpen);
+  document.getElementById('mobile-menu-overlay')?.classList.toggle('hidden', !willOpen);
+}
+
+function closeMobileMenu() {
+  document.getElementById('app-sidebar')?.classList.add('-translate-x-full');
+  document.getElementById('mobile-menu-overlay')?.classList.add('hidden');
 }
 
 function switchTab(tabId) {
+  closeMobileMenu();
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
   const target = document.getElementById(`section-${tabId}`);
   if (target) target.classList.remove('hidden');
@@ -494,14 +558,35 @@ function generate15MinSlots() {
   return slots;
 }
 
+// Último agendamento (não cancelado) da cliente, em 'YYYY-MM-DD', ou null se ainda não tem nenhum
+function getClientLastAppointmentDate(clientId) {
+  const datas = appointmentsList
+    .filter(a => a.clientId === clientId && a.status !== 'Cancelado' && a.date)
+    .map(a => a.date)
+    .sort();
+  return datas.length ? datas[datas.length - 1] : null;
+}
+
+// 'nova'    = cadastrada, mas ainda sem nenhum agendamento
+// 'ativa'   = tem agendamento nos últimos 3 meses (ou futuro)
+// 'inativa' = o último agendamento tem mais de 3 meses
+function getClientStatus(clientId) {
+  const last = getClientLastAppointmentDate(clientId);
+  if (!last) return 'nova';
+  const limite = new Date();
+  limite.setMonth(limite.getMonth() - 3);
+  return new Date(last + 'T23:59:59') < limite ? 'inativa' : 'ativa';
+}
+
 function isClientInactive(clientId) {
-  const clientApps = appointmentsList.filter(a => a.clientId === clientId && a.status !== 'Cancelado');
-  if (clientApps.length === 0) return false; // cliente nova (ainda sem atendimento)
-  const dates = clientApps.map(a => new Date(a.date + 'T12:00:00').getTime()).filter(t => !isNaN(t));
-  if (dates.length === 0) return false;
-  const lastDate = Math.max(...dates);
-  const diffDays = (new Date().getTime() - lastDate) / (1000 * 60 * 60 * 24);
-  return diffDays > 90;
+  return getClientStatus(clientId) === 'inativa';
+}
+
+function clientStatusBadgeHTML(clientId, extraClass = '') {
+  const st = getClientStatus(clientId);
+  if (st === 'inativa') return `<span class="${extraClass} text-[9px] px-2 py-0.5 rounded-full font-bold bg-rose-500/15 text-rose-500 border border-rose-500/20">Inativa</span>`;
+  if (st === 'nova') return `<span class="${extraClass} text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-500/15 text-sky-500 border border-sky-500/20">Nova</span>`;
+  return '';
 }
 
 /* ========================================================
@@ -1143,7 +1228,7 @@ function toggleReceptionArrival(id) {
 /* ========================================================
  * SALVAR AGENDAMENTOS E ATUALIZAÇÕES
  * ======================================================== */
-function handleSaveAppointment(e) {
+async function handleSaveAppointment(e) {
   e.preventDefault();
   const clientId = document.getElementById('app-client-id').value;
   const client = clientsList.find(c => c.id == clientId);
@@ -1177,7 +1262,12 @@ function handleSaveAppointment(e) {
   // Aviso (não bloqueia) quando o horário já atingiu a capacidade configurada
   const sameSlot = appointmentsList.filter(a => a.date === date && a.time === selectedTimeInModal && a.status !== 'Cancelado' && a.id !== editId).length;
   if (status !== 'Cancelado' && sameSlot >= companyConfig.maxClientsPerSlot) {
-    if (!confirm(`O horário ${selectedTimeInModal} já tem ${sameSlot} cliente(s) (limite configurado: ${companyConfig.maxClientsPerSlot}). Deseja agendar mesmo assim?`)) return;
+    const ok = await showConfirm({
+      title: 'Horário cheio',
+      message: `O horário ${selectedTimeInModal} já tem ${sameSlot} cliente(s) (limite configurado: ${companyConfig.maxClientsPerSlot}).\nDeseja agendar mesmo assim?`,
+      confirmText: 'Agendar mesmo assim'
+    });
+    if (!ok) return;
   }
 
   let savedApp = null;
@@ -1965,7 +2055,7 @@ function handleSaveClient(e) {
   renderAllViews();
 }
 
-function handleDeleteClient(id) {
+async function handleDeleteClient(id) {
   const idx = clientsList.findIndex(c => c.id === id);
   if (idx > -1) {
     const name = clientsList[idx].name;
@@ -1973,7 +2063,8 @@ function handleDeleteClient(id) {
     const aviso = temAgendamentos
       ? `${name} possui agendamentos ativos. Excluir mesmo assim? (o histórico dos agendamentos será mantido)`
       : `Excluir a cliente ${name}?`;
-    if (!confirm(aviso)) return;
+    const ok = await showConfirm({ title: 'Excluir cliente', message: aviso, confirmText: 'Excluir', danger: true });
+    if (!ok) return;
     clientsList.splice(idx, 1);
     localStorage.removeItem(`depilclear_fidelity_${id}`);
     saveAllToLocalStorage();
@@ -2002,8 +2093,9 @@ function openClientProfileModal(clientId, initialTab = 'dados') {
   const isInactive = isClientInactive(client.id);
   const actBadge = document.getElementById('profile-client-activity-badge');
   if (actBadge) {
-    actBadge.innerText = isInactive ? 'Inativa (>3m)' : 'Ativa';
-    actBadge.className = `text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isInactive ? 'bg-rose-500/15 text-rose-500' : 'bg-emerald-500/15 text-emerald-500'}`;
+    const st = getClientStatus(client.id);
+    actBadge.innerText = st === 'inativa' ? 'Inativa (>3m)' : (st === 'nova' ? 'Nova' : 'Ativa');
+    actBadge.className = `text-[10px] px-2.5 py-0.5 rounded-full font-bold ${st === 'inativa' ? 'bg-rose-500/15 text-rose-500' : (st === 'nova' ? 'bg-sky-500/15 text-sky-500' : 'bg-emerald-500/15 text-emerald-500')}`;
   }
 
   document.getElementById('profile-client-subinfo').innerText = `CPF: ${client.cpf} • WhatsApp: ${client.phone}`;
@@ -2148,7 +2240,7 @@ function renderClientsView() {
       >
         <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white group-hover:text-brand-violet transition-colors">
           ${c.name}
-          ${inactive ? '<span class="ml-2 text-[9px] px-2 py-0.5 rounded-full font-bold bg-rose-500/15 text-rose-500 border border-rose-500/20">Inativa</span>' : ''}
+          ${clientStatusBadgeHTML(c.id, 'ml-2')}
         </td>
         <td class="py-3.5 px-4"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${c.gender === 'Masculino' ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500'}">${c.gender}</span></td>
         <td class="py-3.5 px-4 font-mono text-emerald-500 text-xs">${c.cpf}</td>
@@ -2520,20 +2612,54 @@ function applyCompanyConfigToUI() {
   if (preview && companyConfig.logoUrl) {
     preview.innerHTML = `<img src="${companyConfig.logoUrl}" class="w-full h-full object-cover" alt="Logo">`;
   }
+}
 
+// Preenche o formulário "Dados da Empresa" com o que está salvo
+// (antes ele sempre mostrava os valores padrão do HTML depois de recarregar)
+function fillCompanyConfigForm() {
   const fields = {
     'cfg-company-name': companyConfig.name,
     'cfg-street': companyConfig.street,
     'cfg-number': companyConfig.number,
     'cfg-bairro': companyConfig.bairro,
     'cfg-cep': companyConfig.cep,
+    'cfg-city': companyConfig.city,
+    'cfg-state': companyConfig.state,
     'cfg-complement': companyConfig.complement,
     'cfg-whatsapp': companyConfig.whatsapp
   };
   Object.entries(fields).forEach(([id, val]) => {
     const el = document.getElementById(id);
-    if (el && !el.value) el.value = val || '';
+    if (el && val !== undefined && val !== null) el.value = val;
   });
+}
+
+// Consulta de CEP (ViaCEP) nos dados da empresa — igual ao cadastro de clientes
+async function buscarEnderecoEmpresaPorCEP(cepValue) {
+  const cleanCep = (cepValue || '').replace(/\D/g, '');
+  if (cleanCep.length !== 8) return;
+
+  const cepInput = document.getElementById('cfg-cep');
+  if (cepInput) cepInput.value = `${cleanCep.slice(0, 5)}-${cleanCep.slice(5)}`;
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    const data = await res.json();
+    if (data.erro) {
+      showToast('CEP não encontrado.', 'warning');
+      return;
+    }
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    set('cfg-street', data.logradouro);
+    set('cfg-bairro', data.bairro);
+    set('cfg-city', data.localidade);
+    set('cfg-state', (data.uf || '').toUpperCase());
+    document.getElementById('cfg-number')?.focus();
+    showToast('Endereço da empresa carregado via CEP! Confira e clique em Salvar.', 'success');
+  } catch (err) {
+    console.warn('Erro ao consultar CEP:', err);
+    showToast('Não foi possível consultar o CEP agora.', 'warning');
+  }
 }
 
 function handleSaveCompanyInfo(e) {
@@ -2543,6 +2669,8 @@ function handleSaveCompanyInfo(e) {
   companyConfig.number = document.getElementById('cfg-number').value;
   companyConfig.bairro = document.getElementById('cfg-bairro').value;
   companyConfig.cep = document.getElementById('cfg-cep').value;
+  companyConfig.city = document.getElementById('cfg-city').value;
+  companyConfig.state = document.getElementById('cfg-state').value.toUpperCase();
   companyConfig.complement = document.getElementById('cfg-complement').value;
   companyConfig.whatsapp = document.getElementById('cfg-whatsapp').value;
   saveAllToLocalStorage();
@@ -2552,6 +2680,17 @@ function handleSaveCompanyInfo(e) {
 /* ========================================================
  * WHATSAPP E AUTOMAÇÃO
  * ======================================================== */
+// Mostra/esconde os campos conforme o gatilho escolhido
+function syncWppTemplateForm() {
+  const trigger = document.getElementById('wpp-tpl-trigger')?.value;
+  const isInactive = trigger === 'Inativo';
+  const advEnabled = Boolean(document.getElementById('wpp-tpl-advance-enable')?.checked);
+  document.getElementById('wpp-advance-box')?.classList.toggle('hidden', isInactive);
+  document.getElementById('wpp-advance-days-wrapper')?.classList.toggle('hidden', isInactive || !advEnabled);
+  document.getElementById('wpp-send-time-box')?.classList.toggle('hidden', !(isInactive || advEnabled));
+  document.getElementById('wpp-inactive-hint')?.classList.toggle('hidden', !isInactive);
+}
+
 function openNewWhatsAppTemplateModal(id = null) {
   document.getElementById('wpp-tpl-id').value = id || '';
   const advEnable = document.getElementById('wpp-tpl-advance-enable');
@@ -2569,14 +2708,17 @@ function openNewWhatsAppTemplateModal(id = null) {
       const hasAdvance = Boolean(tpl.advanceDays && tpl.advanceDays > 0);
       if (advEnable) advEnable.checked = hasAdvance;
       if (advDays) advDays.value = tpl.advanceDays || 1;
-      if (advWrapper) advWrapper.classList.toggle('hidden', !hasAdvance);
+      const timeInput = document.getElementById('wpp-tpl-send-time');
+      if (timeInput) timeInput.value = tpl.sendTime || '09:00';
     }
   } else {
     document.getElementById('form-wpp-template').reset();
     if (advEnable) advEnable.checked = false;
     if (advDays) advDays.value = 1;
-    if (advWrapper) advWrapper.classList.add('hidden');
+    const timeInput = document.getElementById('wpp-tpl-send-time');
+    if (timeInput) timeInput.value = '09:00';
   }
+  syncWppTemplateForm();
   document.getElementById('modal-whatsapp-template').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -2601,9 +2743,11 @@ function handleSaveWppTemplate(e) {
   const text = document.getElementById('wpp-tpl-text').value.trim();
 
   const isAdvanceEnabled = document.getElementById('wpp-tpl-advance-enable')?.checked || false;
-  const advanceDays = isAdvanceEnabled ? parseInt(document.getElementById('wpp-tpl-advance-days')?.value || '1', 10) : null;
+  const isInactiveTrigger = trigger === 'Inativo';
+  const advanceDays = (isAdvanceEnabled && !isInactiveTrigger) ? Math.max(1, parseInt(document.getElementById('wpp-tpl-advance-days')?.value || '1', 10)) : null;
+  const sendTime = document.getElementById('wpp-tpl-send-time')?.value || '09:00';
 
-  const templateData = { id, title, trigger, active, text, advanceDays };
+  const templateData = { id, title, trigger, active, text, advanceDays, sendTime: (advanceDays || isInactiveTrigger) ? sendTime : null };
 
   const existingIdx = whatsappTemplates.findIndex(t => t.id === id);
   if (existingIdx > -1) {
@@ -2626,14 +2770,15 @@ function renderWhatsAppTemplatesList() {
   container.innerHTML = whatsappTemplates.map(tpl => `
     <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder space-y-1.5">
       <div class="flex items-center justify-between">
-        <h5 class="text-xs font-bold text-slate-900 dark:text-white">${tpl.title}</h5>
+        <h5 class="text-xs font-bold text-slate-900 dark:text-white">${escapeHtml(tpl.title)}</h5>
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${tpl.active ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-500/20 text-slate-400'}">
           ${tpl.active ? 'Robô Ativo' : 'Pausado'}
         </span>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[10px] text-brand-gold font-mono">Gatilho: Status = ${tpl.trigger}</span>
-        ${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${tpl.advanceDays} dia(s) antes</span>` : ''}
+        <span class="text-[10px] text-brand-gold font-mono">${tpl.trigger === 'Inativo' ? 'Gatilho: cliente Inativa (3 meses)' : 'Gatilho: Status = ' + tpl.trigger}</span>
+        ${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${tpl.advanceDays} dia(s) antes, às ${tpl.sendTime || '09:00'}</span>` : ''}
+        ${tpl.trigger === 'Inativo' ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ às ${tpl.sendTime || '09:00'} (Brasília)</span>` : ''}
       </div>
       <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono whitespace-pre-wrap line-clamp-2">${tpl.text}</p>
       <div class="flex justify-end gap-2 pt-1 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
@@ -2647,47 +2792,159 @@ function renderWhatsAppTemplatesList() {
 /* ========================================================
  * DISPARO SILENCIOSO DE WHATSAPP (VIA BACKEND /api/whatsapp)
  * ======================================================== */
-async function triggerWhatsAppWebhook(app, triggerStatus) {
-  const activeTpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active);
-  if (!activeTpl || !app.phone) return;
+// Monta o texto do modelo trocando {variáveis}; variável desconhecida fica como está
+function buildWhatsAppText(tpl, vars) {
+  return tpl.text.replace(/\{(\w+)\}/g, (full, key) => (key in vars ? vars[key] : full));
+}
 
-  const [y, m, d] = (app.date || '').split('-');
-  const vars = {
-    nome: app.clientName,
-    data: `${d}/${m}/${y}`,
-    horario: app.time,
-    servico: app.serviceName,
-    profissional: app.professional,
-    valor: Number(app.price).toFixed(2),
+function formatBR(dateStr) {
+  const [y, m, d] = (dateStr || '').split('-');
+  return y ? `${d}/${m}/${y}` : '';
+}
+
+function buildWhatsAppVars(app, clientName, lastDate) {
+  return {
+    nome: clientName || (app && app.clientName) || '',
+    data: app ? formatBR(app.date) : '',
+    horario: app ? app.time : '',
+    servico: app ? app.serviceName : '',
+    profissional: app ? app.professional : '',
+    valor: app ? Number(app.price).toFixed(2) : '',
+    ultimo_atendimento: formatBR(lastDate),
     empresa: companyConfig.name,
     endereco: `${companyConfig.street}, ${companyConfig.number} - ${companyConfig.bairro}`
   };
-  // Usa função de substituição para que "$" em nomes não quebre o texto
-  const msg = activeTpl.text.replace(/\{(\w+)\}/g, (full, key) => (key in vars ? vars[key] : full));
+}
 
+// Envia pela API. Retorna { ok, simulated }
+async function sendWhatsAppMessage(phone, message, label, { silent = false } = {}) {
+  if (!phone) return { ok: false };
   if (!navigator.onLine) {
-    showToast('Sem internet: a mensagem de WhatsApp não foi enviada.', 'warning');
-    return;
+    if (!silent) showToast('Sem internet: a mensagem de WhatsApp não foi enviada.', 'warning');
+    return { ok: false };
   }
-
   try {
     const resposta = await authFetch('/api/whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: app.phone, message: msg })
+      body: JSON.stringify({ phone, message })
     });
     const resultado = await resposta.json().catch(() => ({}));
     if (resposta.ok && resultado.sucesso) {
       showToast(resultado.simulacao
-        ? `📲 WhatsApp SIMULADO para ${app.clientName} (API não configurada).`
-        : `📲 WhatsApp enviado para ${app.clientName}!`, resultado.simulacao ? 'warning' : 'success');
-    } else {
-      showToast(resultado.erro || 'Não foi possível enviar o WhatsApp.', 'error');
+        ? `📲 WhatsApp SIMULADO para ${label} (API não configurada).`
+        : `📲 WhatsApp enviado para ${label}!`, resultado.simulacao ? 'warning' : 'success');
+      return { ok: true, simulated: Boolean(resultado.simulacao) };
     }
+    showToast(resultado.erro || 'Não foi possível enviar o WhatsApp.', 'error');
   } catch (err) {
     console.error('Erro no envio do WhatsApp:', err);
     showToast('Falha de conexão ao enviar WhatsApp.', 'error');
   }
+  return { ok: false };
+}
+
+// Disparo imediato quando o STATUS do agendamento muda.
+// Modelos com "antecedência" não disparam aqui: eles são enviados pelo agendador (abaixo).
+async function triggerWhatsAppWebhook(app, triggerStatus) {
+  const tpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active && !t.advanceDays);
+  if (!tpl || !app.phone) return;
+  await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName);
+}
+
+/* ---------- Agendador (lembretes com antecedência + clientes inativas) ----------
+ * Funciona enquanto o sistema estiver aberto em algum navegador logado (não há servidor
+ * rodando 24h; os dados ficam no navegador). Horário sempre de Brasília (UTC-3). */
+const WPP_SENT_KEY = 'depilclear_wpp_sent';
+const WPP_MAX_PER_RUN = 10;
+
+function getWppSent() {
+  try { return JSON.parse(localStorage.getItem(WPP_SENT_KEY) || '{}'); } catch (e) { return {}; }
+}
+
+function saveWppSent(map) {
+  try { localStorage.setItem(WPP_SENT_KEY, JSON.stringify(map)); } catch (e) { /* cota cheia */ }
+}
+
+// Instante de "dia + hora" no horário de Brasília
+function brasiliaInstant(dateStr, timeStr) {
+  return new Date(`${dateStr}T${timeStr || '09:00'}:00-03:00`).getTime();
+}
+
+function shiftDateStr(dateStr, { days = 0, months = 0 } = {}) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + months, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+let wppSchedulerRunning = false;
+
+async function runWhatsAppScheduler() {
+  if (wppSchedulerRunning || !getAuthToken() || !navigator.onLine) return;
+  wppSchedulerRunning = true;
+  try {
+    const now = Date.now();
+    const sent = getWppSent();
+    let count = 0;
+
+    const shouldSkip = (key) => {
+      const rec = sent[key];
+      if (!rec) return false;
+      if (rec.status === 'ok') return true;
+      return now - rec.at < 30 * 60 * 1000; // falhou: tenta de novo só depois de 30 min
+    };
+
+    // 1) Lembretes N dias antes do atendimento, no horário escolhido
+    for (const tpl of whatsappTemplates.filter(t => t.active && t.advanceDays)) {
+      for (const app of appointmentsList) {
+        if (count >= WPP_MAX_PER_RUN) break;
+        if (app.status !== tpl.trigger || !app.phone || !app.date || !app.time) continue;
+        const start = brasiliaInstant(app.date, app.time);
+        if (isNaN(start) || start <= now) continue; // atendimento já passou
+        const sendAt = brasiliaInstant(shiftDateStr(app.date, { days: -tpl.advanceDays }), tpl.sendTime);
+        if (now < sendAt) continue;
+        const key = `adv:${tpl.id}:${app.id}:${app.date}:${app.time}`;
+        if (shouldSkip(key)) continue;
+
+        const r = await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName, { silent: true });
+        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
+        saveWppSent(sent);
+        count++;
+      }
+    }
+
+    // 2) Cliente que completou 3 meses sem atendimento (só quem ficou inativa nos últimos 7 dias,
+    //    para não disparar para toda a base antiga de uma vez)
+    for (const tpl of whatsappTemplates.filter(t => t.active && t.trigger === 'Inativo')) {
+      for (const client of clientsList) {
+        if (count >= WPP_MAX_PER_RUN) break;
+        if (!client.phone) continue;
+        const last = getClientLastAppointmentDate(client.id);
+        if (!last) continue;
+        const sendAt = brasiliaInstant(shiftDateStr(last, { months: 3, days: 1 }), tpl.sendTime);
+        if (now < sendAt || now - sendAt > 7 * 86400000) continue;
+        if (getClientStatus(client.id) !== 'inativa') continue;
+        const key = `ina:${tpl.id}:${client.id}:${last}`;
+        if (shouldSkip(key)) continue;
+
+        const r = await sendWhatsAppMessage(client.phone, buildWhatsAppText(tpl, buildWhatsAppVars(null, client.name, last)), client.name, { silent: true });
+        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
+        saveWppSent(sent);
+        count++;
+      }
+    }
+  } catch (err) {
+    console.error('Erro no agendador de WhatsApp:', err);
+  } finally {
+    wppSchedulerRunning = false;
+  }
+}
+
+function startWhatsAppScheduler() {
+  if (window.__wppSchedulerStarted) return;
+  window.__wppSchedulerStarted = true;
+  setTimeout(runWhatsAppScheduler, 4000);
+  setInterval(runWhatsAppScheduler, 60 * 1000);
 }
 
 /* ========================================================
@@ -3072,12 +3329,15 @@ function checkUserSession() {
     if (userDisplay) userDisplay.innerText = user;
 
     applyCompanyConfigToUI();
+    fillCompanyConfigForm();
+    startWhatsAppScheduler();
     initCalendar();
     renderAllViews();
     lucide.createIcons();
     return true;
   }
 
+  document.documentElement.classList.remove('has-session');
   document.getElementById('view-dashboard')?.classList.add('hidden');
   document.getElementById('view-dashboard')?.classList.remove('flex');
   document.getElementById('view-login')?.classList.remove('hidden');
@@ -3312,6 +3572,12 @@ function renderFidelidadeCardsGrid(search = '') {
   lucide.createIcons({ root: container });
 }
 
+// 'YYYY-MM-DD' -> 'dd/mm' (a data completa aparece ao passar o mouse)
+function shortDate(d) {
+  const p = (d || '').split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}` : '--/--';
+}
+
 function generateFidelityCardHTML(client, f) {
   const pointsCount = f.points ? f.points.length : 0;
   let circlesHTML = '';
@@ -3321,17 +3587,18 @@ function generateFidelityCardHTML(client, f) {
     if (pt) {
       const isIndicacao = pt.type === 'indicacao';
       circlesHTML += `
-        <div class="relative group flex flex-col items-center justify-center w-11 h-11 rounded-2xl ${isIndicacao ? 'bg-amber-500 text-slate-950' : 'bg-brand-violet text-white'} shadow-md">
+        <div class="relative group flex flex-col items-center justify-center w-full aspect-square max-w-[3.75rem] mx-auto rounded-2xl ${isIndicacao ? 'bg-amber-500 text-slate-950' : 'bg-brand-violet text-white'} shadow-md leading-none">
           <span class="text-xs font-black">${i + 1}</span>
-          <span class="text-[8px] uppercase tracking-tighter font-extrabold">${isIndicacao ? 'IND' : 'OK'}</span>
+          <span class="text-[9px] font-extrabold mt-0.5">${shortDate(pt.date)}</span>
+          <span class="text-[7px] uppercase tracking-tighter font-bold opacity-80">${isIndicacao ? 'indicação' : 'ok'}</span>
           <div class="hidden group-hover:block absolute bottom-full mb-1 z-30 p-1.5 rounded-lg bg-slate-900 text-white text-[9px] whitespace-nowrap shadow-xl">
-            ${(pt.date || '').split('-').reverse().join('/')} - ${escapeHtml(pt.desc || '')}
+            ${(pt.date || '').split('-').reverse().join('/')} - ${escapeHtml(pt.desc || (isIndicacao ? 'Indicação' : 'Atendimento'))}
           </div>
         </div>
       `;
     } else {
       circlesHTML += `
-        <div class="flex items-center justify-center w-11 h-11 rounded-2xl border-2 border-dashed border-slate-300 dark:border-brand-darkBorder text-slate-400 text-xs font-bold">
+        <div class="flex items-center justify-center w-full aspect-square max-w-[3.75rem] mx-auto rounded-2xl border-2 border-dashed border-slate-300 dark:border-brand-darkBorder text-slate-400 text-xs font-bold">
           ${i + 1}
         </div>
       `;
@@ -3591,23 +3858,32 @@ function toggleFirstTime() {
 
 /* ========================================================
  * CONSTRUTOR DE RELATÓRIOS PERSONALIZADOS
- * Escolha o que aparece (seções, colunas, status, período) e imprima / salve em PDF.
+ * - Valores financeiros vêm das NOTAS DO CAIXA (o que a cliente realmente pagou).
+ * - A agenda só informa atendimentos (sem valores).
  * ======================================================== */
 const REPORT_SECTIONS = [
-  { key: 'resumo', label: 'Resumo (totais)' },
-  { key: 'servicos', label: 'Por procedimento' },
-  { key: 'profissionais', label: 'Por depiladora' },
-  { key: 'lista', label: 'Lista de atendimentos' },
-  { key: 'inativas', label: 'Clientes inativas' },
-  { key: 'caixa', label: 'Fechamento de caixa (PDV)' }
+  { key: 'resumo', label: 'Resumo' },
+  { key: 'notas', label: 'Notas emitidas (caixa)' },
+  { key: 'clientes', label: 'Valor pago por cliente' },
+  { key: 'servicos', label: 'Procedimentos vendidos' },
+  { key: 'canceladas', label: 'Notas canceladas' },
+  { key: 'fidelidade', label: 'Uso do cartão fidelidade' },
+  { key: 'caixa', label: 'Fechamento de caixa' },
+  { key: 'lista', label: 'Agenda: atendimentos' },
+  { key: 'profissionais', label: 'Atendimentos por depiladora' },
+  { key: 'inativas', label: 'Clientes inativas' }
 ];
 const REPORT_METRICS = [
-  { key: 'clientes', label: 'Total de clientes' },
-  { key: 'atendimentos', label: 'Total de atendimentos' },
-  { key: 'procedimentos', label: 'Procedimentos' },
-  { key: 'bruto', label: 'Faturamento bruto' },
-  { key: 'ticket', label: 'Ticket médio' },
-  { key: 'primeira', label: '1ª vez' }
+  { key: 'clientes', label: 'Clientes cadastradas' },
+  { key: 'atendidas', label: 'Clientes atendidas (com nota)' },
+  { key: 'atendimentos', label: 'Atendimentos na agenda' },
+  { key: 'notas', label: 'Notas finalizadas' },
+  { key: 'bruto', label: 'Vendas brutas' },
+  { key: 'descontos', label: 'Descontos concedidos' },
+  { key: 'ticket', label: 'Ticket médio por nota' },
+  { key: 'canceladas', label: 'Notas canceladas' },
+  { key: 'fidelidade', label: 'Prêmios de fidelidade' },
+  { key: 'primeira', label: 'Clientes de 1ª vez' }
 ];
 const REPORT_COLUMNS = [
   { key: 'data', label: 'Data' },
@@ -3617,45 +3893,62 @@ const REPORT_COLUMNS = [
   { key: 'genero', label: 'Gênero' },
   { key: 'servicos', label: 'Procedimentos' },
   { key: 'profissional', label: 'Depiladora' },
-  { key: 'valor', label: 'Valor' },
   { key: 'status', label: 'Status' }
 ];
+const REPORT_NOTECOLS = [
+  { key: 'data', label: 'Data/Hora' },
+  { key: 'cliente', label: 'Cliente' },
+  { key: 'itens', label: 'Itens' },
+  { key: 'formas', label: 'Formas de pagamento' },
+  { key: 'desconto', label: 'Desconto' },
+  { key: 'total', label: 'Total pago' },
+  { key: 'situacao', label: 'Situação' }
+];
 const REPORT_STATUSES = ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar', 'Cancelado'];
+const REPORT_NSTATUS = ['Finalizada', 'Cancelada'];
 
 const REPORT_PRESETS = {
   completo: {
     label: 'Relatório completo', title: 'Relatório Completo', period: 'mes',
-    sections: ['resumo', 'servicos', 'profissionais', 'lista', 'caixa'],
-    metrics: ['clientes', 'atendimentos', 'procedimentos', 'bruto', 'ticket', 'primeira'],
-    columns: ['data', 'hora', 'nome', 'telefone', 'genero', 'servicos', 'profissional', 'valor', 'status'],
-    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar']
+    sections: ['resumo', 'notas', 'clientes', 'servicos', 'canceladas', 'fidelidade', 'caixa', 'lista', 'profissionais'],
+    metrics: ['clientes', 'atendidas', 'atendimentos', 'notas', 'bruto', 'descontos', 'ticket', 'canceladas', 'fidelidade', 'primeira'],
+    columns: ['data', 'hora', 'nome', 'telefone', 'genero', 'servicos', 'profissional', 'status'],
+    notecols: ['data', 'cliente', 'itens', 'formas', 'desconto', 'total', 'situacao'],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar'], nstatus: ['Finalizada', 'Cancelada']
   },
   mensal: {
     label: 'Mês com valores brutos', title: 'Relatório Mensal - Valores Brutos', period: 'mes',
-    sections: ['resumo', 'servicos', 'profissionais'],
-    metrics: ['clientes', 'atendimentos', 'procedimentos', 'bruto', 'ticket'],
-    columns: ['data', 'nome', 'servicos', 'valor'],
-    statuses: ['Finalizado']
-  },
-  atendimentos: {
-    label: 'Lista de atendimentos', title: 'Lista de Atendimentos', period: 'hoje',
-    sections: ['lista'],
-    metrics: [],
-    columns: ['data', 'hora', 'nome', 'servicos', 'profissional', 'valor', 'status'],
-    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar']
-  },
-  inativas: {
-    label: 'Clientes inativas', title: 'Clientes Inativas', period: 'tudo',
-    sections: ['inativas'], metrics: [], columns: [], statuses: ['Finalizado']
+    sections: ['resumo', 'clientes', 'servicos'],
+    metrics: ['atendidas', 'notas', 'bruto', 'descontos', 'ticket', 'canceladas', 'fidelidade'],
+    columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada']
   },
   fechamento: {
     label: 'Fechamento de caixa', title: 'Fechamento de Caixa', period: 'hoje',
-    sections: ['caixa'], metrics: [], columns: [], statuses: ['Finalizado']
+    sections: ['resumo', 'caixa', 'canceladas', 'fidelidade'],
+    metrics: ['notas', 'bruto', 'descontos', 'canceladas', 'fidelidade'],
+    columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada', 'Cancelada']
+  },
+  notas: {
+    label: 'Notas emitidas', title: 'Notas Emitidas no Caixa', period: 'mes',
+    sections: ['resumo', 'notas'],
+    metrics: ['notas', 'bruto', 'descontos', 'canceladas'],
+    columns: [], notecols: ['data', 'cliente', 'itens', 'formas', 'desconto', 'total', 'situacao'],
+    statuses: ['Finalizado'], nstatus: ['Finalizada', 'Cancelada']
+  },
+  atendimentos: {
+    label: 'Agenda do dia', title: 'Agenda de Atendimentos', period: 'hoje',
+    sections: ['lista'], metrics: [],
+    columns: ['data', 'hora', 'nome', 'servicos', 'profissional', 'status'], notecols: [],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar'], nstatus: ['Finalizada']
+  },
+  inativas: {
+    label: 'Clientes inativas', title: 'Clientes Inativas', period: 'tudo',
+    sections: ['inativas'], metrics: [], columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada']
   }
 };
 
 function reportChip(group, key, label, checked) {
-  return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brand-lightBorder dark:border-brand-darkBorder text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+  return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brand-lightBorder dark:border-brand-darkBorder text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer hover:border-brand-gold">
     <input type="checkbox" data-rp-group="${group}" value="${escapeHtml(key)}" ${checked ? 'checked' : ''}> ${escapeHtml(label)}</label>`;
 }
 
@@ -3690,20 +3983,27 @@ function applyReportPreset(name) {
   setReportChecked('sections', p.sections);
   setReportChecked('metrics', p.metrics);
   setReportChecked('columns', p.columns);
+  setReportChecked('notecols', p.notecols);
   setReportChecked('statuses', p.statuses);
+  setReportChecked('nstatus', p.nstatus);
   document.getElementById('rp-preview')?.classList.add('hidden');
 }
 
 function openPrintReportModal() {
+  const chips = (id, group, list, isObj = true) => {
+    document.getElementById(id).innerHTML = list.map(x => isObj
+      ? reportChip(group, x.key, x.label, false) : reportChip(group, x, x, false)).join('');
+  };
   document.getElementById('rp-presets').innerHTML = Object.entries(REPORT_PRESETS).map(([k, p]) =>
-    `<button type="button" onclick="applyReportPreset('${k}')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-brand-violet/10 text-brand-violet border border-brand-violet/40 hover:bg-brand-violet hover:text-white transition-all">${escapeHtml(p.label)}</button>`).join('');
-  document.getElementById('rp-sections').innerHTML = REPORT_SECTIONS.map(x => reportChip('sections', x.key, x.label, false)).join('');
-  document.getElementById('rp-metrics').innerHTML = REPORT_METRICS.map(x => reportChip('metrics', x.key, x.label, false)).join('');
-  document.getElementById('rp-columns').innerHTML = REPORT_COLUMNS.map(x => reportChip('columns', x.key, x.label, false)).join('');
-  document.getElementById('rp-statuses').innerHTML = REPORT_STATUSES.map(x => reportChip('statuses', x, x, false)).join('');
+    `<button type="button" onclick="applyReportPreset('${k}')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-brand-violet/10 text-brand-violet border border-brand-violet/40 hover:bg-brand-violet hover:text-white">${escapeHtml(p.label)}</button>`).join('');
+  chips('rp-sections', 'sections', REPORT_SECTIONS);
+  chips('rp-metrics', 'metrics', REPORT_METRICS);
+  chips('rp-columns', 'columns', REPORT_COLUMNS);
+  chips('rp-notecols', 'notecols', REPORT_NOTECOLS);
+  chips('rp-statuses', 'statuses', REPORT_STATUSES, false);
+  chips('rp-nstatus', 'nstatus', REPORT_NSTATUS, false);
 
   applyReportPreset('completo');
-  // Se já havia período escolhido na tela de relatórios, usa ele
   const s0 = document.getElementById('rep-start-date')?.value;
   const e0 = document.getElementById('rep-end-date')?.value;
   if (s0 || e0) {
@@ -3718,6 +4018,16 @@ function reportMoney(n) {
   return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',');
 }
 
+function reportDateTime(ts) {
+  return new Date(ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Origem do prêmio de uma linha de nota
+function rewardOriginOfItem(item) {
+  if (item.rewardType) return item.rewardType;
+  return /indica/i.test(item.name || '') ? 'indicacao' : 'fidelidade';
+}
+
 function buildReportHTML() {
   const title = document.getElementById('rp-title').value.trim() || 'Relatório';
   const start = document.getElementById('rp-start').value;
@@ -3726,134 +4036,206 @@ function buildReportHTML() {
   const sections = getReportChecked('sections');
   const metrics = getReportChecked('metrics');
   const columns = REPORT_COLUMNS.filter(c => getReportChecked('columns').includes(c.key));
+  const noteCols = REPORT_NOTECOLS.filter(c => getReportChecked('notecols').includes(c.key));
   const statuses = getReportChecked('statuses');
-  const inactiveDays = Math.max(1, parseInt(document.getElementById('rp-inactive-days').value, 10) || 90);
+  const nstatus = getReportChecked('nstatus');
+  const inactiveMonths = Math.max(1, parseInt(document.getElementById('rp-inactive-months').value, 10) || 3);
   const includeNever = document.getElementById('rp-inactive-never').checked;
 
   if (sections.length === 0) return { error: 'Marque pelo menos uma seção para mostrar no relatório.' };
-  if (sections.includes('lista') && columns.length === 0) return { error: 'Marque pelo menos uma coluna para a lista de atendimentos.' };
+  if (sections.includes('lista') && columns.length === 0) return { error: 'Marque pelo menos uma coluna para a agenda.' };
+  if (sections.includes('notas') && noteCols.length === 0) return { error: 'Marque pelo menos uma coluna para as notas emitidas.' };
 
   const fmtDate = d => (d || '').split('-').reverse().join('/');
   const periodText = (start || end) ? `${start ? fmtDate(start) : 'início'} a ${end ? fmtDate(end) : 'hoje'}` : 'Todo o histórico';
 
+  // ----- Dados: agenda -----
   const apps = appointmentsList
     .filter(a => (!start || a.date >= start) && (!end || a.date <= end))
     .filter(a => statuses.includes(a.status))
     .filter(a => gender === 'TODOS' || a.gender === gender)
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
-  const th = 'style="text-align:left;border-bottom:2px solid #000;padding:4px 6px;font-size:11px;"';
-  const td = 'style="border-bottom:1px solid #bbb;padding:4px 6px;font-size:11px;vertical-align:top;"';
-  const h2 = 'style="font-size:14px;margin:18px 0 6px;border-bottom:1px solid #000;padding-bottom:3px;"';
-  const table = (heads, rows) => rows.length === 0
-    ? '<p style="font-size:11px;color:#555;">Nenhum registro.</p>'
-    : `<table style="width:100%;border-collapse:collapse;"><thead><tr>${heads.map(h => `<th ${th}>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td ${td}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  // ----- Dados: notas do caixa -----
+  const startMs = start ? new Date(start + 'T00:00:00').getTime() : -Infinity;
+  const endMs = end ? new Date(end + 'T23:59:59.999').getTime() : Infinity;
+  let allSales = [], ops = [];
+  try { allSales = JSON.parse(localStorage.getItem('depilclear_sales_log') || '[]'); } catch (e) { /* ignora */ }
+  try { ops = JSON.parse(localStorage.getItem('depilclear_cash_ops') || '[]'); } catch (e) { /* ignora */ }
+  const inPeriod = ts => { const t = new Date(ts).getTime(); return !isNaN(t) && t >= startMs && t <= endMs; };
+  const clientGender = id => (clientsList.find(c => c.id === id) || {}).gender;
 
-  let html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;padding:8px;">
-    <h1 style="font-size:18px;margin:0;">${escapeHtml(companyConfig.name || 'DepilClear')}</h1>
-    <h2 style="font-size:15px;margin:2px 0 0;">${escapeHtml(title)}</h2>
-    <p style="font-size:11px;margin:2px 0 0;color:#444;">Período: ${periodText}${gender !== 'TODOS' ? ' • Gênero: ' + gender : ''} • Emitido em ${new Date().toLocaleString('pt-BR')}</p>`;
+  const periodSales = allSales
+    .filter(x => inPeriod(x.timestamp))
+    .filter(x => gender === 'TODOS' || (x.clientId && clientGender(x.clientId) === gender))
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const okSales = periodSales.filter(x => x.status !== 'Cancelada');
+  const canceledSales = periodSales.filter(x => x.status === 'Cancelada');
+  const noteSales = periodSales.filter(x => nstatus.includes(x.status === 'Cancelada' ? 'Cancelada' : 'Finalizada'));
+  const periodOps = ops.filter(o => inPeriod(o.timestamp));
 
-  const totalBruto = apps.reduce((t, a) => t + Number(a.price || 0), 0);
-  const uniqueClients = new Set(apps.map(a => a.clientId)).size;
-  const totalProcs = apps.reduce((t, a) => t + ((a.services && a.services.length) || 1), 0);
+  const bruto = okSales.reduce((t, x) => t + Number(x.finalTotal || 0), 0);
+  const descontos = okSales.reduce((t, x) => t + Number(x.discount || 0), 0);
+  const canceladoTotal = canceledSales.reduce((t, x) => t + Number(x.finalTotal || 0), 0);
+  const rewardRows = [];
+  periodSales.forEach(x => (x.items || []).filter(i => i.isFidelityReward).forEach(i => rewardRows.push({ sale: x, origin: rewardOriginOfItem(i) })));
+  const rewardsValid = rewardRows.filter(r => r.sale.status !== 'Cancelada').length;
+  const clientesAtendidas = new Set(okSales.map(x => x.clientId || ('n:' + x.clientName))).size;
+
+  // ----- Visual da empresa -----
+  const logo = companyConfig.logoUrl || 'logo.png';
+  const PURPLE = '#4c1d95', VIOLET = '#7c3aed', GOLD = '#d4af37', SOFT = '#f6f1fb';
+  const th = `style="text-align:left;background:${PURPLE};color:#fff;padding:6px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;"`;
+  const tdBase = 'padding:5px 8px;font-size:11px;vertical-align:top;border-bottom:1px solid #e5dcf2;';
+  const h3 = `style="font-size:13px;margin:20px 0 8px;color:${PURPLE};border-bottom:2px solid ${GOLD};padding-bottom:4px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;"`;
+  const table = (heads, rows, { rightCols = [] } = {}) => rows.length === 0
+    ? '<p style="font-size:11px;color:#6b5b7b;margin:4px 0;">Nenhum registro no período.</p>'
+    : `<table style="width:100%;border-collapse:collapse;margin-bottom:4px;"><thead><tr>${heads.map((h, i) => `<th ${th.replace('text-align:left', rightCols.includes(i) ? 'text-align:right' : 'text-align:left')}>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r, ri) => `<tr style="background:${ri % 2 ? SOFT : '#fff'};">${r.map((c, i) => `<td style="${tdBase}${rightCols.includes(i) ? 'text-align:right;white-space:nowrap;' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+  let html = `<div style="font-family:'Montserrat',Arial,Helvetica,sans-serif;color:#1f1330;background:#fff;padding:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid ${GOLD};padding-bottom:10px;">
+      <img src="${logo}" alt="Logo" style="height:70px;width:auto;object-fit:contain;">
+      <div style="flex:1;">
+        <div style="font-size:11px;color:#6b5b7b;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(companyConfig.name || 'DepilClear')}</div>
+        <div style="font-size:20px;font-weight:800;color:${PURPLE};line-height:1.2;">${escapeHtml(title)}</div>
+        <div style="font-size:11px;color:#444;margin-top:2px;">Período: <b>${periodText}</b>${gender !== 'TODOS' ? ' • Gênero: <b>' + gender + '</b>' : ''}</div>
+      </div>
+    </div>`;
 
   if (sections.includes('resumo')) {
     const cards = [];
-    if (metrics.includes('clientes')) cards.push(['Clientes atendidas', uniqueClients]);
-    if (metrics.includes('atendimentos')) cards.push(['Atendimentos', apps.length]);
-    if (metrics.includes('procedimentos')) cards.push(['Procedimentos', totalProcs]);
-    if (metrics.includes('bruto')) cards.push(['Faturamento bruto', reportMoney(totalBruto)]);
-    if (metrics.includes('ticket')) cards.push(['Ticket médio', reportMoney(apps.length ? totalBruto / apps.length : 0)]);
+    if (metrics.includes('clientes')) cards.push(['Clientes cadastradas', clientsList.length]);
+    if (metrics.includes('atendidas')) cards.push(['Clientes atendidas', clientesAtendidas]);
+    if (metrics.includes('atendimentos')) cards.push(['Atendimentos na agenda', apps.length]);
+    if (metrics.includes('notas')) cards.push(['Notas finalizadas', okSales.length]);
+    if (metrics.includes('bruto')) cards.push(['Vendas brutas', reportMoney(bruto)]);
+    if (metrics.includes('descontos')) cards.push(['Descontos concedidos', reportMoney(descontos)]);
+    if (metrics.includes('ticket')) cards.push(['Ticket médio por nota', reportMoney(okSales.length ? bruto / okSales.length : 0)]);
+    if (metrics.includes('canceladas')) cards.push(['Notas canceladas', `${canceledSales.length} (${reportMoney(canceladoTotal)})`]);
+    if (metrics.includes('fidelidade')) cards.push(['Prêmios de fidelidade', rewardsValid]);
     if (metrics.includes('primeira')) cards.push(['Clientes de 1ª vez', apps.filter(a => a.isFirstTime).length]);
-    html += `<h3 ${h2}>Resumo</h3>` + (cards.length
-      ? `<table style="border-collapse:collapse;"><tr>${cards.map(c => `<td style="border:1px solid #000;padding:6px 12px;text-align:center;"><div style="font-size:10px;color:#444;">${c[0]}</div><div style="font-size:15px;font-weight:bold;">${c[1]}</div></td>`).join('')}</tr></table>`
-      : '<p style="font-size:11px;color:#555;">Nenhum indicador selecionado.</p>');
+    html += `<h3 ${h3}>Resumo</h3>` + (cards.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${cards.map(c => `<div style="flex:1 1 150px;border:1.5px solid ${GOLD};border-radius:10px;padding:8px 10px;background:${SOFT};"><div style="font-size:9.5px;color:#6b5b7b;text-transform:uppercase;letter-spacing:.4px;">${c[0]}</div><div style="font-size:16px;font-weight:800;color:${PURPLE};">${c[1]}</div></div>`).join('')}</div>`
+      : '<p style="font-size:11px;color:#6b5b7b;">Nenhum indicador selecionado.</p>');
+  }
+
+  if (sections.includes('notas')) {
+    const cell = {
+      data: x => reportDateTime(x.timestamp),
+      cliente: x => escapeHtml(x.clientName),
+      itens: x => escapeHtml((x.items || []).map(i => `${i.qtd}x ${i.name}`).join(', ')),
+      formas: x => escapeHtml(x.method || ''),
+      desconto: x => reportMoney(x.discount),
+      total: x => x.status === 'Cancelada' ? `<s style="color:#9b1c4a;">${reportMoney(x.finalTotal)}</s>` : `<b>${reportMoney(x.finalTotal)}</b>`,
+      situacao: x => x.status === 'Cancelada' ? '<b style="color:#be123c;">Cancelada</b>' : '<span style="color:#047857;font-weight:700;">Finalizada</span>'
+    };
+    const right = noteCols.map((c, i) => ['desconto', 'total'].includes(c.key) ? i : -1).filter(i => i >= 0);
+    html += `<h3 ${h3}>Notas emitidas (${noteSales.length})</h3>` + table(noteCols.map(c => c.label), noteSales.map(x => noteCols.map(c => cell[c.key](x))), { rightCols: right });
+    if (noteCols.some(c => c.key === 'total')) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total das notas finalizadas: <b style="color:${PURPLE};">${reportMoney(bruto)}</b></p>`;
+  }
+
+  if (sections.includes('clientes')) {
+    const map = {};
+    okSales.forEach(x => {
+      const k = x.clientId ? 'c' + x.clientId : 'n:' + x.clientName;
+      map[k] = map[k] || { nome: x.clientName, notas: 0, total: 0, ultima: x.timestamp };
+      map[k].notas++; map[k].total += Number(x.finalTotal || 0);
+      if (new Date(x.timestamp) > new Date(map[k].ultima)) map[k].ultima = x.timestamp;
+    });
+    const rows = Object.values(map).sort((a, b) => b.total - a.total)
+      .map(v => [escapeHtml(v.nome), v.notas, `<b>${reportMoney(v.total)}</b>`, reportDateTime(v.ultima)]);
+    html += `<h3 ${h3}>Valor pago por cliente</h3>` + table(['Cliente', 'Notas', 'Total pago', 'Último pagamento'], rows, { rightCols: [1, 2] });
+    html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total: <b style="color:${PURPLE};">${reportMoney(bruto)}</b></p>`;
   }
 
   if (sections.includes('servicos')) {
     const map = {};
-    apps.forEach(a => {
-      const list = (a.services && a.services.length) ? a.services : [{ name: a.serviceName, price: a.price }];
-      list.forEach(s => {
-        const k = s.name || 'Sem nome';
-        map[k] = map[k] || { qtd: 0, total: 0 };
-        map[k].qtd++; map[k].total += Number(s.price || 0);
-      });
-    });
-    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, reportMoney(v.total)]);
-    html += `<h3 ${h2}>Por procedimento</h3>` + table(['Procedimento', 'Qtd', 'Valor bruto'], rows);
+    okSales.forEach(x => (x.items || []).forEach(i => {
+      const k = (i.name || 'Sem nome').replace(/\s*\(Prêmio[^)]*\)\s*$/i, '');
+      map[k] = map[k] || { pagos: 0, premios: 0, valor: 0 };
+      if (i.isFidelityReward) map[k].premios += Number(i.qtd || 1);
+      else { map[k].pagos += Number(i.qtd || 1); map[k].valor += Number(i.price || 0) * Number(i.qtd || 1); }
+    }));
+    const rows = Object.entries(map).sort((a, b) => b[1].pagos - a[1].pagos)
+      .map(([n, v]) => [escapeHtml(n), v.pagos, v.premios, reportMoney(v.valor)]);
+    html += `<h3 ${h3}>Procedimentos vendidos</h3>` + table(['Procedimento', 'Qtd paga', 'Prêmios (grátis)', 'Valor de tabela'], rows, { rightCols: [1, 2, 3] });
+    html += '<p style="font-size:10px;color:#6b5b7b;margin:4px 0 0;">Valores de tabela, antes dos descontos dados na nota. O valor realmente pago está em "Vendas brutas".</p>';
   }
 
-  if (sections.includes('profissionais')) {
-    const map = {};
-    apps.forEach(a => {
-      const k = a.professional || 'Sem preferência';
-      map[k] = map[k] || { qtd: 0, total: 0 };
-      map[k].qtd++; map[k].total += Number(a.price || 0);
+  if (sections.includes('canceladas')) {
+    const rows = canceledSales.map(x => [reportDateTime(x.timestamp), escapeHtml(x.clientName), escapeHtml((x.items || []).map(i => `${i.qtd}x ${i.name}`).join(', ')), escapeHtml(x.method || ''), `<b style="color:#9b1c4a;">${reportMoney(x.finalTotal)}</b>`]);
+    html += `<h3 ${h3}>Notas canceladas (${canceledSales.length})</h3>` + table(['Data/Hora', 'Cliente', 'Itens', 'Formas', 'Valor'], rows, { rightCols: [4] });
+    if (rows.length) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total cancelado: <b style="color:#9b1c4a;">${reportMoney(canceladoTotal)}</b></p>`;
+  }
+
+  if (sections.includes('fidelidade')) {
+    const label = o => o === 'indicacao' ? '3 indicações (Íntima grátis)' : 'Cartão completo (10 selos)';
+    const rows = rewardRows.map(r => [reportDateTime(r.sale.timestamp), escapeHtml(r.sale.clientName), label(r.origin),
+      r.sale.status === 'Cancelada' ? '<b style="color:#be123c;">Nota cancelada</b>' : '<span style="color:#047857;font-weight:700;">Utilizado</span>']);
+    html += `<h3 ${h3}>Uso do cartão fidelidade (${rewardsValid} válido(s))</h3>` + table(['Data/Hora', 'Cliente', 'Prêmio', 'Situação'], rows);
+  }
+
+  if (sections.includes('caixa')) {
+    const t = { dinheiro: 0, pix: 0, credito: 0, debito: 0, saldo: 0, fundo: 0, supr: 0, sangria: 0 };
+    okSales.forEach(x => {
+      t.dinheiro += Number(x.cashAmount || 0); t.pix += Number(x.pixAmount || 0);
+      t.credito += Number(x.cardCreditAmount || 0); t.debito += Number(x.cardDebitAmount || 0); t.saldo += Number(x.creditAmount || 0);
     });
-    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, reportMoney(v.total)]);
-    html += `<h3 ${h2}>Por depiladora</h3>` + table(['Depiladora', 'Atendimentos', 'Valor bruto'], rows);
+    periodOps.forEach(o => {
+      if (o.type === 'fundo') t.fundo += Number(o.amount);
+      if (o.type === 'suprimento' || o.type === 'recarga_credito') t.supr += Number(o.amount);
+      if (o.type === 'sangria') t.sangria += Number(o.amount);
+    });
+    const gaveta = t.fundo + t.dinheiro + t.supr - t.sangria;
+    html += `<h3 ${h3}>Fechamento de caixa</h3>` + table(['Item', 'Valor'], [
+      ['Notas finalizadas', okSales.length], ['<b>Vendas brutas</b>', `<b>${reportMoney(bruto)}</b>`], ['Descontos concedidos', reportMoney(descontos)],
+      ['Notas canceladas', `${canceledSales.length} (${reportMoney(canceladoTotal)})`], ['Prêmios de fidelidade usados', rewardsValid],
+      ['Dinheiro (líquido de troco)', reportMoney(t.dinheiro)], ['PIX', reportMoney(t.pix)], ['Cartão de crédito', reportMoney(t.credito)],
+      ['Cartão de débito', reportMoney(t.debito)], ['Saldo em crédito usado', reportMoney(t.saldo)],
+      ['Fundo de abertura', reportMoney(t.fundo)], ['Suprimentos', reportMoney(t.supr)], ['Sangrias', reportMoney(t.sangria)],
+      ['<b>Dinheiro esperado na gaveta</b>', `<b>${reportMoney(gaveta)}</b>`]
+    ], { rightCols: [1] });
   }
 
   if (sections.includes('lista')) {
     const cell = {
       data: a => fmtDate(a.date), hora: a => escapeHtml(a.time), nome: a => escapeHtml(a.clientName) + (a.isFirstTime ? ' ⭐' : ''),
       telefone: a => escapeHtml(a.phone || ''), genero: a => escapeHtml(a.gender || ''),
-      servicos: a => escapeHtml(a.serviceName || ''), profissional: a => escapeHtml(a.professional || ''),
-      valor: a => reportMoney(a.price), status: a => escapeHtml(a.status)
+      servicos: a => escapeHtml(a.serviceName || ''), profissional: a => escapeHtml(a.professional || ''), status: a => escapeHtml(a.status)
     };
-    const rows = apps.map(a => columns.map(c => cell[c.key](a)));
-    html += `<h3 ${h2}>Lista de atendimentos (${apps.length})</h3>` + table(columns.map(c => c.label), rows);
-    if (columns.some(c => c.key === 'valor')) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;"><b>Total: ${reportMoney(totalBruto)}</b></p>`;
+    html += `<h3 ${h3}>Agenda: atendimentos (${apps.length})</h3>` + table(columns.map(c => c.label), apps.map(a => columns.map(c => cell[c.key](a))));
+  }
+
+  if (sections.includes('profissionais')) {
+    const map = {};
+    apps.forEach(a => {
+      const k = a.professional || 'Sem preferência';
+      map[k] = map[k] || { qtd: 0, clientes: new Set() };
+      map[k].qtd++; map[k].clientes.add(a.clientId);
+    });
+    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, v.clientes.size]);
+    html += `<h3 ${h3}>Atendimentos por depiladora</h3>` + table(['Depiladora', 'Atendimentos', 'Clientes'], rows, { rightCols: [1, 2] });
   }
 
   if (sections.includes('inativas')) {
-    const limite = Date.now() - inactiveDays * 86400000;
+    const limite = new Date(); limite.setMonth(limite.getMonth() - inactiveMonths);
     const rows = [];
     clientsList.filter(c => gender === 'TODOS' || c.gender === gender).forEach(c => {
-      const datas = appointmentsList.filter(a => a.clientId === c.id && a.status !== 'Cancelado')
-        .map(a => a.date).sort();
-      const ultima = datas[datas.length - 1];
+      const ultima = getClientLastAppointmentDate(c.id);
       if (!ultima) { if (includeNever) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), 'Nunca atendida', '-']); return; }
-      const t = new Date(ultima + 'T12:00:00').getTime();
-      if (t < limite) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), fmtDate(ultima), Math.floor((Date.now() - t) / 86400000) + ' dias']);
+      const t = new Date(ultima + 'T23:59:59');
+      if (t < limite) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), fmtDate(ultima), Math.floor((Date.now() - t.getTime()) / 86400000) + ' dias']);
     });
     rows.sort((a, b) => a[0].localeCompare(b[0]));
-    html += `<h3 ${h2}>Clientes inativas há mais de ${inactiveDays} dias (${rows.length})</h3>` + table(['Cliente', 'Telefone', 'Último atendimento', 'Sem vir há'], rows);
+    html += `<h3 ${h3}>Clientes inativas há mais de ${inactiveMonths} mês(es) (${rows.length})</h3>` + table(['Cliente', 'Telefone', 'Último atendimento', 'Sem vir há'], rows);
   }
 
-  if (sections.includes('caixa')) {
-    const startMs = start ? new Date(start + 'T00:00:00').getTime() : -Infinity;
-    const endMs = end ? new Date(end + 'T23:59:59.999').getTime() : Infinity;
-    const inPeriod = ts => { const t = new Date(ts).getTime(); return !isNaN(t) && t >= startMs && t <= endMs; };
-    let sales = [], ops = [];
-    try { sales = JSON.parse(localStorage.getItem('depilclear_sales_log') || '[]').filter(x => inPeriod(x.timestamp)); } catch (e) { /* ignora */ }
-    try { ops = JSON.parse(localStorage.getItem('depilclear_cash_ops') || '[]').filter(x => inPeriod(x.timestamp)); } catch (e) { /* ignora */ }
-
-    const t = { bruto: 0, cancel: 0, dinheiro: 0, pix: 0, credito: 0, debito: 0, saldo: 0, qtd: 0, fundo: 0, supr: 0, sangria: 0 };
-    sales.forEach(x => {
-      if (x.status === 'Cancelada') { t.cancel += Number(x.finalTotal || 0); return; }
-      t.qtd++; t.bruto += Number(x.finalTotal || 0); t.dinheiro += Number(x.cashAmount || 0);
-      t.pix += Number(x.pixAmount || 0); t.credito += Number(x.cardCreditAmount || 0);
-      t.debito += Number(x.cardDebitAmount || 0); t.saldo += Number(x.creditAmount || 0);
-    });
-    ops.forEach(o => {
-      if (o.type === 'fundo') t.fundo += Number(o.amount);
-      if (o.type === 'suprimento' || o.type === 'recarga_credito') t.supr += Number(o.amount);
-      if (o.type === 'sangria') t.sangria += Number(o.amount);
-    });
-    const gaveta = t.fundo + t.dinheiro + t.supr - t.sangria;
-    html += `<h3 ${h2}>Fechamento de caixa (PDV)</h3>` + table(['Item', 'Valor'], [
-      ['Notas finalizadas', t.qtd], ['Vendas brutas', reportMoney(t.bruto)], ['Notas canceladas', reportMoney(t.cancel)],
-      ['Dinheiro recebido (líquido de troco)', reportMoney(t.dinheiro)], ['PIX', reportMoney(t.pix)],
-      ['Cartão de crédito', reportMoney(t.credito)], ['Cartão de débito', reportMoney(t.debito)], ['Saldo em crédito usado', reportMoney(t.saldo)],
-      ['Fundo de troco', reportMoney(t.fundo)], ['Suprimentos', reportMoney(t.supr)], ['Sangrias', reportMoney(t.sangria)],
-      ['<b>Dinheiro esperado na gaveta</b>', `<b>${reportMoney(gaveta)}</b>`]
-    ]);
-  }
-
-  html += '</div>';
+  const end1 = [companyConfig.street, companyConfig.number].filter(Boolean).join(', ');
+  const end2 = [companyConfig.bairro, companyConfig.city && companyConfig.state ? `${companyConfig.city}/${companyConfig.state}` : (companyConfig.city || '')].filter(Boolean).join(' - ');
+  html += `<div style="margin-top:22px;padding-top:8px;border-top:2px solid ${GOLD};font-size:9.5px;color:#6b5b7b;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span>${escapeHtml(companyConfig.name || '')} • ${escapeHtml(end1)}${end2 ? ' • ' + escapeHtml(end2) : ''}${companyConfig.whatsapp ? ' • WhatsApp ' + escapeHtml(companyConfig.whatsapp) : ''}</span>
+      <span>Emitido em ${reportDateTime(Date.now())} (Brasília)</span>
+    </div></div>`;
   return { html };
 }
 
@@ -3869,13 +4251,12 @@ function previewCustomReport() {
 function printCustomReport() {
   const r = buildReportHTML();
   if (r.error) { showToast(r.error, 'warning'); return; }
-  const target = document.getElementById('printable-report-target');
-  target.innerHTML = r.html;
+  document.getElementById('printable-report-target').innerHTML = r.html;
   document.body.classList.add('printing-report');
   const cleanup = () => {
     document.body.classList.remove('printing-report');
     window.removeEventListener('afterprint', cleanup);
   };
   window.addEventListener('afterprint', cleanup);
-  setTimeout(() => window.print(), 50);
+  setTimeout(() => window.print(), 80);
 }

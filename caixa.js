@@ -23,6 +23,52 @@ function escapeHtml(str) {
   ));
 }
 
+// Substitui o confirm() feio do navegador por um diálogo no padrão do sistema.
+// Uso: if (!(await showConfirm({ title, message, confirmText, danger }))) return;
+function showConfirm({ title = 'Confirmar ação', message = '', confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" class="w-full max-w-sm bg-brand-lightSurface dark:bg-brand-darkSurface border-2 ${danger ? 'border-rose-500/50' : 'border-brand-gold/60'} rounded-3xl p-6 shadow-2xl gold-border-glow" style="animation: confirmPop .16s ease-out">
+        <div class="flex items-start gap-3 mb-3">
+          <div class="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${danger ? 'bg-rose-500/15 text-rose-500' : 'bg-brand-gold/15 text-brand-gold'}">
+            <i data-lucide="${danger ? 'alert-triangle' : 'help-circle'}" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-gold">Atenção</span>
+            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${escapeHtml(title)}</h3>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 whitespace-pre-line">${escapeHtml(message)}</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" data-act="no" class="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">${escapeHtml(cancelText)}</button>
+          <button type="button" data-act="yes" class="px-5 py-2.5 rounded-2xl text-xs font-black text-white shadow ${danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-brand-violet hover:bg-brand-purpleDeep'}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    try { lucide.createIcons({ root: overlay }); } catch (e) { /* sem ícones */ }
+
+    const finish = (value) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') finish(false);
+      if (ev.key === 'Enter') finish(true);
+    };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) finish(false);
+      const act = ev.target.closest('[data-act]')?.dataset.act;
+      if (act) finish(act === 'yes');
+    });
+    overlay.querySelector('[data-act="yes"]').focus();
+  });
+}
+
+
 let posServices = [];
 let posClients = [];
 let posCart = [];
@@ -696,7 +742,8 @@ function addFreeIntimaToCart(label) {
   }
   posCart.push({
     id: srv.id, code: srv.code, name: `${srv.name} (${label})`,
-    price: 0.00, qtd: 1, isFidelityReward: true
+    price: 0.00, qtd: 1, isFidelityReward: true,
+    rewardType: /indica/i.test(label) ? 'indicacao' : 'fidelidade'
   });
   renderPosCartTable();
   return true;
@@ -1021,11 +1068,18 @@ function renderSalesManagementTable(search = '') {
   lucide.createIcons({ root: tbody });
 }
 
-function cancelPreviousSale(saleId) {
+async function cancelPreviousSale(saleId) {
   const sale = salesLog.find(x => x.id === saleId);
   if (!sale || sale.status === 'Cancelada') return;
 
-  if (!confirm(`Cancelar a nota de ${sale.clientName} (R$ ${Number(sale.finalTotal).toFixed(2)})? Esta ação não pode ser desfeita.`)) return;
+  const ok = await showConfirm({
+    title: 'Cancelar nota',
+    message: `Cancelar a nota de ${sale.clientName} no valor de R$ ${Number(sale.finalTotal).toFixed(2)}?\nEsta ação não pode ser desfeita.`,
+    confirmText: 'Cancelar nota',
+    cancelText: 'Voltar',
+    danger: true
+  });
+  if (!ok) return;
 
   sale.status = 'Cancelada';
   sale.canceledAt = new Date().toISOString();
@@ -1190,8 +1244,10 @@ function calculateAndRenderClosingReport() {
   const saldoFinalDinheiro = totalFundo + entradasEmDinheiro + totalSuprimento - totalSangria;
 
   // Resgates de Cartão Fidelidade no período
-  const redeemedLog = JSON.parse(localStorage.getItem('depilclear_fidelity_redeemed_log') || '[]');
-  const fidelidadesNoPeriodo = redeemedLog.filter(r => inPeriod(r.timestamp)).length;
+  // Conta os prêmios usados nas notas FINALIZADAS do período (nota cancelada não conta)
+  const fidelidadesNoPeriodo = filteredSales
+    .filter(sl => sl.status !== 'Cancelada')
+    .reduce((n, sl) => n + (sl.items || []).filter(i => i.isFidelityReward).reduce((q, i) => q + Number(i.qtd || 1), 0), 0);
 
   document.getElementById('t-fundo').innerText = `R$ ${totalFundo.toFixed(2)}`;
   document.getElementById('t-dinheiro-entradas').innerText = `R$ ${entradasEmDinheiro.toFixed(2)}`;
@@ -1342,6 +1398,10 @@ function toggleTheme(btnElement = null) {
     btnElement.style.transform = 'scale(0.92)';
     setTimeout(() => { btnElement.style.transform = ''; }, 200);
   }
+
+  html.classList.add('theme-animating');
+  clearTimeout(window.__themeAnimTimer);
+  window.__themeAnimTimer = setTimeout(() => html.classList.remove('theme-animating'), 650);
 
   html.classList.toggle('dark');
   const isDark = html.classList.contains('dark');
