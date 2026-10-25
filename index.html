@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Evita o "piscar" da tela de login quando já existe sessão ativa -->
+  <style>html.has-session #view-login{display:none !important}</style>
+  <script>try{var t=sessionStorage.getItem('depilclear_token');if(t){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(p&&p.exp*1000>Date.now()){document.documentElement.classList.add('has-session')}}}catch(e){}</script>
+  <title>DepilClear Women & Men - Sandra Ramos</title>
+  <meta name="description" content="Sistema interno de agendamentos, recepção e caixa da DepilClear Women & Men - Sandra Ramos.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#4c1d95">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preload" as="image" href="logo.webp" type="image/webp">
+  
+  <!-- Tailwind CSS CDN -->
+
+  <!-- Lucide Icons & SheetJS Style -->
+  <!-- SEGURANÇA: versão fixa. O hash SRI (integrity="sha384-...") é gerado por "node tools/generate-sri.mjs" (precisa de internet). Tailwind CDN é runtime e não aceita SRI: ver SEGURANCA.md e vercel.json (CSP). -->
+  <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" crossorigin="anonymous" data-sri-pending></script>
+  <meta name="lazy-xlsx" content="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" data-sri-pending>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,800;1,400;1,600&display=swap" rel="stylesheet">
+  <!-- Ícone da Aba do Navegador (Evita o erro 404 de favicon.ico) -->
+  <link rel="icon" type="image/webp" href="icon-192.webp">
+  <link rel="stylesheet" href="tailwind.css">
+  <!-- Folha de Estilos Modular Externa -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<!-- SUBSTITUA A LINHA DO <body> POR ESTA: -->
+<body class="bg-brand-lightBg dark:bg-brand-darkBg text-brand-lightText dark:text-slate-100 font-sans min-h-screen antialiased selection:bg-brand-violet selection:text-white transition-colors duration-200 m-0 p-0 overflow-x-hidden">
+
+  <!-- Toast Notification Wrapper -->
+  <div id="toast-wrapper" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3"></div>
+
+  <!-- Container de Modais -->
+  <div id="modal-container" class="relative z-50"></div>
+
+<!-- ========================================== -->
+  <!-- 1. TELA DE LOGIN COM LOGO DEPILCLEAR       -->
+  <!-- ========================================== -->
+  <section id="view-login" class="min-h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-brand-lightBg dark:bg-brand-darkBg">
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-brand-violet/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-brand-gold/15 rounded-full blur-3xl pointer-events-none"></div>
+    
+    <!-- Top Bar Controls -->
+    <div class="absolute top-5 right-5 flex items-center gap-3 z-20">
+      <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
+        <div class="theme-switch-thumb">
+          <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
+          <i data-lucide="moon" class="w-3.5 h-3.5 text-slate-800 hidden dark:block stroke-[2.5]"></i>
+        </div>
+      </button>
+      <div id="connection-status-login" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface dark:bg-brand-darkSurface text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">Online</span>
+      </div>
+    </div>
+
+    <!-- LOGO CENTRALIZADA -->
+    <div class="mb-6 text-center z-10 flex flex-col items-center max-w-sm">
+      <img 
+        src="logo.webp" data-company-logo
+        alt="DepilClear Women & Men" width="640" height="347" 
+        class="w-64 sm:w-72 h-auto object-contain drop-shadow-md py-2"
+      >
+    </div>
+
+    <!-- Login Card Centralizado -->
+    <div class="w-full max-w-md p-7 sm:p-9 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl shadow-2xl relative z-10 gold-border-glow">
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Bem-vindo!</h2>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400 mt-1">Acesse a gestão profissional de agendamentos e recepção</p>
+      </div>
+
+      <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Endereço de e-mail</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
+              <i data-lucide="mail" class="w-4 h-4"></i>
+            </span>
+            <input 
+              type="email" 
+              id="login-email" 
+              required 
+              placeholder="Digite seu e-mail"
+              class="w-full pl-10 pr-4 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
+            >
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Senha</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </span>
+            <input 
+              type="password" 
+              id="login-password" 
+              required 
+              placeholder="Digite sua senha"
+              class="w-full pl-10 pr-11 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
+            >
+            <button 
+              type="button" 
+              onclick="toggleLoginPassword()" 
+              class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          class="w-full py-3.5 bg-gradient-to-r from-brand-purpleDeep via-brand-violet to-brand-purpleDeep hover:brightness-110 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 mt-2 border border-brand-gold/40"
+        >
+          <span>ENTRAR NO SISTEMA</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+      <p class="mt-4 text-center text-[11px] text-slate-500 dark:text-slate-400">
+        Ao entrar, você concorda com o uso de dados descrito na <a href="privacidade.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Política de Privacidade</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- 2. PAINEL PRINCIPAL (DASHBOARD)            -->
+  <!-- ========================================== -->
+  <div id="view-dashboard" class="hidden w-full h-screen flex-col md:flex-row overflow-hidden">
+    <div id="mobile-menu-overlay" onclick="closeMobileMenu()" class="hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"></div>
+    
+    <!-- Sidebar Desktop -->
+    <aside id="app-sidebar" class="w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
+
+      <!-- Brand Sidebar Header -->
+      <div class="p-4 py-5 border-b border-brand-lightBorder dark:border-brand-darkBorder flex flex-col items-center justify-center relative bg-brand-lightCard/30 dark:bg-brand-darkCard/20">
+        <img src="logo.webp" data-company-logo alt="DepilClear Women & Men" width="640" height="347" class="w-48 sm:w-52 h-auto max-h-24 object-contain drop-shadow-md transition-transform hover:scale-105 duration-200">
+        <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 p-1 absolute top-3 right-3">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex-1 p-3.5 space-y-1.5 overflow-y-auto">
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 text-brand-gold"></i>
+          <span>Visão Geral</span>
+        </button>
+
+        <button onclick="switchTab('agendamentos')" id="nav-agendamentos" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white shadow-md shadow-purple-900/30">
+          <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+          <span>Agendamentos</span>
+          <span id="badge-agendamentos-count" class="ml-auto text-[10px] bg-brand-gold text-slate-950 font-black px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button onclick="switchTab('recepcao')" id="nav-recepcao" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-amber-500 dark:text-amber-300 border border-brand-gold/30 bg-brand-gold/10 hover:bg-brand-gold/20 transition-all">
+          <i data-lucide="sheet" class="w-4 h-4 text-brand-gold"></i>
+          <span>Mural da Recepção (Planilha)</span>
+          <span class="ml-auto text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-brand-gold">PLANILHA</span>
+        </button>
+
+        <button onclick="switchTab('clientes')" id="nav-clientes" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="users" class="w-4 h-4 text-brand-violet"></i>
+          <span>Clientes</span>
+          <span id="badge-clientes-count" class="ml-auto text-[10px] bg-brand-lightBorder dark:border-brand-darkBorder px-2 py-0.5 rounded-full text-slate-500 dark:text-slate-400 font-bold">0</span>
+        </button>
+
+        <button onclick="switchTab('servicos')" id="nav-servicos" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="sparkles" class="w-4 h-4 text-brand-gold"></i>
+          <span>Serviços</span>
+        </button>
+
+        <button onclick="switchTab('categorias')" id="nav-categorias" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="tags" class="w-4 h-4 text-brand-violet"></i>
+          <span>Categorias &amp; Cores</span>
+        </button>
+
+        <button onclick="switchTab('profissionais')" id="nav-profissionais" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="smile" class="w-4 h-4 text-brand-gold"></i>
+          <span>Profissionais (Depiladoras)</span>
+        </button>
+
+        <button onclick="switchTab('relatorios')" id="nav-relatorios" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-gold"></i>
+          <span>Relatórios &amp; Desempenho</span>
+        </button>
+
+        <button onclick="switchTab('fidelidade')" id="nav-fidelidade" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="award" class="w-4 h-4 text-brand-violet"></i>
+          <span>Cartão Fidelidade</span>
+        </button>
+
+        <button onclick="switchTab('configuracoes')" id="nav-configuracoes" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+          <i data-lucide="settings" class="w-4 h-4 text-brand-violet"></i>
+          <span>Configurações &amp; WhatsApp</span>
+        </button>
+
+        <div class="pt-2 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
+          <a href="caixa.html" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20 transition-all">
+            <span class="flex items-center gap-2">
+              <i data-lucide="receipt" class="w-4 h-4"></i> Frente de Caixa (PDV)
+            </span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
+          </a>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="p-3.5 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+        <div class="truncate">
+          <p id="user-display-email" class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">admin@depilclear.com</p>
+          <a href="privacidade.html" target="_blank" rel="noopener" class="text-[10px] text-brand-violet underline font-semibold">Política de Privacidade</a>
+          <span id="storage-status-badge" class="text-[10px] text-brand-gold font-medium flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Gravando Localmente
+          </span>
+        </div>
+        <button onclick="handleLogout()" title="Sair do sistema" class="p-2 text-slate-400 hover:text-rose-500 rounded-xl transition-all">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-brand-lightBg dark:bg-brand-darkBg">
+      <!-- Barra superior MOBILE / TABLET (com botão de menu) -->
+      <header class="md:hidden flex h-14 shrink-0 border-b border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface/95 dark:bg-brand-darkSurface/95 backdrop-blur px-3 items-center justify-between sticky top-0 z-20" style="padding-top:env(safe-area-inset-top)">
+        <button type="button" onclick="toggleMobileMenu()" aria-label="Abrir menu" class="p-2 -ml-1 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <img src="logo.webp" data-company-logo alt="DepilClear" width="640" height="347" class="h-9 w-auto object-contain">
+        <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
+          <div class="theme-switch-thumb">
+            <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
+            <i data-lucide="moon" class="w-3.5 h-3.5 text-slate-800 hidden dark:block stroke-[2.5]"></i>
+          </div>
+        </button>
+      </header>
+
+      <header class="hidden md:flex h-16 border-b border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface/95 dark:bg-brand-darkSurface/95 px-6 items-center justify-between sticky top-0 z-20 backdrop-blur shrink-0 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">DepilClear Sandra Ramos</span>
+          </div>
+          <span class="text-slate-300 dark:text-slate-600">|</span>
+          <span id="header-operating-hours" class="text-xs text-brand-gold font-semibold">Horário: 08:00 às 18:00 (15 em 15 min)</span>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div id="connection-indicator-desktop" class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span id="connection-text">Online</span>
+          </div>
+
+          <!-- Botão Cápsula Interruptor com Sol e Lua Animados -->
+          <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
+            <div class="theme-switch-thumb">
+              <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
+              <i data-lucide="moon" class="w-3.5 h-3.5 text-slate-800 hidden dark:block stroke-[2.5]"></i>
+            </div>
+          </button>
+        </div>
+      </header>
+
+      <!-- Dynamic Views Container -->
+      <main class="flex-1 p-3.5 sm:p-6 overflow-y-auto">
+
+        <!-- SECTION 1: DASHBOARD -->
+        <section id="section-dashboard" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Visão Geral da Clínica</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Resumo operacional e fluxo de agendamentos em tempo real.</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="switchTab('agendamentos')" class="px-4 py-2 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white text-xs font-bold rounded-2xl shadow-lg shadow-purple-900/30 flex items-center gap-1.5 border border-brand-gold/30">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-gold"></i> Abrir Agenda
+              </button>
+              <button onclick="switchTab('recepcao')" class="px-4 py-2 bg-brand-gold/10 border border-brand-gold text-brand-gold text-xs font-bold rounded-2xl flex items-center gap-1.5">
+                <i data-lucide="sheet" class="w-3.5 h-3.5"></i> Mural Recepção
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Agendados Hoje</span>
+                <span class="p-2 rounded-xl bg-brand-violet/10 text-brand-violet"><i data-lucide="calendar" class="w-4 h-4"></i></span>
+              </div>
+              <div id="dash-metric-today" class="text-2xl font-black text-slate-900 dark:text-white">0</div>
+              <span class="text-[10px] text-slate-400">Slots de 15 em 15 min</span>
+            </div>
+
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Finalizados</span>
+                <span class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+              </div>
+              <div id="dash-metric-completed" class="text-2xl font-black text-emerald-500">0</div>
+              <span class="text-[10px] text-emerald-600/80">Atendimentos concluídos</span>
+            </div>
+
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Reagendar / Remarcados</span>
+                <span class="p-2 rounded-xl bg-amber-500/10 text-brand-gold"><i data-lucide="clock" class="w-4 h-4"></i></span>
+              </div>
+              <div id="dash-metric-reschedule" class="text-2xl font-black text-brand-gold">0</div>
+              <span class="text-[10px] text-amber-600/80">Atenção da recepção</span>
+            </div>
+
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Clientes Cadastrados</span>
+                <span class="p-2 rounded-xl bg-blue-500/10 text-blue-500"><i data-lucide="users" class="w-4 h-4"></i></span>
+              </div>
+              <div id="dash-metric-clients" class="text-2xl font-black text-slate-900 dark:text-white">0</div>
+              <span class="text-[10px] text-slate-400">Feminino &amp; Masculino</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2: AGENDAMENTOS -->
+        <section id="section-agendamentos" class="tab-pane space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Agendamentos</h2>
+                <span id="selected-date-badge" class="px-3 py-0.5 rounded-full text-xs font-bold bg-brand-violet/15 border border-brand-violet text-brand-violet">Hoje</span>
+              </div>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Gerenciamento visual com cards modernos, busca no histórico e status com bolhas exclusivas.</p>
+            </div>
+
+            <button onclick="openNewAppointmentModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep via-brand-violet to-brand-purpleDeep hover:brightness-110 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-900/30 border border-brand-gold/40">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i>
+              <span>Novo Agendamento</span>
+            </button>
+          </div>
+
+          <!-- Barra de Pesquisa e Popover de Filtros -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl shadow-sm relative">
+            <div class="relative flex-1">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="search" class="w-4 h-4"></i>
+              </span>
+              <input 
+                type="text" 
+                id="agenda-client-search" 
+                oninput="handleAgendaSearchFilter(this.value)"
+                placeholder="Pesquisar cliente (nome, telefone, CPF, e-mail) para ver histórico..." 
+                class="w-full pl-10 pr-9 py-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
+              >
+              <button 
+                id="agenda-clear-search-btn" 
+                type="button" 
+                onclick="clearAgendaSearch()" 
+                class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+              >
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <div class="relative">
+              <button 
+                id="btn-agenda-filters-popover" 
+                type="button" 
+                onclick="toggleAgendaFilterPopover(event)" 
+                class="px-4 py-2.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder hover:border-brand-gold/60 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-2 transition-all"
+              >
+                <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand-gold"></i>
+                <span>Filtros</span>
+                <span id="active-filters-count-badge" class="hidden text-[10px] px-1.5 py-0.2 bg-brand-violet text-white rounded-full font-black">0</span>
+              </button>
+
+              <!-- Popover de Filtros com Período de Datas -->
+              <div 
+                id="agenda-filter-popover" 
+                onclick="event.stopPropagation()" 
+                class="hidden absolute right-0 top-full mt-2 z-50 w-80 p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-gold/40 shadow-2xl space-y-3.5 gold-border-glow"
+              >
+                <div class="flex items-center justify-between pb-2 border-b border-brand-lightBorder dark:border-brand-darkBorder">
+                  <span class="text-xs font-black text-slate-900 dark:text-white">Filtrar Agendamentos</span>
+                  <button type="button" onclick="resetAgendaMultiFilters()" class="text-[10px] text-brand-gold hover:underline font-bold">Limpar Filtros</button>
+                </div>
+
+                <!-- SUBSTITUA O BLOCO: "Filtro por Período de Datas" POR ESTE: -->
+                <div>
+                  <div class="flex items-center justify-between mb-2 pb-1 border-b border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
+                    <span class="text-xs font-bold text-brand-gold flex items-center gap-1.5">
+                      <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i> Período (Dia X até Dia Y)
+                    </span>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <input type="checkbox" id="filter-date-range-cb" onchange="handleDateRangeCheckboxChange()" class="rounded border-brand-gold text-brand-gold focus:ring-0">
+                      <span>Ativar</span>
+                    </label>
+                  </div>
+                  
+                  <div id="filter-date-range-inputs" class="hidden space-y-2.5 pt-1">
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label for="filter-date-start" class="text-[10px] text-slate-400 block font-semibold mb-1">Do dia (Início):</label>
+                        <input type="date" id="filter-date-start" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono focus:border-brand-gold outline-none">
+                      </div>
+                      <div>
+                        <label for="filter-date-end" class="text-[10px] text-slate-400 block font-semibold mb-1">Até ao dia (Fim):</label>
+                        <input type="date" id="filter-date-end" onchange="handleFilterCheckboxChange()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-mono focus:border-brand-gold outline-none">
+                      </div>
+                    </div>
+                    
+                    <div class="flex gap-1.5 pt-1">
+                      <button type="button" onclick="setQuickDateRange('today')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Hoje</button>
+                      <button type="button" onclick="setQuickDateRange('week')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Esta Semana</button>
+                      <button type="button" onclick="setQuickDateRange('month')" class="flex-1 py-1 rounded-lg bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-[10px] font-bold hover:border-brand-gold text-slate-600 dark:text-slate-300 transition-all">Este Mês</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Status de Atendimento -->
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Status (Multi-seleção):</span>
+                  <div class="space-y-1.5 text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" value="Agendado" onchange="handleFilterCheckboxChange()" class="filter-status-cb rounded border-brand-violet text-brand-violet">
+                      <span class="text-purple-500 font-bold">● Agendado</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" value="Confirmada" onchange="handleFilterCheckboxChange()" class="filter-status-cb rounded border-teal-500 text-teal-500">
+                      <span class="text-teal-500 font-bold">● Confirmada (No Mural)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" value="Finalizado" onchange="handleFilterCheckboxChange()" class="filter-status-cb rounded border-emerald-500 text-emerald-500">
+                      <span class="text-emerald-500 font-bold">● Finalizado</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" value="Reagendar" onchange="handleFilterCheckboxChange()" class="filter-status-cb rounded border-amber-500 text-amber-500">
+                      <span class="text-amber-500 font-bold">● Reagendar</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" value="Cancelado" onchange="handleFilterCheckboxChange()" class="filter-status-cb rounded border-rose-500 text-rose-500">
+                      <span class="text-rose-500 font-bold">● Cancelado</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Gênero -->
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Gênero:</span>
+                  <div class="flex gap-1.5">
+                    <button type="button" onclick="setMultiFilterGender('TODOS')" data-g="TODOS" class="multi-filter-gender-btn flex-1 py-1 rounded-xl text-[11px] font-bold bg-brand-violet text-white">Todos</button>
+                    <button type="button" onclick="setMultiFilterGender('Feminino')" data-g="Feminino" class="multi-filter-gender-btn flex-1 py-1 rounded-xl text-[11px] font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">Feminino</button>
+                    <button type="button" onclick="setMultiFilterGender('Masculino')" data-g="Masculino" class="multi-filter-gender-btn flex-1 py-1 rounded-xl text-[11px] font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">Masculino</button>
+                  </div>
+                </div>
+
+                <!-- Inativas -->
+                <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+                  <label class="flex items-center justify-between text-xs cursor-pointer">
+                    <span class="font-bold text-rose-500">Apenas Inativas (&gt; 3 meses)</span>
+                    <input type="checkbox" id="filter-inactive-only-cb" onchange="handleFilterCheckboxChange()" class="rounded border-rose-500 text-rose-500">
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grade Principal -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div class="lg:col-span-8 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-2">
+                <span id="agenda-date-title" class="text-sm font-bold text-brand-gold flex items-center gap-2">
+                  <i data-lucide="calendar-days" class="w-4 h-4"></i> Agendamentos do Dia
+                </span>
+                <div class="flex items-center gap-2">
+                  <span id="badge-total-agendadas" class="px-2.5 py-0.5 text-[11px] font-bold rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
+                    0 agendada(s)
+                  </span>
+                  <span id="badge-total-confirmadas" class="px-2.5 py-0.5 text-[11px] font-bold rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30">
+                    0 confirmada(s)
+                  </span>
+                  <span id="agenda-count-badge" class="text-xs text-slate-500 dark:text-slate-400 font-semibold ml-1">0 resultado(s)</span>
+                </div>
+              </div>
+
+              <div id="agenda-list-container" class="space-y-3">
+                <!-- Preenchido via app.js -->
+              </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-4">
+              <!-- Mini Calendário -->
+              <div class="p-5 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 id="calendar-month-year" class="text-sm font-bold text-slate-900 dark:text-white capitalize">Outubro 2026</h3>
+                  <div class="flex items-center gap-1">
+                    <button onclick="navigateMonth(-1)" class="p-1.5 rounded-xl text-slate-400 hover:text-brand-gold hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">
+                      <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="navigateMonth(1)" class="p-1.5 rounded-xl text-slate-400 hover:text-brand-gold hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">
+                      <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                </div>
+
+                <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 text-xs"></div>
+
+                <div class="mt-4 pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-brand-violet"></span> Selecionado</span>
+                  <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-brand-gold"></span> Tem agendamento</span>
+                </div>
+              </div>
+
+              <!-- Lotação por Horário -->
+              <div class="p-5 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                  <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="users" class="w-3.5 h-3.5 text-brand-gold"></i>
+                    Lotação por Horário (Até 18:00)
+                  </h4>
+                  <span class="text-[10px] text-slate-400">15 em 15m</span>
+                </div>
+                <div id="slot-occupancy-list" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: MURAL DA RECEPÇÃO -->
+        <section id="section-recepcao" class="tab-pane hidden space-y-6">
+          <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl space-y-4">
+            
+            <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl px-3 py-2">
+              ℹ️ O mural mostra apenas as clientes com status <b class="text-emerald-600 dark:text-emerald-400">Confirmada</b>. Para uma cliente aparecer aqui, confirme o agendamento na aba Agendamentos.
+            </p>
+
+            <!-- CONTADORES DO MURAL -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block">Agendadas na Data</span>
+                  <span id="mural-total-clientes" class="text-lg font-black text-brand-gold">0</span>
+                </div>
+                <div class="p-2 rounded-xl bg-brand-gold/10 text-brand-gold">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="p-3 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 block">Confirmadas na Data</span>
+                  <span id="mural-confirmadas-hoje" class="text-lg font-black text-emerald-500">0</span>
+                </div>
+                <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                  <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] tracking-wider uppercase border border-emerald-500/30">MURAL DE ATENDIMENTO</span>
+                  <h2 class="text-xl font-black text-slate-900 dark:text-white">Planilha Diária da Recepção</h2>
+                </div>
+                <p class="text-xs text-brand-lightMuted dark:text-slate-400 mt-1">Marque com 1 clique as clientes que chegaram (ficam verdes). Suporta 3 ou mais clientes por horário.</p>
+              </div>
+
+              <!-- Controles de Exportação & WhatsApp -->
+              <div class="flex flex-wrap items-center gap-2 bg-brand-lightCard dark:bg-brand-darkBg p-2.5 rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder">
+                <div class="flex items-center gap-1.5 text-xs">
+                  <span class="text-[11px] font-bold text-slate-400">Intervalo:</span>
+                  <select id="wpp-img-range-mode" onchange="toggleTimeSliceInputs()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs px-2.5 py-1.5 font-bold text-brand-gold">
+                    <option value="ALL">Dia Inteiro</option>
+                    <option value="CUSTOM">Personalizado</option>
+                  </select>
+                </div>
+
+                <div id="wpp-time-slice-inputs" class="hidden flex items-center gap-1">
+                  <input type="time" id="wpp-img-start-time" value="08:00" step="900" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs px-2 py-1 font-mono">
+                  <span class="text-xs text-slate-400">até</span>
+                  <input type="time" id="wpp-img-end-time" value="13:00" step="900" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs px-2 py-1 font-mono">
+                </div>
+
+                <button onclick="generateWhatsAppSheetImage('copy')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-900/30 transition-all">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  <span>Copiar Imagem</span>
+                </button>
+
+                <button onclick="generateWhatsAppSheetImage('download')" class="px-3.5 py-1.5 rounded-xl bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Baixar PNG</span>
+                </button>
+
+                <button onclick="openExportSpreadsheetModal()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
+                  <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                  <span>Gerar Planilha (.xlsx)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Seletor de Data -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex-wrap gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="shiftReceptionDate(-1)" class="p-2 rounded-xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightCard dark:bg-brand-darkCard text-slate-400 hover:text-brand-gold">
+                  <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                </button>
+
+                <button type="button" onclick="openReceptionCalendarModal()" class="px-4 py-2 rounded-2xl border border-brand-violet/50 bg-brand-violet/10 text-brand-violet hover:bg-brand-violet hover:text-white font-mono font-black text-xs flex items-center gap-2 transition-all">
+                  <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+                  <span>DATA DA PLANILHA:</span>
+                  <span id="reception-sheet-current-date-text">--/--/----</span>
+                  <i data-lucide="calendar-search" class="w-3.5 h-3.5 ml-1 text-brand-gold"></i>
+                </button>
+
+                <button type="button" onclick="shiftReceptionDate(1)" class="p-2 rounded-xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightCard dark:bg-brand-darkCard text-slate-400 hover:text-brand-gold">
+                  <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+
+                <button type="button" onclick="setReceptionToToday()" class="px-3 py-2 rounded-xl bg-brand-gold text-slate-950 font-black text-xs hover:brightness-110 shadow">
+                  Hoje
+                </button>
+              </div>
+
+              <div class="flex items-center gap-3 text-[11px] text-slate-400 font-semibold">
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-[#a7f3d0] border border-emerald-600"></span> Chegou na Recepção</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-white dark:bg-brand-darkCard border border-slate-400"></span> Aguardando</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela Física da Recepção -->
+          <div id="printable-sheet-target" class="overflow-x-auto rounded-3xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface dark:bg-brand-darkSurface shadow-2xl p-4">
+            <div class="text-center pb-3 border-b-2 border-slate-900 dark:border-slate-100 mb-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-brand-gold uppercase tracking-wider">DEPILCLEAR WOMEN &amp; MEN</span>
+              </div>
+              <span id="sheet-header-print-date" class="text-xs font-mono font-bold text-slate-900 dark:text-white">DATA: --/--/----</span>
+            </div>
+
+            <div class="overflow-x-auto w-full"><table class="sheet-table text-xs">
+              <thead id="physical-sheet-thead">
+                <tr class="bg-slate-200 dark:bg-brand-darkBg text-slate-900 dark:text-white uppercase font-black text-[11px]">
+                  <th style="width: 70px;" class="text-center">HR</th>
+                  <th style="width: 25%;">NOME</th>
+                  <th style="width: 20%;">ÁREA / SERVIÇO</th>
+                  <th style="width: 25%;">NOME</th>
+                  <th style="width: 20%;">ÁREA / SERVIÇO</th>
+                </tr>
+              </thead>
+              <tbody id="physical-sheet-body"></tbody>
+            </table></div>
+          </div>
+        </section>
+
+        <!-- SECTION 4: CLIENTES -->
+        <section id="section-clientes" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cadastro de Clientes</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Gestão com validação de CPF, telefones, histórico e busca inteligente.</p>
+            </div>
+            <button onclick="openClientModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
+              <i data-lucide="user-plus" class="w-4 h-4 text-brand-gold"></i>
+              <span>Novo Cliente</span>
+            </button>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl">
+            <div class="relative w-full sm:w-80">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" id="search-client-input" oninput="filterClientsList()" placeholder="Buscar cliente por nome, CPF ou celular..." class="w-full pl-9 pr-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white">
+            </div>
+
+            <div class="flex gap-1.5 w-full sm:w-auto">
+              <button onclick="filterClientsByGender('TODOS')" data-gender="TODOS" class="client-gender-btn px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white">Todos</button>
+              <button onclick="filterClientsByGender('Feminino')" data-gender="Feminino" class="client-gender-btn px-4 py-2 rounded-2xl text-xs font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">Feminino</button>
+              <button onclick="filterClientsByGender('Masculino')" data-gender="Masculino" class="client-gender-btn px-4 py-2 rounded-2xl text-xs font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">Masculino</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-3xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface dark:bg-brand-darkSurface shadow-md">
+            <div class="overflow-x-auto w-full"><table class="w-full text-left text-xs">
+              <thead class="bg-brand-lightCard dark:bg-brand-darkBg border-b border-brand-lightBorder dark:border-brand-darkBorder text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <tr>
+                  <th class="py-3 px-4">Nome da Cliente</th>
+                  <th class="py-3 px-4">Sexo</th>
+                  <th class="py-3 px-4">CPF</th>
+                  <th class="py-3 px-4">WhatsApp</th>
+                  <th class="py-3 px-4">Nascimento</th>
+                  <th class="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="clients-table-body" class="divide-y divide-brand-lightBorder dark:divide-brand-darkBorder"></tbody>
+            </table></div>
+          </div>
+        </section>
+
+        <!-- SECTION 5: SERVIÇOS -->
+        <section id="section-servicos" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Catálogo de Serviços</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Configure procedimentos, valores e a sigla que aparecerá na Planilha do Mural.</p>
+            </div>
+            <button onclick="openServiceModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
+              <i data-lucide="plus" class="w-4 h-4 text-brand-gold"></i>
+              <span>Novo Serviço</span>
+            </button>
+          </div>
+          <div id="services-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- SECTION 6: CATEGORIAS & CORES -->
+        <section id="section-categorias" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Categorias de Procedimentos</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Selecione entre 20 tons pastéis suaves para leitura harmoniosa na recepção.</p>
+            </div>
+            <button onclick="openCategoryModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
+              <i data-lucide="tag" class="w-4 h-4 text-brand-gold"></i>
+              <span>Nova Categoria</span>
+            </button>
+          </div>
+          <div id="categories-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+        </section>
+
+        <!-- SECTION 7: PROFISSIONAIS -->
+        <section id="section-profissionais" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Equipe de Depiladoras</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Edite nomes e fotos dos perfis com suporte a clique direito.</p>
+            </div>
+            <button onclick="openProfessionalModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
+              <i data-lucide="user-plus" class="w-4 h-4 text-brand-gold"></i>
+              <span>Nova Profissional</span>
+            </button>
+          </div>
+          <div id="professionals-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        </section>
+
+        <!-- SECTION 8: CONFIGURAÇÕES & WHATSAPP -->
+        <section id="section-configuracoes" class="tab-pane hidden space-y-6">
+        <div class="mb-4 p-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-[11px] text-amber-700 dark:text-amber-300 font-semibold">
+          🔒 Os dados de clientes, agenda, vendas e caixa ficam <b>neste navegador</b> (com verificação de integridade contra alterações acidentais). Faça backup periódico; no médio prazo estes dados devem migrar para o servidor.
+        </div>
+          <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Configurações &amp; Automação</h2>
+            <p class="text-xs text-brand-lightMuted dark:text-slate-400">Personalize dados da clínica, logotipo oficial e modelos de mensagem de WhatsApp.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="p-6 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl space-y-4">
+              <h3 class="text-sm font-black text-brand-gold uppercase tracking-wider">Dados da Empresa &amp; Logo</h3>
+              
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Logotipo da Empresa</label>
+                <div class="flex items-center gap-3">
+                  <div id="company-logo-preview" class="w-16 h-16 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-gold/40 flex items-center justify-center font-bold text-xs text-brand-gold overflow-hidden shadow">
+                    DC
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <input type="file" accept="image/*" onchange="handleLogoUpload(event)" class="min-w-0 max-w-full flex-1 text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-violet file:text-white cursor-pointer">
+                  </div>
+                </div>
+              </div>
+
+              <form onsubmit="handleSaveCompanyInfo(event)" class="space-y-3 pt-2">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome da Empresa</label>
+                  <input type="text" id="cfg-company-name" value="DepilClear Women &amp; Men - Sandra Ramos" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Rua / Logradouro</label>
+                    <input type="text" id="cfg-street" value="Atendimento com Agendamento Prévio" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Número</label>
+                    <input type="text" id="cfg-number" value="S/N" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Bairro</label>
+                    <input type="text" id="cfg-bairro" value="Maceió" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CEP</label>
+                    <input type="text" id="cfg-cep" maxlength="9" inputmode="numeric" onblur="buscarEnderecoEmpresaPorCEP(this.value)" value="57000-000" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">WhatsApp</label>
+                    <input type="text" id="cfg-whatsapp" value="(82) 98722-3360" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Cidade</label>
+                    <input type="text" id="cfg-city" value="Maceió" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">UF</label>
+                    <input type="text" id="cfg-state" maxlength="2" value="AL" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white uppercase focus:outline-none focus:border-brand-gold">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Complemento / Sala</label>
+                  <input type="text" id="cfg-complement" value="Sala Spa" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white font-bold rounded-2xl text-xs transition-all shadow">
+                  Salvar Informações da Empresa
+                </button>
+              </form>
+            </div>
+
+            <!-- Robô de WhatsApp -->
+            <div class="p-6 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-xl space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-black text-brand-gold uppercase tracking-wider">Modelos de Mensagem do WhatsApp</h3>
+                  <p class="text-xs text-slate-400">Disparo automático ao alterar os status das clientes.</p>
+                </div>
+                <button onclick="openNewWhatsAppTemplateModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo
+                </button>
+              </div>
+
+              <div id="whatsapp-templates-container" class="space-y-3 max-h-96 overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 9: RELATÓRIOS GERENCIAIS -->
+        <section id="section-relatorios" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Relatórios de Atendimento &amp; Vendas</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Totalização por período de serviços, ranking de profissionais e faturamento bruto.</p>
+            </div>
+            <button onclick="openPrintReportModal()" class="px-4 py-2 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 hover:border-brand-gold">
+              <i data-lucide="printer" class="w-4 h-4 text-brand-gold"></i> Imprimir Relatório
+            </button>
+          </div>
+
+          <!-- Filtro de Período com Janela Modal -->
+          <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="openReportCalendarModal()" class="px-4 py-2.5 rounded-2xl border border-brand-violet/50 bg-brand-violet/10 text-brand-violet hover:bg-brand-violet hover:text-white font-mono font-bold text-xs flex items-center gap-2 transition-all shadow-sm">
+                <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+                <span>Período Selecionado:</span>
+                <span id="rep-period-display-text" class="text-slate-900 dark:text-white font-black">Todo o Histórico</span>
+                <i data-lucide="calendar-search" class="w-3.5 h-3.5 ml-1 text-brand-gold"></i>
+              </button>
+              <input type="hidden" id="rep-start-date">
+              <input type="hidden" id="rep-end-date">
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="clearReportDateFilter()" class="px-3 py-2 text-xs text-slate-500 hover:text-brand-gold font-bold">Limpar Período</button>
+              <button type="button" onclick="generateBusinessReport()" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-2xl shadow transition-all">
+                Atualizar Métricas
+              </button>
+            </div>
+          </div>
+
+          <!-- Cards de Métricas do Período -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Clientes no Período</span>
+              <span id="rep-total-clients" class="text-2xl font-black text-slate-900 dark:text-white">0</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Procedimentos Executados</span>
+              <span id="rep-total-services" class="text-2xl font-black text-brand-gold">0</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Profissional Destaque</span>
+              <span id="rep-top-pro" class="text-sm font-black text-brand-violet truncate block mt-1">-</span>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Faturado</span>
+              <span id="rep-total-amount" class="text-2xl font-black text-emerald-500">R$ 0,00</span>
+            </div>
+          </div>
+
+          <!-- Tabelas de Procedimentos e Profissionais -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-md">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white mb-3">Volume por Procedimento</h3>
+              <div id="rep-services-breakdown" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="p-5 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-md">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white mb-3">Produção por Depiladora</h3>
+              <div id="rep-pro-breakdown" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- SECTION 10: GESTÃO GERAL DE CARTÃO FIDELIDADE -->
+        <section id="section-fidelidade" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cartões Fidelidade (10 Selos)</h2>
+              <p class="text-xs text-brand-lightMuted dark:text-slate-400">Cada atendimento concluído ou indicação gera 1 selo. Ao completar 10, o resgate é liberado no PDV.</p>
+            </div>
+          </div>
+
+          <div class="p-3 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl">
+            <input type="text" id="fidelidade-search-input" oninput="renderFidelidadeCardsGrid(this.value)" placeholder="Buscar cliente por nome ou WhatsApp para ver o cartão virtual..." class="w-full px-4 py-2.5 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs text-slate-900 dark:text-white outline-none">
+          </div>
+
+          <div id="fidelidade-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL: AGENDAMENTO -->
+  <div id="modal-appointment" onclick="handleBackdropClick(event, 'modal-appointment')" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-4xl rounded-3xl p-5 sm:p-7 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
+      <button type="button" onclick="closeModal('modal-appointment')" class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="mb-5">
+        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Atendimento DepilClear</span>
+        <h3 id="modal-appointment-title" class="text-xl font-black text-slate-900 dark:text-white">Novo Agendamento</h3>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400 mt-0.5">Selecione cliente, data no calendário e procedimentos.</p>
+      </div>
+
+      <form id="form-appointment" onsubmit="handleSaveAppointment(event)" class="space-y-5">
+        <input type="hidden" id="app-edit-id">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <div class="lg:col-span-7 space-y-2">
+            <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">Cliente *</label>
+            <div class="relative">
+              <input 
+                type="text" 
+                id="client-search-input" 
+                oninput="handleClientSearchInput(this.value)" 
+                onfocus="handleClientSearchFocus()"
+                placeholder="Digite o nome, CPF ou celular da cliente..." 
+                class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-3 text-slate-900 dark:text-white focus:outline-none focus:border-brand-violet transition-all"
+                autocomplete="off"
+              >
+              <button 
+                type="button" 
+                id="client-clear-search-btn" 
+                onclick="clearClientSelection()" 
+                class="hidden absolute right-3 top-3 text-slate-400 hover:text-white"
+              >
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+
+              <div id="client-autocomplete-dropdown" class="hidden absolute top-full left-0 right-0 z-30 mt-1 max-h-52 overflow-y-auto bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl shadow-2xl divide-y divide-brand-lightBorder/50 dark:divide-brand-darkBorder/50"></div>
+            </div>
+            <div class="pt-1">
+              <input type="checkbox" id="app-first-time-toggle" class="hidden">
+              <button type="button" id="btn-first-time" onclick="toggleFirstTime()" aria-pressed="false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-brand-lightSurface dark:bg-brand-darkSurface text-amber-500 border border-amber-500/50 hover:bg-amber-500/15 transition-all">⭐ 1ª vez</button>
+            </div>
+
+            <div id="selected-client-chip" class="hidden p-3 rounded-2xl bg-brand-violet/10 border border-brand-violet/30 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-full bg-brand-violet text-white font-bold flex items-center justify-center text-xs">✓</span>
+                <div>
+                  <div class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span id="chip-client-name">-</span>
+                    <span id="chip-client-gender" class="text-[9px] px-2 py-0.5 rounded-full font-bold"></span>
+                  </div>
+                  <span id="chip-client-details" class="text-[10px] text-slate-400 font-mono"></span>
+                </div>
+              </div>
+              <button type="button" onclick="clearClientSelection()" class="text-xs text-rose-500 hover:underline font-semibold">Trocar</button>
+            </div>
+            <input type="hidden" id="app-client-id" required>
+          </div>
+
+          <!-- Mini Calendário do Modal -->
+          <div class="lg:col-span-5 p-3.5 bg-brand-lightCard dark:bg-brand-darkBg rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-1 text-xs font-bold text-slate-900 dark:text-white">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-gold"></i>
+                <span id="inmodal-cal-title" class="capitalize">Outubro 2026</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="navInModalCal(-1)" class="p-1 rounded-lg text-slate-400 hover:text-brand-gold">
+                  <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                </button>
+                <button type="button" onclick="navInModalCal(1)" class="p-1 rounded-lg text-slate-400 hover:text-brand-gold">
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+              <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+            </div>
+
+            <div id="inmodal-cal-grid" class="grid grid-cols-7 gap-1 text-xs"></div>
+            <input type="hidden" id="app-date" required>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">Procedimento(s) *</label>
+            <span class="text-[11px] font-semibold text-brand-gold" id="booking-services-summary">0 selecionados • Total: R$ 0,00</span>
+          </div>
+          <div id="booking-services-by-category" class="space-y-3 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">Selecione a Depiladora / Profissional *</label>
+          <div id="booking-professionals-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+          <input type="hidden" id="app-selected-professional" required>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">Horário Disponível (15 em 15 min - até 18:00) *</label>
+            <span id="slot-capacity-warning" class="text-[10px] text-amber-500 font-semibold hidden"></span>
+          </div>
+          <div id="booking-time-slots-grid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-44 overflow-y-auto p-1.5 bg-brand-lightCard/50 dark:bg-brand-darkBg/60 rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder"></div>
+          <input type="hidden" id="app-selected-time" required>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="text-xs">
+            <span class="text-slate-400 block text-[10px] uppercase font-bold">Resumo Financeiro &amp; Duração:</span>
+            <span class="font-extrabold text-sm text-slate-900 dark:text-white" id="booking-final-price-text">R$ 0,00</span>
+            <span class="text-slate-400 text-xs font-mono ml-2" id="booking-final-duration-text">(0 min)</span>
+          </div>
+
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <div class="w-full sm:w-auto">
+              <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Status:</label>
+              <select id="app-status-select" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white font-bold">
+                <option value="Agendado">Agendado</option>
+                <option value="Confirmada">Confirmada (Adiciona ao Mural)</option>
+                <option value="Finalizado">Finalizado</option>
+                <option value="Reagendar">Reagendar</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-appointment')" class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Cancelar</button>
+          <button type="submit" class="px-6 py-3 text-xs font-bold bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl shadow-lg border border-brand-gold/40">Salvar Agendamento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CLIENTE COMPLETO -->
+  <div id="modal-client" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-2xl rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button type="button" onclick="closeModal('modal-client')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="mb-4">
+        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Cadastro de Cliente</span>
+        <h3 id="modal-client-title" class="text-lg font-black text-slate-900 dark:text-white">Novo Cliente</h3>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400">Preencha os dados completos e o CEP para preenchimento automático do endereço.</p>
+      </div>
+
+      <form id="form-client" onsubmit="handleSaveClient(event)" class="space-y-3.5">
+        <input type="hidden" id="cli-edit-id">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
+            <input type="text" id="cli-name" required placeholder="Ex: Sandra Ramos da Silva" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nascimento *</label>
+            <input type="date" id="cli-birth" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">WhatsApp *</label>
+            <input type="tel" id="cli-phone" required placeholder="82987223360" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CPF *</label>
+            <input type="text" id="cli-cpf" maxlength="14" onblur="validateCPFInputUI(this)" placeholder="000.000.000-00" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+            <span id="cpf-validation-feedback" class="text-[10px] mt-0.5 block font-semibold"></span>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sexo *</label>
+            <select id="cli-gender" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+              <option value="Feminino">Feminino</option>
+              <option value="Masculino">Masculino</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
+          <input type="email" id="cli-email" placeholder="cliente@email.com" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        </div>
+
+        <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-brand-gold mb-2">Endereço Residencial</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CEP</label>
+            <div class="relative">
+              <input type="text" id="cli-cep" maxlength="9" onblur="buscarEnderecoPorCEP(this.value)" placeholder="00000-000" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+              <span id="cep-loading" class="hidden absolute right-3 top-2.5 text-[10px] font-bold text-brand-violet">Buscando...</span>
+            </div>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Rua / Logradouro</label>
+            <input type="text" id="cli-street" placeholder="Rua das Flores" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Número</label>
+            <input type="text" id="cli-number" placeholder="123 ou S/N" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Bairro</label>
+            <input type="text" id="cli-neighborhood" placeholder="Centro" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Ponto de Referência</label>
+            <input type="text" id="cli-reference" placeholder="Próximo à padaria" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Cidade</label>
+            <input type="text" id="cli-city" placeholder="Maceió" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado (UF)</label>
+            <input type="text" id="cli-state" maxlength="2" placeholder="AL" class="uppercase w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <label class="mr-auto flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300 max-w-sm cursor-pointer">
+            <input type="checkbox" id="cli-consent" class="mt-0.5 shrink-0">
+            <span>A cliente foi informada sobre o uso dos seus dados e a <a href="privacidade.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Política de Privacidade</a>.</span>
+          </label>
+          <button type="button" onclick="closeModal('modal-client')" class="px-4 py-2 text-xs font-semibold text-slate-500">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-brand-violet hover:bg-brand-purpleDeep text-white rounded-2xl">Salvar Cliente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: SERVIÇO -->
+  <div id="modal-service" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button onclick="closeModal('modal-service')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <h3 id="modal-service-title" class="text-lg font-black text-slate-900 dark:text-white mb-1">Cadastrar Serviço</h3>
+      <form id="form-service" onsubmit="handleSaveService(event)" class="space-y-3.5">
+        <input type="hidden" id="srv-edit-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome do Serviço *</label>
+          <input type="text" id="srv-name" required placeholder="Ex: Massagem Relaxante com Óleos Corporais" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Abreviado / Sigla (Para a Planilha do Mural) *</label>
+          <input type="text" id="srv-short" required placeholder="Ex: relax.oleos, int'c, axilas" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Categoria *</label>
+          <select id="srv-category" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none"></select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Duração (Minutos) *</label>
+            <input type="number" id="srv-duration" step="1" min="5" value="15" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Valor (R$) *</label>
+            <input type="number" id="srv-price" step="0.01" min="0" placeholder="150.00" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-service')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-brand-violet hover:bg-brand-purpleDeep text-white rounded-2xl">Salvar Serviço</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CATEGORIA -->
+  <div id="modal-category" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button onclick="closeModal('modal-category')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <h3 id="modal-category-title" class="text-lg font-black text-slate-900 dark:text-white mb-1">Gerenciar Categoria</h3>
+      <form id="form-category" onsubmit="handleSaveCategory(event)" class="space-y-4">
+        <input type="hidden" id="cat-edit-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome da Categoria *</label>
+          <input type="text" id="cat-name" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Cor da Categoria (20 tons suaves):</label>
+          <div id="category-color-palette" class="grid grid-cols-5 gap-2 p-2.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"></div>
+          <input type="hidden" id="cat-color" value="#a78bfa">
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-category')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-brand-violet hover:bg-brand-purpleDeep text-white rounded-2xl">Salvar Categoria</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: PROFISSIONAL -->
+  <div id="modal-professional" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button onclick="closeModal('modal-professional')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <h3 id="modal-professional-title" class="text-lg font-black text-slate-900 dark:text-white mb-1">Cadastrar Profissional</h3>
+      <form id="form-professional" onsubmit="handleSaveProfessional(event)" class="space-y-4">
+        <input type="hidden" id="pro-edit-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome da Profissional (Depiladora) *</label>
+          <input type="text" id="pro-name" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Foto da Profissional</label>
+          <div class="flex items-center gap-3">
+            <div id="pro-photo-preview" class="w-16 h-16 rounded-full bg-brand-lightCard dark:bg-brand-darkBg border-2 border-brand-gold/60 overflow-hidden flex items-center justify-center text-slate-400 shrink-0 shadow">
+              <i data-lucide="user" class="w-6 h-6"></i>
+            </div>
+            <div class="flex-1">
+              <input type="file" id="pro-photo-file" accept="image/*" onchange="previewProfessionalPhoto(event)" class="text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-violet file:text-white hover:file:bg-brand-purpleDeep cursor-pointer">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-professional')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-brand-violet hover:bg-brand-purpleDeep text-white rounded-2xl">Salvar Profissional</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: WHATSAPP -->
+  <div id="modal-whatsapp-template" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-lg rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button type="button" onclick="closeModal('modal-whatsapp-template')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <h3 class="text-lg font-black text-slate-900 dark:text-white mb-3">Configurar Modelo de Mensagem</h3>
+      <form id="form-wpp-template" onsubmit="handleSaveWppTemplate(event)" class="space-y-3.5">
+        <input type="hidden" id="wpp-tpl-id">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Título do Modelo *</label>
+          <input type="text" id="wpp-tpl-title" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Gatilho (Status) *</label>
+            <select id="wpp-tpl-trigger" onchange="syncWppTemplateForm()" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+              <option value="Agendado">Quando status for: Agendado</option>
+              <option value="Confirmada">Quando status for: Confirmada</option>
+              <option value="Finalizado">Quando status for: Finalizado</option>
+              <option value="Reagendar">Quando status for: Reagendar</option>
+              <option value="Cancelado">Quando status for: Cancelado</option>
+              <option value="Inativo">Quando a cliente ficar: Inativa (3 meses)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Status do Robô *</label>
+            <select id="wpp-tpl-active" class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+              <option value="true">Ativo (Disparo Automático)</option>
+              <option value="false">Pausado</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Opção de Disparo Prévia com Antecedência -->
+        <div id="wpp-advance-box" class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="wpp-tpl-advance-enable" onchange="syncWppTemplateForm()" class="rounded border-brand-violet text-brand-violet focus:ring-0">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Disparar lembrete com antecedência (opcional)</span>
+          </label>
+          
+          <div id="wpp-advance-days-wrapper" class="hidden flex items-center gap-2 pt-1 pl-6">
+            <span class="text-xs text-slate-500">Enviar</span>
+            <input type="number" id="wpp-tpl-advance-days" min="1" max="30" value="1" class="w-16 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-center font-bold text-brand-gold outline-none">
+            <span class="text-xs text-slate-500">dia(s) antes do atendimento agendado.</span>
+          </div>
+        </div>
+
+        <!-- Horário de envio (Brasília): lembretes e mensagens de cliente inativa -->
+        <div id="wpp-send-time-box" class="hidden p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Horário do disparo:</span>
+            <input type="time" id="wpp-tpl-send-time" value="09:00" class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold">
+            <span class="text-[11px] text-slate-500">(horário de Brasília)</span>
+          </div>
+          <p id="wpp-inactive-hint" class="hidden text-[11px] text-slate-500 mt-2">A mensagem é enviada uma vez, no horário escolhido, quando a cliente completar 3 meses sem atendimento.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Variáveis Rápidas (Clique para inserir):</label>
+          <div class="flex flex-wrap gap-1.5 p-2 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder">
+            <button type="button" onclick="insertVariableIntoWpp('{nome}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{nome}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{data}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{data}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{horario}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{horario}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{servico}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{servico}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{profissional}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{profissional}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{valor}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{valor}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{ultimo_atendimento}')" class="px-2 py-1 rounded-xl bg-brand-violet/20 hover:bg-brand-violet hover:text-white text-brand-violet font-mono text-[11px] font-bold">{ultimo_atendimento}</button>
+            <button type="button" onclick="insertVariableIntoWpp('{empresa}')" class="px-2 py-1 rounded-xl bg-brand-gold/20 hover:bg-brand-gold hover:text-slate-900 text-brand-gold font-mono text-[11px] font-bold">{empresa}</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Texto da Mensagem *</label>
+          <textarea id="wpp-tpl-text" rows="5" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white font-mono focus:outline-none"></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-whatsapp-template')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl">Salvar Modelo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- MODAL: GERENCIAR CARTÃO FIDELIDADE & RESGATES (SEM PROMPT) -->
+  <div id="modal-app-fidelidade-manage" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-brand-lightBorder dark:border-brand-darkBorder mb-3">
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Gestão de Selos</span>
+          <h3 id="app-fid-client-name" class="text-base font-black text-slate-900 dark:text-white">Cliente</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-app-fidelidade-manage')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <input type="hidden" id="app-fid-client-id">
+
+      <div class="space-y-4">
+        <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg text-center border border-brand-lightBorder dark:border-brand-darkBorder">
+          <span class="text-xs text-slate-400 block font-semibold">Total de Selos Acumulados:</span>
+          <span id="app-fid-modal-count" class="text-3xl font-black text-brand-gold">0 / 10</span>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" onclick="adjustFidelityPointsApp(-1)" class="flex-1 py-2.5 rounded-xl bg-slate-200 dark:bg-brand-darkCard font-bold text-xs hover:bg-rose-500/20 hover:text-rose-500 transition-all">- Remover Selo</button>
+          <button type="button" onclick="adjustFidelityPointsApp(1)" class="flex-1 py-2.5 rounded-xl bg-amber-500/20 text-brand-gold font-bold text-xs hover:bg-amber-500 hover:text-slate-950 transition-all">+ Adicionar Selo</button>
+        </div>
+
+        <button type="button" onclick="addIndicacaoFromAppModal()" class="w-full py-2.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-all">🤝 + Selo por Indicação</button>
+        <div id="app-fid-modal-extra" class="text-[11px] text-center text-slate-500 dark:text-slate-400 font-semibold"></div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder space-y-2">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Desconto Promocional (%):</label>
+          <div class="flex gap-2">
+            <input type="number" id="app-fid-discount-perc" min="1" max="100" value="50" class="flex-1 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2.5 text-xs font-mono font-bold outline-none">
+            <button type="button" onclick="confirmFidelityPercentageDiscountApp()" class="px-4 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-xl shadow transition-all">Resgatar %</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- MODAL: EXPORTAR PLANILHA -->
+  <div id="modal-export-spreadsheet" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder w-full max-w-md rounded-3xl p-6 shadow-2xl relative my-auto">
+      <button onclick="closeModal('modal-export-spreadsheet')" class="absolute top-5 right-5 text-slate-400 hover:text-white p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="mb-4">
+        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Exportação Inteligente</span>
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">Gerar Planilha Multi-Abas (.xlsx)</h3>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400 mt-0.5">Gera arquivo Excel onde cada dia se torna uma aba própria com horários e marcação de quem chegou.</p>
+      </div>
+
+      <form onsubmit="handleGenerateMultiSheetExcel(event)" class="space-y-3.5">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data Inicial *</label>
+            <input type="date" id="export-sheet-start-date" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data Final *</label>
+            <input type="date" id="export-sheet-end-date" required class="w-full bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs p-2.5 text-slate-900 dark:text-white">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-export-spreadsheet')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-2xl shadow flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Baixar Arquivo .xlsx
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CALENDÁRIO DA RECEPÇÃO -->
+  <div id="modal-reception-calendar" onclick="handleBackdropClick(event, 'modal-reception-calendar')" class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/60 w-full max-w-sm sm:max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl relative my-auto gold-border-glow">
+      <button type="button" onclick="closeModal('modal-reception-calendar')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="mb-4 pr-6">
+        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider block">Mural da Recepção</span>
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">Filtrar por Data da Planilha</h3>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400">Clique em qualquer dia para carregar a grade completa de horários.</p>
+      </div>
+
+      <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder mb-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4 text-brand-gold"></i>
+          <h4 id="reception-modal-month-title" class="text-sm font-black text-slate-900 dark:text-white capitalize">Outubro 2026</h4>
+        </div>
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="navReceptionModalMonth(-1)" class="p-1.5 rounded-xl text-slate-400 hover:text-brand-gold hover:bg-brand-lightSurface dark:hover:bg-brand-darkSurface transition-all" title="Mês anterior">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <button type="button" onclick="navReceptionModalMonth(1)" class="p-1.5 rounded-xl text-slate-400 hover:text-brand-gold hover:bg-brand-lightSurface dark:hover:bg-brand-darkSurface transition-all" title="Próximo mês">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+        <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+      </div>
+
+      <div id="reception-modal-days-grid" class="grid grid-cols-7 gap-1.5 text-xs mb-4"></div>
+
+      <div class="pt-3 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2">
+          <span class="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <span class="w-2.5 h-2.5 rounded-full bg-brand-violet"></span> Atual
+          </span>
+          <span class="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <span class="w-2.5 h-2.5 rounded-full bg-brand-gold"></span> Tem agendamento
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="selectQuickReceptionDate(0)" class="px-3 py-1.5 rounded-xl bg-brand-gold/15 text-brand-gold hover:bg-brand-gold hover:text-slate-950 font-black text-xs transition-all">Hoje</button>
+          <button type="button" onclick="selectQuickReceptionDate(1)" class="px-3 py-1.5 rounded-xl bg-brand-violet/15 text-brand-violet hover:bg-brand-violet hover:text-white font-black text-xs transition-all">Amanhã</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CALENDÁRIO ESTILIZADO DE RELATÓRIOS -->
+  <div id="modal-report-calendar" onclick="handleBackdropClick(event, 'modal-report-calendar')" class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/60 w-full max-w-sm sm:max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl relative my-auto gold-border-glow">
+      <button type="button" onclick="closeModal('modal-report-calendar')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="mb-4 pr-6">
+        <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider block">Relatórios Gerenciais</span>
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">Filtrar por Período</h3>
+        <p class="text-xs text-brand-lightMuted dark:text-slate-400">Escolha um atalho rápido ou selecione os dias de início e término.</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 mb-4">
+        <button type="button" onclick="setQuickReportRange('today')" class="py-2 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-xs font-bold hover:border-brand-gold">Hoje</button>
+        <button type="button" onclick="setQuickReportRange('week')" class="py-2 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-xs font-bold hover:border-brand-gold">Esta Semana</button>
+        <button type="button" onclick="setQuickReportRange('month')" class="py-2 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder text-xs font-bold hover:border-brand-gold">Este Mês</button>
+      </div>
+
+      <div class="space-y-3 p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder mb-4">
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Data Inicial:</label>
+          <input type="date" id="cal-modal-rep-start" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Data Final:</label>
+          <input type="date" id="cal-modal-rep-end" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl p-2 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeModal('modal-report-calendar')" class="px-4 py-2 text-xs font-semibold text-slate-400">Cancelar</button>
+        <button type="button" onclick="applyCustomReportDateRange()" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-2xl shadow">Aplicar Período</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: PERFIL DA CLIENTE (Dados / Histórico / Fidelidade) -->
+  <div id="modal-client-profile" onclick="handleBackdropClick(event, 'modal-client-profile')" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/60 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-6 shadow-2xl relative my-auto gold-border-glow">
+      <button type="button" onclick="closeModal('modal-client-profile')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-4 mb-4 pr-8">
+        <div id="profile-avatar-circle" class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-purpleDeep to-brand-violet text-white flex items-center justify-center text-xl font-black shadow shrink-0">?</div>
+        <div class="min-w-0">
+          <h3 id="profile-client-name" class="text-lg font-black text-slate-900 dark:text-white truncate">Cliente</h3>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1">
+            <span id="profile-client-gender-badge" class="text-[10px] px-2.5 py-0.5 rounded-full font-bold"></span>
+            <span id="profile-client-activity-badge" class="text-[10px] px-2.5 py-0.5 rounded-full font-bold"></span>
+          </div>
+          <p id="profile-client-subinfo" class="text-[11px] text-slate-400 mt-1 font-mono"></p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button type="button" id="profile-tab-btn-dados" onclick="switchProfileTab('dados')">Dados</button>
+        <button type="button" id="profile-tab-btn-historico" onclick="switchProfileTab('historico')">Histórico</button>
+        <button type="button" id="profile-tab-btn-fidelidade" onclick="switchProfileTab('fidelidade')">Fidelidade</button>
+      </div>
+
+      <div id="profile-tab-content-dados" class="space-y-3">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">Nome</dt><dd id="profile-data-name" class="font-bold text-slate-900 dark:text-white"></dd></div>
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">WhatsApp</dt><dd id="profile-data-phone" class="font-bold font-mono text-slate-900 dark:text-white"></dd></div>
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">CPF</dt><dd id="profile-data-cpf" class="font-bold font-mono text-slate-900 dark:text-white"></dd></div>
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">E-mail</dt><dd id="profile-data-email" class="font-bold text-slate-900 dark:text-white break-all"></dd></div>
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">Nascimento</dt><dd id="profile-data-birth" class="font-bold text-slate-900 dark:text-white"></dd></div>
+          <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><dt class="text-[10px] uppercase font-bold text-slate-400">Gênero</dt><dd id="profile-data-gender" class="font-bold text-slate-900 dark:text-white"></dd></div>
+        </dl>
+        <div class="flex justify-end pt-2">
+          <button type="button" id="profile-btn-edit-client" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-2xl shadow">Editar Cadastro</button>
+        </div>
+      </div>
+
+      <div id="profile-tab-content-historico" class="hidden space-y-4">
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider block mb-2">Procedimentos por categoria</span>
+          <div id="profile-category-summary-grid" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider block mb-2">Linha do tempo</span>
+          <div id="profile-appointments-timeline" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <div id="profile-tab-content-fidelidade" class="hidden">
+        <div id="profile-fidelity-container"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: CONSTRUTOR DE RELATÓRIOS -->
+  <div id="modal-print-report" onclick="handleBackdropClick(event, 'modal-print-report')" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div onclick="event.stopPropagation()" class="bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/60 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-6 shadow-2xl relative gold-border-glow">
+      <button type="button" onclick="closeModal('modal-print-report')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-xl"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <span class="text-[10px] font-bold text-brand-gold uppercase tracking-wider">Relatórios</span>
+      <h3 class="text-lg font-black text-slate-900 dark:text-white mb-4">Montar e Imprimir Relatório</h3>
+
+      <div class="mb-4">
+        <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Modelos prontos</span>
+        <div id="rp-presets" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+        <div class="sm:col-span-2"><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Título</label><input id="rp-title" type="text" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+        <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Data inicial</label><input id="rp-start" type="date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+        <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Data final</label><input id="rp-end" type="date" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button type="button" onclick="setReportPeriod('hoje')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Hoje</button>
+        <button type="button" onclick="setReportPeriod('mes')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Este mês</button>
+        <button type="button" onclick="setReportPeriod('mesPassado')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Mês passado</button>
+        <button type="button" onclick="setReportPeriod('tudo')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:border-brand-gold">Todo o histórico</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">O que mostrar (seções)</span><div id="rp-sections" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Indicadores do resumo</span><div id="rp-metrics" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Colunas das notas emitidas</span><div id="rp-notecols" class="flex flex-wrap gap-1.5"></div>
+          <span class="text-[10px] font-bold text-brand-gold uppercase block mt-3 mb-2">Notas incluídas</span><div id="rp-nstatus" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Colunas da agenda</span><div id="rp-columns" class="flex flex-wrap gap-1.5"></div></div>
+        <div class="p-3 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder"><span class="text-[10px] font-bold text-brand-gold uppercase block mb-2">Status da agenda incluídos</span><div id="rp-statuses" class="flex flex-wrap gap-1.5"></div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Gênero</label><select id="rp-gender" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"><option value="TODOS">Todos</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Inativas há (meses)</label><input id="rp-inactive-months" type="number" min="1" value="3" class="w-full bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-xl text-xs p-2 text-slate-900 dark:text-white focus:outline-none focus:border-brand-gold"></div>
+          </div>
+          <label class="flex items-center gap-2 mt-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300"><input type="checkbox" id="rp-inactive-never"> Incluir quem nunca foi atendida</label>
+        </div>
+      </div>
+
+      <div id="rp-preview" class="hidden mb-4 p-4 rounded-2xl bg-white text-black border border-brand-lightBorder max-h-96 overflow-auto"></div>
+
+      <div class="flex flex-wrap justify-end gap-2 pt-2">
+        <button type="button" onclick="previewCustomReport()" class="px-5 py-2.5 rounded-2xl border border-brand-violet/50 text-brand-violet text-xs font-bold hover:bg-brand-violet/10">Pré-visualizar</button>
+        <button type="button" onclick="printCustomReport()" class="px-5 py-2.5 bg-brand-violet hover:bg-brand-purpleDeep text-white text-xs font-bold rounded-2xl shadow flex items-center gap-1.5"><i data-lucide="printer" class="w-4 h-4"></i> Imprimir / Salvar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Área exclusiva de impressão do relatório (só aparece no Ctrl+P) -->
+  <div id="printable-report-target"></div>
+
+  <!-- MENU DE CONTEXTO GLOBAL (BOTÃO DIREITO) -->
+    <div id="custom-context-menu" class="hidden fixed z-[999999] bg-brand-lightSurface dark:bg-brand-darkSurface border-2 border-brand-gold/50 rounded-2xl shadow-2xl py-2 min-w-[230px] text-xs text-slate-800 dark:text-slate-200 gold-border-glow backdrop-blur-md">
+      <div id="custom-context-menu-content"></div>
+    </div>
+
+    <canvas id="hidden-render-canvas" class="hidden"></canvas>
+    <script src="security.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,4354 @@
+/* ========================================================
+ * DEPILCLEAR WOMEN & MEN - SANDRA RAMOS
+ * app.js - Lógica Principal, Persistência e Utilitários
+ * ======================================================== */
+
+
+/* ========================================================
+ * HELPERS GLOBAIS (proteções e utilitários)
+ * ======================================================== */
+// Se o CDN do Lucide não carregar (offline), o app continua funcionando sem ícones
+if (typeof window.lucide === 'undefined') {
+  window.lucide = { createIcons() {} };
+}
+
+// Data local (YYYY-MM-DD). toISOString() usa UTC e, em Maceió (UTC-3),
+// vira "amanhã" a partir das 21h.
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// escapeHtml, jsStr, safeImageSrc, safeColor, getAuthToken e safeRead/WriteStore vêm de security.js
+
+// Substitui o confirm() feio do navegador por um diálogo no padrão do sistema.
+// Uso: if (!(await showConfirm({ title, message, confirmText, danger }))) return;
+function showConfirm({ title = 'Confirmar ação', message = '', confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
+    overlay.innerHTML = `
+      <div role="alertdialog" aria-modal="true" aria-label="${escapeHtml(title)}" class="w-full max-w-sm bg-brand-lightSurface dark:bg-brand-darkSurface border-2 ${escapeHtml(danger ? 'border-rose-500/50' : 'border-brand-gold/60')} rounded-3xl p-6 shadow-2xl gold-border-glow" style="animation: confirmPop .16s ease-out">
+        <div class="flex items-start gap-3 mb-3">
+          <div class="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${escapeHtml(danger ? 'bg-rose-500/15 text-rose-500' : 'bg-brand-gold/15 text-brand-gold')}">
+            <i data-lucide="${escapeHtml(danger ? 'alert-triangle' : 'help-circle')}" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-gold">Atenção</span>
+            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${escapeHtml(title)}</h3>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 whitespace-pre-line">${escapeHtml(message)}</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" data-act="no" class="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">${escapeHtml(cancelText)}</button>
+          <button type="button" data-act="yes" class="px-5 py-2.5 rounded-2xl text-xs font-black text-white shadow ${escapeHtml(danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-brand-violet hover:bg-brand-purpleDeep')}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    try { lucide.createIcons({ root: overlay }); } catch (e) { /* sem ícones */ }
+
+    const finish = (value) => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKey = (ev) => {
+      if (ev.key === 'Escape' || ev.key === 'Enter') {
+        ev.preventDefault(); ev.stopPropagation(); // não fecha o modal que está por trás
+        finish(ev.key === 'Enter');
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) finish(false);
+      const act = ev.target.closest('[data-act]')?.dataset.act;
+      if (act) finish(act === 'yes');
+    });
+    overlay.querySelector('[data-act="yes"]').focus();
+  });
+}
+
+
+// fetch que já envia o token JWT recebido no login.
+// Se o servidor responder 401 (token inválido/expirado), encerra a sessão e volta ao login.
+async function authFetch(url, options = {}) {
+  const headers = Object.assign({}, options.headers || {}, {
+    Authorization: `Bearer ${getAuthToken()}`
+  });
+  const res = await fetch(url, Object.assign({}, options, { headers }));
+  if (res.status === 401) {
+    handleLogout('Sessão expirada ou inválida. Faça login novamente.');
+  }
+  return res;
+}
+
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+
+// Paleta de 20 tons suaves para categorização
+const SOFT_PASTEL_PALETTE = [
+  { name: 'Lavanda Suave', hex: '#a78bfa' },
+  { name: 'Rosa Quartzo', hex: '#f472b6' },
+  { name: 'Lilás Névoa', hex: '#c084fc' },
+  { name: 'Menta Serena', hex: '#6ee7b7' },
+  { name: 'Ouro Pálido', hex: '#eab308' },
+  { name: 'Pêssego Delicado', hex: '#fca5a5' },
+  { name: 'Céu Sereno', hex: '#7dd3fc' },
+  { name: 'Camomila Doce', hex: '#fde047' },
+  { name: 'Verde Sálvia', hex: '#86efac' },
+  { name: 'Azul Glaciar', hex: '#93c5fd' },
+  { name: 'Coral Claro', hex: '#fdba74' },
+  { name: 'Ametista Floral', hex: '#d8b4fe' },
+  { name: 'Capim-Santo', hex: '#a3e635' },
+  { name: 'Rosa Bebê', hex: '#f9a8d4' },
+  { name: 'Turquesa Suave', hex: '#5eead4' },
+  { name: 'Areia Dourada', hex: '#fed7aa' },
+  { name: 'Violeta Bruma', hex: '#818cf8' },
+  { name: 'Jade Tranquilo', hex: '#34d399' },
+  { name: 'Blush Radiante', hex: '#fb7185' },
+  { name: 'Nuvem Prata', hex: '#cbd5e1' }
+];
+
+// Dados Iniciais e Configurações Padrão
+let companyConfig = {
+  name: 'DepilClear Women & Men - Sandra Ramos',
+  street: 'Atendimento com Agendamento Prévio',
+  number: 'S/N',
+  bairro: 'Maceió',
+  cep: '57000-000',
+  city: 'Maceió',
+  state: 'AL',
+  complement: 'Sala Spa',
+  whatsapp: '(82) 98722-3360',
+  openTime: '08:00',
+  closeTime: '18:00',
+  slotIntervalMinutes: 15,
+  maxClientsPerSlot: 3,
+  logoUrl: null
+};
+
+const today = new Date();
+let currentSelectedDate = localDateStr(today);
+let calendarViewYear = today.getFullYear();
+let calendarViewMonth = today.getMonth();
+
+let inModalCalYear = today.getFullYear();
+let inModalCalMonth = today.getMonth();
+let inModalSelectedDate = currentSelectedDate;
+
+let receptionPopoverYear = today.getFullYear();
+let receptionPopoverMonth = today.getMonth();
+
+let categoriesList = [
+  { id: 1, name: 'Terapias Corporais', color: '#a78bfa' },
+  { id: 2, name: 'Cuidados Podais & Spa dos Pés', color: '#6ee7b7' },
+  { id: 3, name: 'Upgrades & Potencializadores', color: '#eab308' },
+  { id: 4, name: 'Epilação Feminina', color: '#f472b6' },
+  { id: 5, name: 'Epilação Masculina', color: '#7dd3fc' }
+];
+
+let servicesList = [
+  { id: 1, name: 'Massagem Relaxante com Óleos', shortCode: 'relax.oleos', categoryId: 1, duration: 45, price: 150.00 },
+  { id: 2, name: 'Massagem Corporal Detox', shortCode: 'detox.argila', categoryId: 1, duration: 50, price: 180.00 },
+  { id: 3, name: 'Massagem com Pedras Vulcânicas', shortCode: 'pedras.vulc', categoryId: 1, duration: 60, price: 190.00 },
+  { id: 4, name: 'Ritual Escalda-Pés Relaxante', shortCode: 'escalda.pes', categoryId: 2, duration: 30, price: 75.00 },
+  { id: 5, name: 'Spa Podal Termoterápico', shortCode: 'spa.podal', categoryId: 2, duration: 30, price: 70.00 },
+  { id: 6, name: 'Alívio Cervical', shortCode: 'alivio.cerv', categoryId: 3, duration: 20, price: 25.00 },
+  { id: 7, name: 'Íntima Completa', shortCode: "int'c", categoryId: 4, duration: 15, price: 70.00 },
+  { id: 8, name: 'Perna Completa', shortCode: "perna'c", categoryId: 4, duration: 30, price: 60.00 },
+  { id: 9, name: 'Axilas', shortCode: 'axilas', categoryId: 4, duration: 15, price: 25.00 },
+  { id: 10, name: 'Buço e Queixo', shortCode: 'buço e queixo', categoryId: 4, duration: 15, price: 30.00 },
+  { id: 11, name: 'Costas Masculino', shortCode: 'costas.masc', categoryId: 5, duration: 25, price: 40.00 }
+];
+
+let professionalsList = [
+  { id: 1, name: 'Sandra Ramos', photo: null },
+  { id: 2, name: 'Beth', photo: null },
+  { id: 3, name: 'Erica', photo: null }
+];
+
+let clientsList = [
+  { id: 1, name: 'Mayara Silva', cpf: '012.345.678-90', phone: '82987223360', email: 'mayara@gmail.com', birth: '1992-04-12', gender: 'Feminino' },
+  { id: 2, name: 'Dariane Albuquerque', cpf: '987.654.321-00', phone: '82991234567', email: 'dariane@gmail.com', birth: '1989-08-25', gender: 'Feminino' },
+  { id: 3, name: 'Carlita Almeida', cpf: '111.444.777-35', phone: '82988112233', email: 'carlita@email.com', birth: '1995-02-17', gender: 'Feminino' },
+  { id: 4, name: 'Jullyana Stephany', cpf: '222.555.888-40', phone: '82999443322', email: 'jullyana@email.com', birth: '1996-09-03', gender: 'Feminino' },
+  { id: 5, name: 'Regina Tavares', cpf: '333.666.999-52', phone: '82996554411', email: 'regina@email.com', birth: '1985-07-29', gender: 'Feminino' },
+  { id: 6, name: 'João Bernardino', cpf: '444.777.000-60', phone: '82991122334', email: 'joao@email.com', birth: '1988-11-20', gender: 'Masculino' }
+];
+
+let appointmentsList = [
+  {
+    id: 101,
+    clientId: 1,
+    clientName: 'Mayara Silva',
+    gender: 'Feminino',
+    phone: '82987223360',
+    services: [
+      { id: 7, name: 'Íntima Completa', price: 70.00, duration: 15, categoryId: 4 },
+      { id: 8, name: 'Perna Completa', price: 60.00, duration: 30, categoryId: 4 }
+    ],
+    serviceName: "Íntima Completa + Perna Completa",
+    serviceShort: "int'c, perna'c",
+    professional: 'Beth',
+    date: currentSelectedDate,
+    time: '08:00',
+    price: 130.00,
+    status: 'Confirmada',
+    isFirstTime: false,
+    arrivedAtReception: true,
+    receptionStatus: 'Confirmada'
+  }
+];
+
+let whatsappTemplates = [
+  {
+    id: 'confirmacao',
+    title: 'Confirmação de Agendamento',
+    trigger: 'Agendado',
+    active: true,
+    text: '✨ Olá {nome}! Seu agendamento na {empresa} foi pré-agendado com sucesso!\n\n📅 Data: {data}\n⏰ Horário: {horario}\n💆‍♀️ Procedimento(s): {servico}\n👩‍⚕️ Profissional: {profissional}\n💰 Valor Total: R$ {valor}\n📍 Local: {endereco}'
+  },
+  {
+    id: 'confirmada',
+    title: 'Presença Confirmada (Mural)',
+    trigger: 'Confirmada',
+    active: true,
+    text: '✅ Olá {nome}! Sua presença foi CONFIRMADA para o dia {data} às {horario}. Seu atendimento com {profissional} já consta na nossa recepção da {empresa}!'
+  }
+];
+
+// Variáveis de Controlo e Filtros
+let agendaSelectedStatuses = [];
+let agendaSelectedGender = 'TODOS';
+let agendaFilterInactiveOnly = false;
+let agendaSearchQuery = '';
+let agendaFilterByDateRange = false;
+let agendaStartDate = '';
+let agendaEndDate = '';
+
+let currentClientGenderFilter = 'TODOS';
+let tempProPhotoData = null;
+let selectedServiceIdsInModal = [];
+let selectedProfessionalInModal = 'Sem preferência';
+let selectedTimeInModal = '';
+let currentViewingClientId = null;
+
+/* ========================================================
+ * PERSISTÊNCIA PERMANENTE (LOCALSTORAGE)
+ * ======================================================== */
+function saveAllToLocalStorage() {
+  try {
+    localStorage.setItem('depilclear_appointments', JSON.stringify(appointmentsList));
+    localStorage.setItem('depilclear_clients', JSON.stringify(clientsList));
+    localStorage.setItem('depilclear_services', JSON.stringify(servicesList));
+    localStorage.setItem('depilclear_categories', JSON.stringify(categoriesList));
+    localStorage.setItem('depilclear_professionals', JSON.stringify(professionalsList));
+    localStorage.setItem('depilclear_wpp_templates', JSON.stringify(whatsappTemplates));
+    localStorage.setItem('depilclear_company_config', JSON.stringify(companyConfig));
+  } catch (err) {
+    console.error('Erro ao gravar no localStorage:', err);
+  }
+}
+
+function loadAllFromLocalStorage() {
+  try {
+    const apps = localStorage.getItem('depilclear_appointments');
+    if (apps) appointmentsList = JSON.parse(apps);
+
+    const clis = localStorage.getItem('depilclear_clients');
+    if (clis) clientsList = JSON.parse(clis);
+
+    const srvs = localStorage.getItem('depilclear_services');
+    if (srvs) servicesList = JSON.parse(srvs);
+
+    const cats = localStorage.getItem('depilclear_categories');
+    if (cats) categoriesList = JSON.parse(cats);
+
+    const pros = localStorage.getItem('depilclear_professionals');
+    if (pros) professionalsList = JSON.parse(pros);
+
+    const wpps = localStorage.getItem('depilclear_wpp_templates');
+    if (wpps) whatsappTemplates = JSON.parse(wpps);
+
+    const cfg = localStorage.getItem('depilclear_company_config');
+    if (cfg) companyConfig = JSON.parse(cfg);
+  } catch (err) {
+    console.error('Erro ao recuperar dados do localStorage:', err);
+  }
+}
+
+/* ========================================================
+ * NAVEGAÇÃO, AUTENTICAÇÃO E TEMA
+ * ======================================================== */
+async function handleLoginSubmit(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  const emailInput = document.getElementById('login-email');
+  const passwordInput = document.getElementById('login-password');
+  
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
+
+  if (!email || !password) {
+    showToast('Preencha seu e-mail e senha.', 'warning');
+    return false;
+  }
+
+  // Em produção, credenciais só trafegam por HTTPS
+  const isLocalHost = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  if (location.protocol !== 'https:' && !isLocalHost) {
+    showToast('Conexão não segura. Acesse o sistema por HTTPS para entrar.', 'error');
+    return false;
+  }
+
+  showToast('A verificar credenciais...', 'info');
+
+  try {
+    const resposta = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      showToast(dados.erro || 'Credenciais inválidas.', 'error');
+      return false;
+    }
+
+    if (!tokenLooksValid(dados.token || '')) {
+      showToast('Resposta de login inválida. Tente novamente.', 'error');
+      return false;
+    }
+    // O acesso depende do TOKEN (validado no servidor em /api/me). Nada de flag booleana.
+    sessionStorage.setItem('depilclear_token', dados.token);
+    sessionStorage.setItem('depilclear_session_validated', String(Date.now()));
+    sessionStorage.setItem('depilclear_active_user', (dados.usuario && dados.usuario.email) || '');
+    document.documentElement.classList.add('has-session');
+
+    document.getElementById('view-login')?.classList.add('hidden');
+    const dash = document.getElementById('view-dashboard');
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.classList.add('flex');
+    }
+
+    const userDisplay = document.getElementById('user-display-email');
+    if (userDisplay) userDisplay.innerText = (dados.usuario && dados.usuario.email) || '';
+
+    applyCompanyConfigToUI();
+    fillCompanyConfigForm();
+    startWhatsAppScheduler();
+    initCalendar();
+    renderAllViews();
+    showToast(`Bem-vindo(a), ${(dados.usuario && dados.usuario.nome) || ''}!`, 'success');
+    lucide.createIcons();
+  } catch (erro) {
+    console.error('Erro de conexão:', erro);
+    showToast('Erro ao ligar ao servidor.', 'error');
+  }
+
+  return false;
+}
+
+function toggleLoginPassword() {
+  const pwd = document.getElementById('login-password');
+  const eyeIcon = document.getElementById('login-eye-icon');
+  if (!pwd) return;
+  if (pwd.type === 'password') {
+    pwd.type = 'text';
+    eyeIcon?.setAttribute('data-lucide', 'eye-off');
+  } else {
+    pwd.type = 'password';
+    eyeIcon?.setAttribute('data-lucide', 'eye');
+  }
+  lucide.createIcons();
+}
+
+function handleLogout(message) {
+  clearSession();
+
+  const pwdInput = document.getElementById('login-password');
+  if (pwdInput) pwdInput.value = '';
+
+  document.getElementById('view-dashboard')?.classList.add('hidden');
+  document.getElementById('view-dashboard')?.classList.remove('flex');
+  document.getElementById('view-login')?.classList.remove('hidden');
+  showToast(typeof message === 'string' ? message : 'Saiu do sistema com segurança.', typeof message === 'string' ? 'warning' : 'info');
+}
+
+function toggleTheme(btnElement = null) {
+  const html = document.documentElement;
+  if (btnElement) {
+    btnElement.style.transform = 'scale(0.92)';
+    setTimeout(() => {
+      btnElement.style.transform = '';
+    }, 200);
+  }
+
+  // A transição lenta de cores só vale durante a troca (deixa os botões rápidos)
+  html.classList.add('theme-animating');
+  clearTimeout(window.__themeAnimTimer);
+  window.__themeAnimTimer = setTimeout(() => html.classList.remove('theme-animating'), 650);
+
+  html.classList.toggle('dark');
+  const isDark = html.classList.contains('dark');
+  localStorage.setItem('depilclear_theme', isDark ? 'dark' : 'light');
+  lucide.createIcons();
+}
+
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('app-sidebar');
+  if (!sidebar) return;
+  const willOpen = sidebar.classList.contains('-translate-x-full');
+  sidebar.classList.toggle('-translate-x-full', !willOpen);
+  document.getElementById('mobile-menu-overlay')?.classList.toggle('hidden', !willOpen);
+}
+
+function closeMobileMenu() {
+  document.getElementById('app-sidebar')?.classList.add('-translate-x-full');
+  document.getElementById('mobile-menu-overlay')?.classList.add('hidden');
+}
+
+function switchTab(tabId) {
+  closeMobileMenu();
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+  const target = document.getElementById(`section-${tabId}`);
+  if (target) target.classList.remove('hidden');
+
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.remove('bg-gradient-to-r', 'from-brand-purpleDeep', 'to-brand-violet', 'text-white', 'shadow-md', 'shadow-purple-900/30');
+    el.classList.add('text-slate-600', 'dark:text-slate-300');
+  });
+
+  const activeNav = document.getElementById(`nav-${tabId}`);
+  if (activeNav) {
+    activeNav.classList.remove('text-slate-600', 'dark:text-slate-300');
+    activeNav.classList.add('bg-gradient-to-r', 'from-brand-purpleDeep', 'to-brand-violet', 'text-white', 'shadow-md', 'shadow-purple-900/30');
+  }
+
+  const sidebar = document.getElementById('app-sidebar');
+  if (window.innerWidth < 768 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
+    sidebar.classList.add('-translate-x-full');
+  }
+
+  renderAllViews();
+  lucide.createIcons();
+}
+
+function showToast(message, type = 'info') {
+  const wrapper = document.getElementById('toast-wrapper');
+  if (!wrapper) return;
+
+  const toast = document.createElement('div');
+  const typeStyles = {
+    success: 'bg-emerald-600 text-white border-emerald-400',
+    error: 'bg-rose-600 text-white border-rose-400',
+    warning: 'bg-amber-600 text-white border-amber-400',
+    info: 'bg-brand-violet text-white border-brand-violetLight'
+  };
+
+  const icons = {
+    success: 'check-circle-2',
+    error: 'alert-circle',
+    warning: 'alert-triangle',
+    info: 'info'
+  };
+
+  const styleClass = typeStyles[type] || typeStyles.info;
+  const iconName = icons[type] || 'info';
+
+  toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-xl text-xs font-semibold transform transition-all duration-300 translate-y-3 opacity-0 ${styleClass}`;
+  toast.innerHTML = `
+    <i data-lucide="${escapeHtml(iconName)}" class="w-4 h-4 shrink-0"></i>
+    <span class="flex-1">${escapeHtml(message)}</span>
+  `;
+
+  wrapper.appendChild(toast);
+  lucide.createIcons({ root: toast });
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-3', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'translate-y-3');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+function closeModal(id) {
+  document.getElementById(id)?.classList.add('hidden');
+}
+
+function handleBackdropClick(event, id) {
+  if (event.target && event.target.id === id) {
+    closeModal(id);
+  }
+}
+
+/* ========================================================
+ * ORDENAÇÃO DE SERVIÇOS E FORMATAÇÃO DO MURAL
+ * ======================================================== */
+function getSortedServicesForAppointment(services) {
+  if (!services || !Array.isArray(services)) return [];
+
+  return [...services].sort((a, b) => {
+    const catA = categoriesList.find(c => c.id === a.categoryId);
+    const catB = categoriesList.find(c => c.id === b.categoryId);
+    const nameA = (catA ? catA.name : '').toLowerCase();
+    const nameB = (catB ? catB.name : '').toLowerCase();
+
+    const isDepilA = nameA.includes('epilação') || nameA.includes('depilação');
+    const isDepilB = nameB.includes('epilação') || nameB.includes('depilação');
+
+    if (isDepilA && !isDepilB) return -1;
+    if (!isDepilA && isDepilB) return 1;
+    return (a.categoryId || 99) - (b.categoryId || 99);
+  });
+}
+
+function renderMuralServiceBadges(app) {
+  const sortedServices = getSortedServicesForAppointment(app.services || []);
+  if (sortedServices.length === 0) {
+    const proText = app.professional && app.professional !== 'Sem preferência' ? ` <strong class="text-slate-900 dark:text-white font-black">(${escapeHtml(app.professional)})</strong>` : '';
+    return `<span class="text-[11px] font-semibold">${escapeHtml(app.serviceShort || app.serviceName || '')}${proText}</span>`;
+  }
+
+  const badgesHtml = sortedServices.map(srv => {
+    const cat = categoriesList.find(c => c.id === srv.categoryId);
+    const catColor = safeColor(cat ? cat.color : null);
+    const label = srv.shortCode || srv.name;
+
+    return `
+      <span 
+        class="inline-block px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold border leading-tight shadow-xs mr-1 mb-0.5"
+        style="background-color: ${catColor}25; color: #1e1135; border-color: ${catColor}80;"
+        title="${escapeHtml(srv.name)} (${escapeHtml(cat ? cat.name : '')})"
+      >
+        ${escapeHtml(label)}
+      </span>
+    `;
+  }).join('');
+
+  const proText = app.professional && app.professional !== 'Sem preferência' 
+    ? `<span class="text-[11px] text-slate-900 dark:text-slate-100 font-extrabold ml-1 bg-slate-200/60 dark:bg-slate-700/60 px-1.5 py-0.5 rounded">(${escapeHtml(app.professional)})</span>` 
+    : '';
+  return `<div class="flex flex-wrap items-center gap-0.5">${badgesHtml}${proText}</div>`;
+}
+
+function formatServicesShortTextSorted(services, professional) {
+  const sorted = getSortedServicesForAppointment(services || []);
+  const labels = sorted.map(s => s.shortCode || s.name).join(', ');
+  return professional && professional !== 'Sem preferência' ? `${labels} (${professional})` : labels;
+}
+
+function generate15MinSlots() {
+  const slots = [];
+  const [startHour, startMin] = companyConfig.openTime.split(':').map(Number);
+  const [endHour, endMin] = companyConfig.closeTime.split(':').map(Number);
+
+  let current = startHour * 60 + startMin;
+  const end = endHour * 60 + endMin;
+
+  while (current <= end) {
+    const h = Math.floor(current / 60).toString().padStart(2, '0');
+    const m = (current % 60).toString().padStart(2, '0');
+    slots.push(`${h}:${m}`);
+    current += companyConfig.slotIntervalMinutes;
+  }
+  return slots;
+}
+
+// Último agendamento (não cancelado) da cliente, em 'YYYY-MM-DD', ou null se ainda não tem nenhum
+function getClientLastAppointmentDate(clientId) {
+  const datas = appointmentsList
+    .filter(a => String(a.clientId) === String(clientId) && a.status !== 'Cancelado' && a.date)
+    .map(a => a.date)
+    .sort();
+  return datas.length ? datas[datas.length - 1] : null;
+}
+
+// 'nova'    = cadastrada, mas ainda sem nenhum agendamento
+// 'ativa'   = tem agendamento nos últimos 3 meses (ou futuro)
+// 'inativa' = o último agendamento tem mais de 3 meses
+function getClientStatus(clientId) {
+  const last = getClientLastAppointmentDate(clientId);
+  if (!last) return 'nova';
+  const limite = new Date();
+  limite.setMonth(limite.getMonth() - 3);
+  return new Date(last + 'T23:59:59') < limite ? 'inativa' : 'ativa';
+}
+
+function isClientInactive(clientId) {
+  return getClientStatus(clientId) === 'inativa';
+}
+
+function clientStatusBadgeHTML(clientId, extraClass = '') {
+  const st = getClientStatus(clientId);
+  if (st === 'inativa') return `<span class="${escapeHtml(extraClass)} text-[9px] px-2 py-0.5 rounded-full font-bold bg-rose-500/15 text-rose-500 border border-rose-500/20">Inativa</span>`;
+  if (st === 'nova') return `<span class="${escapeHtml(extraClass)} text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-500/15 text-sky-500 border border-sky-500/20">Nova</span>`;
+  return '';
+}
+
+/* ========================================================
+ * BUSCA TOLERANTE E FILTROS DE INTERVALO
+ * ======================================================== */
+function normalizeStr(str) {
+  if (!str) return '';
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function levenshteinDistance(a, b) {
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function fuzzyMatchWord(target, query) {
+  if (!query) return true;
+  const nTarget = normalizeStr(target);
+  const nQuery = normalizeStr(query);
+  if (nTarget.includes(nQuery)) return true;
+
+  const targetWords = nTarget.split(/\s+/);
+  const queryWords = nQuery.split(/\s+/);
+
+  return queryWords.every(qWord => {
+    if (nTarget.includes(qWord)) return true;
+    return targetWords.some(tWord => {
+      if (Math.abs(tWord.length - qWord.length) > 2) return false;
+      return levenshteinDistance(tWord, qWord) <= 2;
+    });
+  });
+}
+
+function toggleAgendaFilterPopover(event) {
+  if (event) event.stopPropagation();
+  document.getElementById('agenda-filter-popover')?.classList.toggle('hidden');
+}
+
+function handleDateRangeCheckboxChange() {
+  const cb = document.getElementById('filter-date-range-cb');
+  const container = document.getElementById('filter-date-range-inputs');
+  agendaFilterByDateRange = Boolean(cb && cb.checked);
+
+  if (agendaFilterByDateRange) {
+    container?.classList.remove('hidden');
+    const startInput = document.getElementById('filter-date-start');
+    const endInput = document.getElementById('filter-date-end');
+    
+    if (startInput && !startInput.value) {
+      startInput.value = currentSelectedDate;
+    }
+    if (endInput && !endInput.value) {
+      endInput.value = currentSelectedDate;
+    }
+  } else {
+    container?.classList.add('hidden');
+  }
+  handleFilterCheckboxChange();
+  lucide.createIcons();
+}
+
+function setQuickDateRange(rangeType) {
+  const cb = document.getElementById('filter-date-range-cb');
+  if (cb) cb.checked = true;
+  document.getElementById('filter-date-range-inputs')?.classList.remove('hidden');
+  agendaFilterByDateRange = true;
+
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+
+  if (rangeType === 'today') {
+    // Mantém a data de hoje
+  } else if (rangeType === 'week') {
+    const day = now.getDay();
+    const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
+    start = new Date(now.setDate(diffToMon));
+    end = new Date(start);
+    end.setDate(start.getDate() + 5);
+  } else if (rangeType === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  const formatISO = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  document.getElementById('filter-date-start').value = formatISO(start);
+  document.getElementById('filter-date-end').value = formatISO(end);
+
+  handleFilterCheckboxChange();
+}
+
+function handleFilterCheckboxChange() {
+  const checkedBoxes = Array.from(document.querySelectorAll('.filter-status-cb:checked')).map(cb => cb.value);
+  agendaSelectedStatuses = checkedBoxes;
+  agendaFilterInactiveOnly = document.getElementById('filter-inactive-only-cb')?.checked || false;
+
+  const dateRangeCb = document.getElementById('filter-date-range-cb');
+  agendaFilterByDateRange = Boolean(dateRangeCb && dateRangeCb.checked);
+  agendaStartDate = document.getElementById('filter-date-start')?.value || '';
+  agendaEndDate = document.getElementById('filter-date-end')?.value || '';
+
+  updateFilterBadgeCount();
+  renderAgendaView();
+}
+
+function setMultiFilterGender(gender) {
+  agendaSelectedGender = gender;
+  document.querySelectorAll('.multi-filter-gender-btn').forEach(btn => {
+    if (btn.getAttribute('data-g') === gender) {
+      btn.className = 'multi-filter-gender-btn flex-1 py-1 rounded-xl text-[11px] font-bold bg-brand-violet text-white';
+    } else {
+      btn.className = 'multi-filter-gender-btn flex-1 py-1 rounded-xl text-[11px] font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder';
+    }
+  });
+  updateFilterBadgeCount();
+  renderAgendaView();
+}
+
+function resetAgendaMultiFilters() {
+  document.querySelectorAll('.filter-status-cb').forEach(cb => cb.checked = false);
+  const inactiveCb = document.getElementById('filter-inactive-only-cb');
+  if (inactiveCb) inactiveCb.checked = false;
+  const dateRangeCb = document.getElementById('filter-date-range-cb');
+  if (dateRangeCb) dateRangeCb.checked = false;
+  document.getElementById('filter-date-range-inputs')?.classList.add('hidden');
+
+  agendaSelectedStatuses = [];
+  agendaFilterInactiveOnly = false;
+  agendaFilterByDateRange = false;
+  agendaStartDate = '';
+  agendaEndDate = '';
+  setMultiFilterGender('TODOS');
+  updateFilterBadgeCount();
+  renderAgendaView();
+}
+
+function updateFilterBadgeCount() {
+  let count = agendaSelectedStatuses.length;
+  if (agendaSelectedGender !== 'TODOS') count++;
+  if (agendaFilterInactiveOnly) count++;
+  if (agendaFilterByDateRange) count++;
+
+  const badge = document.getElementById('active-filters-count-badge');
+  if (badge) {
+    if (count > 0) {
+      badge.innerText = count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+}
+
+function handleAgendaSearchFilter(query) {
+  agendaSearchQuery = query.trim();
+  const clearBtn = document.getElementById('agenda-clear-search-btn');
+  if (agendaSearchQuery) {
+    clearBtn?.classList.remove('hidden');
+  } else {
+    clearBtn?.classList.add('hidden');
+  }
+  renderAgendaView();
+}
+
+function clearAgendaSearch() {
+  const input = document.getElementById('agenda-client-search');
+  if (input) input.value = '';
+  agendaSearchQuery = '';
+  document.getElementById('agenda-clear-search-btn')?.classList.add('hidden');
+  renderAgendaView();
+}
+
+/* ========================================================
+ * MENUS DE CONTEXTO (BOTÃO DIREITO GLOBAL E NOS ELEMENTOS)
+ * ======================================================== */
+function showCustomContextMenu(event, type, id) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  const menu = document.getElementById('custom-context-menu');
+  const content = document.getElementById('custom-context-menu-content');
+  if (!menu || !content) return;
+
+  let menuItemsHtml = '';
+
+  if (type === 'agenda' || type === 'reception') {
+    const app = appointmentsList.find(a => a.id === id);
+    if (!app) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${escapeHtml(app.clientName)}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openEditAppointmentModal(${Number(app.id)})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar agendamento
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(app.clientId)}, 'dados')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Dados da cliente
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(app.clientId)}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Histórico completo
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(app.clientId)}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleCancelAppointmentViaContext(${Number(app.id)})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="x-circle" class="w-4 h-4"></i> Cancelar Agendamento
+        </button>
+      </div>
+    `;
+  } else if (type === 'client') {
+    const client = clientsList.find(c => c.id === id);
+    if (!client) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${escapeHtml(client.name)}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openClientModal(${Number(client.id)})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar cliente
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(client.id)}, 'dados')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Dados cadastrais
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(client.id)}, 'historico')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i> Ver histórico
+        </button>
+        <button type="button" onclick="closeContextMenu(); openClientProfileModal(${Number(client.id)}, 'fidelidade')" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Gerir Cartão Fidelidade
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteClient(${Number(client.id)})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir definitivamente
+        </button>
+      </div>
+    `;
+  } else if (type === 'service') {
+    const srv = servicesList.find(s => s.id === id);
+    if (!srv) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${escapeHtml(srv.name)}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openServiceModal(${Number(srv.id)})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar serviço
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteService(${Number(srv.id)})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir serviço
+        </button>
+      </div>
+    `;
+  } else if (type === 'category') {
+    const cat = categoriesList.find(c => c.id === id);
+    if (!cat) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${escapeHtml(cat.name)}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openCategoryModal(${Number(cat.id)})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar categoria
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteCategory(${Number(cat.id)})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir categoria
+        </button>
+      </div>
+    `;
+  } else if (type === 'professional') {
+    const pro = professionalsList.find(p => p.id === id);
+    if (!pro) return;
+    menuItemsHtml = `
+      <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+        ${escapeHtml(pro.name)}
+      </div>
+      <div class="py-1.5 space-y-0.5">
+        <button type="button" onclick="closeContextMenu(); openProfessionalModal(${Number(pro.id)})" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-violet"></i> Editar Profissional
+        </button>
+      </div>
+      <div class="py-1.5 border-t border-brand-lightBorder dark:border-brand-darkBorder">
+        <button type="button" onclick="closeContextMenu(); handleDeleteProfessional(${Number(pro.id)})" class="w-full text-left px-4 py-2 hover:bg-rose-500/15 text-rose-500 flex items-center gap-2.5 text-xs font-bold">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir profissional
+        </button>
+      </div>
+    `;
+  }
+
+  content.innerHTML = menuItemsHtml;
+  lucide.createIcons({ root: content });
+
+  const posX = Math.min(event.clientX, window.innerWidth - 240);
+  const posY = Math.min(event.clientY, window.innerHeight - 260);
+
+  menu.style.left = `${posX}px`;
+  menu.style.top = `${posY}px`;
+  menu.classList.remove('hidden');
+}
+
+// Ouvinte geral de botão direito (caso clique fora de itens com menu contextual próprio)
+window.addEventListener('contextmenu', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  
+  // Se o clique foi dentro de um elemento com menu próprio, não exibe o menu geral
+  if (e.target.closest('[oncontextmenu]')) return;
+
+  e.preventDefault();
+
+  const menu = document.getElementById('custom-context-menu');
+  const content = document.getElementById('custom-context-menu-content');
+  if (!menu || !content) return;
+
+  content.innerHTML = `
+    <div class="px-4 py-2.5 text-xs text-brand-gold font-bold uppercase truncate border-b border-brand-lightBorder dark:border-brand-darkBorder">
+      Opções do Sistema
+    </div>
+    <div class="py-1.5 space-y-0.5">
+      <button type="button" onclick="closeContextMenu(); openNewAppointmentModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-gold"></i> Novo Agendamento
+      </button>
+      <button type="button" onclick="closeContextMenu(); openClientModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="user-plus" class="w-4 h-4 text-brand-violet"></i> Cadastrar Cliente
+      </button>
+      <button type="button" onclick="closeContextMenu(); openServiceModal();" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Cadastrar Serviço
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('recepcao');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="sheet" class="w-4 h-4 text-emerald-400"></i> Mural da Recepção
+      </button>
+      <button type="button" onclick="closeContextMenu(); switchTab('fidelidade');" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Cartões Fidelidade
+      </button>
+      <button type="button" onclick="closeContextMenu(); window.location.href='caixa.html';" class="w-full text-left px-4 py-2 hover:bg-brand-violet/20 flex items-center gap-2.5 text-xs font-semibold">
+        <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i> Abrir Frente de Caixa
+      </button>
+    </div>
+  `;
+
+  lucide.createIcons({ root: content });
+
+  const posX = Math.min(e.clientX, window.innerWidth - 240);
+  const posY = Math.min(e.clientY, window.innerHeight - 300);
+
+  menu.style.left = `${posX}px`;
+  menu.style.top = `${posY}px`;
+  menu.classList.remove('hidden');
+});
+
+
+
+function closeContextMenu() {
+  const menu = document.getElementById('custom-context-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
+
+// Fecha o menu ao clicar com o botão esquerdo fora dele
+window.addEventListener('click', (e) => {
+  const menu = document.getElementById('custom-context-menu');
+  if (menu && !menu.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+
+function handleCancelAppointmentViaContext(appId) {
+  const app = appointmentsList.find(a => a.id === appId);
+  if (!app) return;
+  app.status = 'Cancelado';
+  saveAllToLocalStorage();
+  showToast(`Agendamento de ${app.clientName} cancelado.`, 'warning');
+  renderAgendaView();
+  renderPhysicalReceptionSheet();
+}
+
+/* ========================================================
+ * VISÃO DA AGENDA
+ * ======================================================== */
+function renderAgendaView() {
+  updateAgendaCounters(currentSelectedDate);
+  const container = document.getElementById('agenda-list-container');
+  const countBadge = document.getElementById('agenda-count-badge');
+  const dateTitle = document.getElementById('agenda-date-title');
+  const dateBadge = document.getElementById('selected-date-badge');
+
+  if (!container) return;
+
+  const [y, m, d] = currentSelectedDate.split('-');
+  const isSearchingHistory = Boolean(agendaSearchQuery && agendaSearchQuery.trim().length > 0);
+
+  if (isSearchingHistory) {
+    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="search" class="w-4 h-4 text-brand-gold"></i> Histórico encontrado para "${escapeHtml(agendaSearchQuery)}"`;
+    if (dateBadge) dateBadge.innerText = `Pesquisa Ativa`;
+  } else if (agendaFilterInactiveOnly) {
+    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="user-x" class="w-4 h-4 text-rose-500"></i> Clientes Inativas (> 3 meses)`;
+    if (dateBadge) dateBadge.innerText = `Inativas Globais`;
+  } else if (agendaFilterByDateRange && agendaStartDate && agendaEndDate) {
+    const [sy, sm, sd] = agendaStartDate.split('-');
+    const [ey, em, ed] = agendaEndDate.split('-');
+    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i> Período: ${escapeHtml(sd)}/${escapeHtml(sm)}/${escapeHtml(sy)} até ${escapeHtml(ed)}/${escapeHtml(em)}/${escapeHtml(ey)}`;
+    if (dateBadge) dateBadge.innerText = `${sd}/${sm} - ${ed}/${em}`;
+  } else {
+    if (dateTitle) dateTitle.innerHTML = `<i data-lucide="calendar-days" class="w-4 h-4"></i> Agendamentos de ${escapeHtml(d)}/${escapeHtml(m)}/${escapeHtml(y)}`;
+    if (dateBadge) dateBadge.innerText = `${d}/${m}/${y}`;
+  }
+
+  const scanEntireDatabase = isSearchingHistory || agendaFilterInactiveOnly || agendaFilterByDateRange;
+  let listToFilter = scanEntireDatabase ? appointmentsList : appointmentsList.filter(a => a.date === currentSelectedDate);
+
+  let filtered = listToFilter.filter(app => {
+    if (agendaFilterByDateRange && agendaStartDate && agendaEndDate) {
+      if (app.date < agendaStartDate || app.date > agendaEndDate) return false;
+    }
+
+    if (agendaFilterInactiveOnly) {
+      if (!isClientInactive(app.clientId)) return false;
+    }
+
+    if (isSearchingHistory) {
+      const queryRaw = agendaSearchQuery.trim();
+      const queryDigits = queryRaw.replace(/\D/g, '');
+      const clientObj = clientsList.find(c => c.id === app.clientId);
+
+      const nameMatch = fuzzyMatchWord(app.clientName, queryRaw);
+      const phoneMatch = queryDigits.length > 2 && (app.phone || '').replace(/\D/g, '').includes(queryDigits);
+      const cpfMatch = queryDigits.length > 2 && clientObj && (clientObj.cpf || '').replace(/\D/g, '').includes(queryDigits);
+      const emailMatch = clientObj && (clientObj.email || '').toLowerCase().includes(queryRaw.toLowerCase());
+      const birthMatch = queryRaw.length >= 4 && clientObj && (clientObj.birth || '').includes(queryRaw);
+
+      if (!nameMatch && !phoneMatch && !cpfMatch && !emailMatch && !birthMatch) return false;
+    }
+
+    if (agendaSelectedStatuses.length > 0) {
+      if (!agendaSelectedStatuses.includes(app.status)) return false;
+    }
+
+    if (agendaSelectedGender !== 'TODOS') {
+      if (app.gender !== agendaSelectedGender) return false;
+    }
+
+    return true;
+  });
+
+  if (countBadge) countBadge.innerText = `${filtered.length} resultado(s)`;
+
+  if (filtered.length === 0) {
+    let emptyMsg = isSearchingHistory 
+      ? `Nenhum agendamento encontrado para "${agendaSearchQuery}"` 
+      : 'Nenhum agendamento encontrado para os filtros selecionados.';
+
+    container.innerHTML = `
+      <div class="p-8 text-center bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl">
+        <i data-lucide="calendar-x" class="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-50"></i>
+        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">${escapeHtml(emptyMsg)}</h4>
+        <p class="text-xs text-slate-400 mt-1">Verifique os filtros ou clique em "Novo Agendamento".</p>
+      </div>
+    `;
+    lucide.createIcons({ root: container });
+    return;
+  }
+
+  const statusBubbleStyles = {
+    'Agendado': 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30',
+    'Confirmada': 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30',
+    'Finalizado': 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    'Reagendar': 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    'Cancelado': 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+  };
+
+  container.innerHTML = filtered.map(app => {
+    const isMale = app.gender === 'Masculino';
+    const bubbleStyle = statusBubbleStyles[app.status] || statusBubbleStyles['Agendado'];
+    const isInactive = isClientInactive(app.clientId);
+    const [appY, appM, appD] = (app.date || '').split('-');
+    const showFullDate = isSearchingHistory || agendaFilterInactiveOnly || agendaFilterByDateRange;
+
+    return `
+      <div 
+        oncontextmenu="showCustomContextMenu(event, 'agenda', ${Number(app.id)})" 
+        onclick="openClientProfileModal(${Number(app.clientId)}, 'dados')"
+        class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:border-brand-violet/60 transition-all group"
+      >
+        <div class="flex items-start sm:items-center gap-3">
+          <div class="px-3 py-2 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg text-center border border-brand-lightBorder dark:border-brand-darkBorder shrink-0">
+            <span class="text-xs font-black font-mono text-brand-gold block">${escapeHtml(app.time)}</span>
+            <span class="text-[9px] text-slate-400 font-bold">${showFullDate ? `${escapeHtml(appD)}/${escapeHtml(appM)}/${escapeHtml(appY)}` : '15m'}</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h4 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-brand-violet transition-colors">${escapeHtml(app.clientName)}</h4>
+              ${app.isFirstTime ? '<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-amber-500 text-slate-950 shadow-xs">⭐ 1° vez</span>' : ''}
+              <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${escapeHtml(isMale ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500')}">${escapeHtml(app.gender)}</span>
+              ${app.status === 'Confirmada' ? '<span class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-teal-500/20 text-teal-500 border border-teal-500/30">No Mural</span>' : ''}
+              ${isInactive ? '<span class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-500 border border-rose-500/30">Inativa</span>' : ''}
+            </div>
+            <div class="text-xs text-brand-violet dark:text-brand-violetLight font-medium mt-0.5">
+              ${escapeHtml(app.serviceName)}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
+              <span>👩‍⚕️ Depiladora: <strong class="text-slate-700 dark:text-slate-300 font-bold">${escapeHtml(app.professional)}</strong></span>
+              <span>•</span>
+              <span class="text-emerald-500 font-bold">R$ ${Number(app.price).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 self-end md:self-center" onclick="event.stopPropagation()">
+          <select onchange="handleUpdateAppointmentStatus(${Number(app.id)}, this.value)" class="px-3 py-1.5 rounded-2xl border text-xs font-bold ${bubbleStyle} bg-brand-lightSurface dark:bg-brand-darkSurface outline-none cursor-pointer">
+            <option value="Agendado" ${escapeHtml(app.status === 'Agendado' ? 'selected' : '')}>● Agendado</option>
+            <option value="Confirmada" ${escapeHtml(app.status === 'Confirmada' ? 'selected' : '')}>● Confirmada</option>
+            <option value="Finalizado" ${escapeHtml(app.status === 'Finalizado' ? 'selected' : '')}>● Finalizado</option>
+            <option value="Reagendar" ${escapeHtml(app.status === 'Reagendar' ? 'selected' : '')}>● Reagendar</option>
+            <option value="Cancelado" ${escapeHtml(app.status === 'Cancelado' ? 'selected' : '')}>● Cancelado</option>
+          </select>
+
+          <button onclick="openEditAppointmentModal(${Number(app.id)})" class="p-2 text-slate-400 hover:text-brand-gold rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard" title="Editar">
+            <i data-lucide="edit-3" class="w-4 h-4"></i>
+          </button>
+          <button onclick="handleDeleteAppointment(${Number(app.id)})" class="p-2 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-500/10" title="Excluir">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons({ root: container });
+}
+
+/* ========================================================
+ * MURAL DA RECEPÇÃO (FOLHA FÍSICA)
+ * ======================================================== */
+// Mural da recepção: a cliente só aparece quando o agendamento está CONFIRMADO
+// (Agendado, Reagendar, Finalizado e Cancelado ficam de fora).
+function getMuralApps(dateStr) {
+  return appointmentsList.filter(a => a.date === dateStr && a.status === 'Confirmada');
+}
+
+function renderPhysicalReceptionSheet() {
+  updateMuralCounters();
+  const thead = document.getElementById('physical-sheet-thead');
+  const tbody = document.getElementById('physical-sheet-body');
+  const headerDate = document.getElementById('sheet-header-print-date');
+  const receptionDateText = document.getElementById('reception-sheet-current-date-text');
+
+  if (!tbody) return;
+
+  const [y, m, d] = currentSelectedDate.split('-');
+  const formattedDate = `${d}/${m}/${y}`;
+
+  if (headerDate) headerDate.innerText = `DATA: ${formattedDate}`;
+  if (receptionDateText) receptionDateText.innerText = formattedDate;
+
+  const slots = generate15MinSlots();
+  const daysApps = getMuralApps(currentSelectedDate);
+
+  let maxColsPairs = 2;
+  slots.forEach(time => {
+    const count = daysApps.filter(a => a.time === time).length;
+    if (count > maxColsPairs) maxColsPairs = count;
+  });
+
+  if (thead) {
+    let thHtml = `<tr class="bg-slate-200 dark:bg-brand-darkBg text-slate-900 dark:text-white uppercase font-black text-[11px]">`;
+    thHtml += `<th style="width: 75px;" class="text-center">HR</th>`;
+    for (let i = 1; i <= maxColsPairs; i++) {
+      thHtml += `<th style="min-width: 170px;" class="text-left px-3">NOME ${escapeHtml(i > 1 ? i : '')}</th>`;
+      thHtml += `<th style="min-width: 220px;" class="text-left px-3">ÁREA / SERVIÇO ${escapeHtml(i > 1 ? i : '')}</th>`;
+    }
+    thHtml += `</tr>`;
+    thead.innerHTML = thHtml;
+  }
+
+  tbody.innerHTML = slots.map(time => {
+    const appsAtTime = daysApps.filter(a => a.time === time);
+    let rowCells = `<td class="text-center font-bold font-mono bg-slate-50 dark:bg-brand-darkBg text-slate-800 dark:text-slate-200">${escapeHtml(time)}</td>`;
+
+    for (let i = 0; i < maxColsPairs; i++) {
+      const app = appsAtTime[i] || null;
+      const isArrived = app && app.arrivedAtReception;
+      const cellClass = isArrived ? 'sheet-arrived' : 'sheet-not-arrived';
+
+      const nameContent = app ? `
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="font-bold">${escapeHtml(app.clientName)}</span>
+          ${app.isFirstTime ? '<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black shadow-xs">1° vez</span>' : ''}
+        </div>
+      ` : '';
+
+      const serviceContent = app ? renderMuralServiceBadges(app) : '';
+
+      rowCells += `
+        <td 
+          class="${escapeHtml(cellClass)} cursor-pointer transition-colors px-3 py-2" 
+          onclick="${app ? `toggleReceptionArrival(${Number(app.id)})` : ''}"
+          oncontextmenu="${app ? `showCustomContextMenu(event, 'reception', ${Number(app.id)})` : ''}"
+          title="${escapeHtml(app ? 'Clique para marcar presença' : '')}"
+        >
+          ${nameContent}
+        </td>
+        <td class="${escapeHtml(cellClass)} px-3 py-2">
+          ${serviceContent}
+        </td>
+      `;
+    }
+
+    return `<tr>${rowCells}</tr>`;
+  }).join('');
+}
+
+function toggleReceptionArrival(id) {
+  const app = appointmentsList.find(a => a.id === id);
+  if (!app) return;
+  app.arrivedAtReception = !app.arrivedAtReception;
+  saveAllToLocalStorage();
+  renderPhysicalReceptionSheet();
+  showToast(`${app.clientName} marcada como ${app.arrivedAtReception ? 'CHEGOU (Verde)' : 'NÃO CHEGOU'}`, 'info');
+}
+
+/* ========================================================
+ * SALVAR AGENDAMENTOS E ATUALIZAÇÕES
+ * ======================================================== */
+async function handleSaveAppointment(e) {
+  e.preventDefault();
+  const clientId = document.getElementById('app-client-id').value;
+  const client = clientsList.find(c => c.id == clientId);
+  if (!client) {
+    showToast('Selecione uma cliente válida!', 'error');
+    return;
+  }
+
+  if (selectedServiceIdsInModal.length === 0) {
+    showToast('Selecione pelo menos um procedimento!', 'error');
+    return;
+  }
+
+  if (!selectedTimeInModal) {
+    showToast('Selecione um horário na grade!', 'error');
+    return;
+  }
+
+  const date = inModalSelectedDate || document.getElementById('app-date').value;
+  const editId = parseInt(document.getElementById('app-edit-id').value);
+
+  const selectedServices = servicesList.filter(s => selectedServiceIdsInModal.includes(s.id));
+  const sortedServices = getSortedServicesForAppointment(selectedServices);
+
+  const totalPrice = sortedServices.reduce((sum, s) => sum + s.price, 0);
+  const fullServiceNames = sortedServices.map(s => s.name).join(' + ');
+  const shortServiceNames = sortedServices.map(s => s.shortCode || s.name).join(', ');
+  const status = document.getElementById('app-status-select').value;
+  const isFirstTime = document.getElementById('app-first-time-toggle')?.checked || false;
+
+  // Aviso (não bloqueia) quando o horário já atingiu a capacidade configurada
+  const sameSlot = appointmentsList.filter(a => a.date === date && a.time === selectedTimeInModal && a.status !== 'Cancelado' && a.id !== editId).length;
+  if (status !== 'Cancelado' && sameSlot >= companyConfig.maxClientsPerSlot) {
+    const ok = await showConfirm({
+      title: 'Horário cheio',
+      message: `O horário ${selectedTimeInModal} já tem ${sameSlot} cliente(s) (limite configurado: ${companyConfig.maxClientsPerSlot}).\nDeseja agendar mesmo assim?`,
+      confirmText: 'Agendar mesmo assim'
+    });
+    if (!ok) return;
+  }
+
+  let savedApp = null;
+  let previousStatus = null;
+
+  if (editId) {
+    const app = appointmentsList.find(a => a.id === editId);
+    if (app) {
+      previousStatus = app.status;
+      savedApp = app;
+      app.clientId = client.id;
+      app.clientName = client.name;
+      app.gender = client.gender;
+      app.phone = client.phone;
+      app.services = sortedServices;
+      app.serviceName = fullServiceNames;
+      app.serviceShort = shortServiceNames;
+      app.professional = selectedProfessionalInModal;
+      app.date = date;
+      app.time = selectedTimeInModal;
+      app.price = totalPrice;
+      app.status = status;
+      app.isFirstTime = isFirstTime;
+      showToast(`Agendamento de ${client.name} atualizado!`, 'success');
+    }
+  } else {
+    const newApp = {
+      id: Date.now(),
+      clientId: client.id,
+      clientName: client.name,
+      gender: client.gender,
+      phone: client.phone,
+      services: sortedServices,
+      serviceName: fullServiceNames,
+      serviceShort: shortServiceNames,
+      professional: selectedProfessionalInModal,
+      date: date,
+      time: selectedTimeInModal,
+      price: totalPrice,
+      status: status,
+      isFirstTime: isFirstTime,
+      arrivedAtReception: false,
+      receptionStatus: 'Agendada'
+    };
+    appointmentsList.push(newApp);
+    savedApp = newApp;
+    showToast(`Agendamento de ${client.name} realizado com sucesso!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+
+  // Dispara WhatsApp do status (novo agendamento ou status alterado na edição)
+  if (savedApp && savedApp.status !== previousStatus) {
+    triggerWhatsAppWebhook(savedApp, savedApp.status);
+    if (savedApp.status === 'Finalizado') checkAndAwardFidelityPoint(savedApp);
+  }
+  currentSelectedDate = date;
+  closeModal('modal-appointment');
+  initCalendar();
+  renderAllViews();
+}
+
+function handleUpdateAppointmentStatus(appId, newStatus) {
+  const app = appointmentsList.find(a => a.id === appId);
+  if (!app) return;
+
+  app.status = newStatus;
+  saveAllToLocalStorage();
+  
+  if (newStatus === 'Confirmada') {
+    showToast(`✓ Agendamento de ${app.clientName} CONFIRMADO!`, 'success');
+  } else {
+    showToast(`Status atualizado para: ${newStatus}`, 'info');
+  }
+
+  triggerWhatsAppWebhook(app, newStatus);
+  renderAgendaView();
+  renderPhysicalReceptionSheet();
+
+  if (newStatus === 'Finalizado') {
+    checkAndAwardFidelityPoint(app);
+  }
+}
+
+function handleDeleteAppointment(id) {
+  const app = appointmentsList.find(a => a.id === id);
+  if (!app) return;
+  app.status = 'Cancelado';
+  saveAllToLocalStorage();
+  showToast(`Agendamento de ${app.clientName} cancelado!`, 'warning');
+  renderAllViews();
+}
+
+/* ========================================================
+ * CALENDÁRIOS E NAVEGAÇÃO
+ * ======================================================== */
+function initCalendar() {
+  const monthTitle = document.getElementById('calendar-month-year');
+  const grid = document.getElementById('calendar-days-grid');
+  if (!monthTitle || !grid) return;
+
+  monthTitle.innerText = `${MONTH_NAMES[calendarViewMonth]} ${calendarViewYear}`;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(calendarViewYear, calendarViewMonth, 1).getDay();
+  const totalDays = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'py-1.5';
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${calendarViewYear}-${String(calendarViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerText = day;
+
+    const isSelected = dateStr === currentSelectedDate;
+    const hasApps = appointmentsList.some(a => a.date === dateStr && a.status !== 'Cancelado');
+
+    let btnClass = 'w-full py-1.5 rounded-xl font-bold transition-all relative flex items-center justify-center text-xs ';
+    if (isSelected) {
+      btnClass += 'bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white shadow-md border border-brand-gold/60 scale-105';
+    } else if (hasApps) {
+      btnClass += 'text-brand-gold font-black bg-brand-gold/10 hover:bg-brand-gold/20';
+    } else {
+      btnClass += 'text-slate-700 dark:text-slate-300 hover:bg-brand-violet/20';
+    }
+
+    btn.className = btnClass;
+    btn.onclick = () => {
+      currentSelectedDate = dateStr;
+      renderAllViews();
+      initCalendar();
+    };
+    grid.appendChild(btn);
+  }
+
+  renderSlotOccupancyList();
+}
+
+function navigateMonth(delta) {
+  calendarViewMonth += delta;
+  if (calendarViewMonth < 0) {
+    calendarViewMonth = 11;
+    calendarViewYear--;
+  } else if (calendarViewMonth > 11) {
+    calendarViewMonth = 0;
+    calendarViewYear++;
+  }
+  initCalendar();
+}
+
+function renderSlotOccupancyList() {
+  const container = document.getElementById('slot-occupancy-list');
+  if (!container) return;
+
+  const slots = generate15MinSlots();
+  const daysApps = appointmentsList.filter(a => a.date === currentSelectedDate && a.status !== 'Cancelado');
+
+  const occupiedSlots = slots.map(time => {
+    const count = daysApps.filter(a => a.time === time).length;
+    return { time, count };
+  }).filter(s => s.count > 0);
+
+  if (occupiedSlots.length === 0) {
+    container.innerHTML = `<span class="text-xs text-slate-400">Nenhum atendimento marcado para este dia.</span>`;
+    return;
+  }
+
+  container.innerHTML = occupiedSlots.map(s => `
+    <div class="flex items-center justify-between p-2 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg text-xs">
+      <span class="font-mono font-bold text-slate-800 dark:text-slate-200">⏰ ${escapeHtml(s.time)}</span>
+      <span class="px-2 py-0.5 rounded-full font-bold ${escapeHtml(s.count >= companyConfig.maxClientsPerSlot ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500')}">
+        ${escapeHtml(s.count)}/${escapeHtml(companyConfig.maxClientsPerSlot)} atend.
+      </span>
+    </div>
+  `).join('');
+}
+
+function navInModalCal(delta) {
+  inModalCalMonth += delta;
+  if (inModalCalMonth < 0) {
+    inModalCalMonth = 11;
+    inModalCalYear--;
+  } else if (inModalCalMonth > 11) {
+    inModalCalMonth = 0;
+    inModalCalYear++;
+  }
+  renderInModalCalendar();
+}
+
+function renderInModalCalendar() {
+  const title = document.getElementById('inmodal-cal-title');
+  const grid = document.getElementById('inmodal-cal-grid');
+  if (!title || !grid) return;
+
+  title.innerText = `${MONTH_NAMES[inModalCalMonth]} ${inModalCalYear}`;
+  grid.innerHTML = '';
+
+  const firstDayIndex = new Date(inModalCalYear, inModalCalMonth, 1).getDay();
+  const totalDays = new Date(inModalCalYear, inModalCalMonth + 1, 0).getDate();
+
+  for (let i = 0; i < firstDayIndex; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'py-1.5';
+    grid.appendChild(blank);
+  }
+
+  const todayStr = localDateStr();
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dayStr = `${inModalCalYear}-${String(inModalCalMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerText = day;
+
+    const isSelected = dayStr === inModalSelectedDate;
+    const isPast = dayStr < todayStr;
+    const hasApps = appointmentsList.some(a => a.date === dayStr && a.status !== 'Cancelado');
+
+    let btnClass = 'w-full py-1.5 rounded-xl font-bold transition-all relative flex flex-col items-center justify-center ';
+    if (isSelected) {
+      btnClass += 'bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white shadow-md shadow-purple-900/30 scale-105 border border-brand-gold/60';
+    } else if (isPast) {
+      btnClass += 'text-slate-400/50 hover:bg-transparent cursor-not-allowed';
+    } else {
+      btnClass += 'text-slate-700 dark:text-slate-200 hover:bg-brand-violet/20';
+    }
+
+    if (hasApps && !isSelected) {
+      btnClass += ' border-b-2 border-brand-gold';
+    }
+
+    btn.className = btnClass;
+    if (!isPast) {
+      btn.onclick = () => selectInModalDate(dayStr);
+    }
+    grid.appendChild(btn);
+  }
+}
+
+function selectInModalDate(dateStr) {
+  inModalSelectedDate = dateStr;
+  const dateInput = document.getElementById('app-date');
+  if (dateInput) dateInput.value = dateStr;
+  renderInModalCalendar();
+  renderBookingTimeSlotsGrid();
+}
+
+function openReceptionCalendarModal() {
+  const modal = document.getElementById('modal-reception-calendar');
+  if (!modal) return;
+  const [y, m] = currentSelectedDate.split('-').map(Number);
+  receptionPopoverYear = y;
+  receptionPopoverMonth = m - 1;
+  renderReceptionModalCalendar();
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function navReceptionModalMonth(delta) {
+  receptionPopoverMonth += delta;
+  if (receptionPopoverMonth < 0) {
+    receptionPopoverMonth = 11;
+    receptionPopoverYear--;
+  } else if (receptionPopoverMonth > 11) {
+    receptionPopoverMonth = 0;
+    receptionPopoverYear++;
+  }
+  renderReceptionModalCalendar();
+}
+
+function renderReceptionModalCalendar() {
+  const title = document.getElementById('reception-modal-month-title');
+  const grid = document.getElementById('reception-modal-days-grid');
+  if (!title || !grid) return;
+
+  title.innerText = `${MONTH_NAMES[receptionPopoverMonth]} ${receptionPopoverYear}`;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(receptionPopoverYear, receptionPopoverMonth, 1).getDay();
+  const totalDays = new Date(receptionPopoverYear, receptionPopoverMonth + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'py-2';
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${receptionPopoverYear}-${String(receptionPopoverMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerText = day;
+
+    const isSelected = dateStr === currentSelectedDate;
+    const hasApps = appointmentsList.some(a => a.date === dateStr && (a.status === 'Confirmada' || a.status === 'Finalizado'));
+
+    let btnClass = 'w-full py-2 rounded-xl font-bold transition-all relative flex items-center justify-center text-xs ';
+    if (isSelected) {
+      btnClass += 'bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white shadow-md border border-brand-gold/80 scale-105';
+    } else if (hasApps) {
+      btnClass += 'bg-brand-gold/15 text-brand-gold border border-brand-gold/30 hover:bg-brand-gold hover:text-slate-950';
+    } else {
+      btnClass += 'text-slate-700 dark:text-slate-200 hover:bg-brand-violet/20';
+    }
+
+    btn.className = btnClass;
+    btn.onclick = () => selectReceptionDateFromModal(dateStr);
+    grid.appendChild(btn);
+  }
+}
+
+function selectReceptionDateFromModal(dateStr) {
+  currentSelectedDate = dateStr;
+  closeModal('modal-reception-calendar');
+  renderAllViews();
+  showToast(`Planilha carregada para ${dateStr.split('-').reverse().join('/')}`, 'info');
+}
+
+function selectQuickReceptionDate(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  selectReceptionDateFromModal(localDateStr(d));
+}
+
+function shiftReceptionDate(delta) {
+  const [y, m, d] = currentSelectedDate.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + delta);
+  currentSelectedDate = localDateStr(date);
+  renderAllViews();
+}
+
+function setReceptionToToday() {
+  currentSelectedDate = localDateStr();
+  renderAllViews();
+}
+
+/* ========================================================
+ * SELEÇÃO DE CLIENTE E AUTOCOMPLETE
+ * ======================================================== */
+function handleClientSearchInput(val) {
+  const dropdown = document.getElementById('client-autocomplete-dropdown');
+  const clearBtn = document.getElementById('client-clear-search-btn');
+  if (!dropdown) return;
+
+  const query = (val || '').trim();
+  if (query.length > 0) {
+    clearBtn?.classList.remove('hidden');
+  } else {
+    clearBtn?.classList.add('hidden');
+  }
+
+  if (query.length === 0) {
+    renderClientDropdown(clientsList);
+    dropdown.classList.remove('hidden');
+    return;
+  }
+
+  const queryDigits = query.replace(/\D/g, '');
+  const matches = clientsList.filter(c => {
+    const nameMatch = fuzzyMatchWord(c.name, query);
+    const phoneMatch = queryDigits && (c.phone || '').replace(/\D/g, '').includes(queryDigits);
+    const cpfMatch = queryDigits && (c.cpf || '').replace(/\D/g, '').includes(queryDigits);
+    const emailMatch = (c.email || '').toLowerCase().includes(query.toLowerCase());
+    return nameMatch || phoneMatch || cpfMatch || emailMatch;
+  });
+
+  renderClientDropdown(matches);
+  dropdown.classList.remove('hidden');
+}
+
+function handleClientSearchFocus() {
+  const input = document.getElementById('client-search-input');
+  if (input) handleClientSearchInput(input.value);
+}
+
+function renderClientDropdown(list) {
+  const dropdown = document.getElementById('client-autocomplete-dropdown');
+  if (!dropdown) return;
+
+  if (list.length === 0) {
+    dropdown.innerHTML = `
+      <div class="p-3 text-center text-xs text-slate-400">
+        Nenhum cliente encontrado.
+        <button type="button" onclick="openClientModal()" class="block mx-auto mt-1.5 text-brand-gold font-bold hover:underline">+ Cadastrar novo</button>
+      </div>
+    `;
+    return;
+  }
+
+  dropdown.innerHTML = list.map(c => `
+    <div onclick="selectClientFromAutocomplete(${Number(c.id)})" class="p-2.5 hover:bg-brand-violet/15 cursor-pointer transition-colors flex items-center justify-between text-xs">
+      <div>
+        <div class="font-bold text-slate-900 dark:text-white">${escapeHtml(c.name)}</div>
+        <div class="text-[10px] text-slate-400 font-mono">CPF: ${escapeHtml(c.cpf)} • ${escapeHtml(c.phone)}</div>
+      </div>
+      <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${escapeHtml(c.gender === 'Masculino' ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500')}">${escapeHtml(c.gender)}</span>
+    </div>
+  `).join('');
+}
+
+function selectClientFromAutocomplete(id) {
+  const client = clientsList.find(c => c.id === id);
+  if (!client) return;
+
+  document.getElementById('app-client-id').value = client.id;
+  document.getElementById('client-search-input').value = client.name;
+  document.getElementById('chip-client-name').innerText = client.name;
+  
+  const chipGender = document.getElementById('chip-client-gender');
+  if (chipGender) {
+    chipGender.innerText = client.gender;
+    chipGender.className = `text-[9px] px-2 py-0.5 rounded-full font-bold ${client.gender === 'Masculino' ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500'}`;
+  }
+
+  const chipDetails = document.getElementById('chip-client-details');
+  if (chipDetails) chipDetails.innerText = `CPF: ${client.cpf} • ${client.phone}`;
+
+  document.getElementById('selected-client-chip')?.classList.remove('hidden');
+  document.getElementById('client-autocomplete-dropdown')?.classList.add('hidden');
+}
+
+function clearClientSelection() {
+  const idInput = document.getElementById('app-client-id');
+  const searchInput = document.getElementById('client-search-input');
+  if (idInput) idInput.value = '';
+  if (searchInput) searchInput.value = '';
+  document.getElementById('selected-client-chip')?.classList.add('hidden');
+  document.getElementById('client-autocomplete-dropdown')?.classList.add('hidden');
+  document.getElementById('client-clear-search-btn')?.classList.add('hidden');
+}
+
+/* ========================================================
+ * MODAL DE AGENDAMENTO
+ * ======================================================== */
+function openNewAppointmentModal() {
+  document.getElementById('app-edit-id').value = '';
+  document.getElementById('modal-appointment-title').innerText = 'Novo Agendamento';
+  clearClientSelection();
+
+  inModalSelectedDate = currentSelectedDate;
+  selectedServiceIdsInModal = [];
+  selectedProfessionalInModal = 'Sem preferência';
+  selectedTimeInModal = '';
+
+  setFirstTime(false);
+
+  document.getElementById('app-status-select').value = 'Agendado';
+
+  selectInModalDate(currentSelectedDate);
+  renderBookingServicesByCategory();
+  renderBookingProfessionalsCards();
+  renderBookingTimeSlotsGrid();
+  updateBookingTotals();
+
+  document.getElementById('modal-appointment').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function openEditAppointmentModal(id) {
+  const app = appointmentsList.find(a => a.id === id);
+  if (!app) return;
+
+  document.getElementById('app-edit-id').value = app.id;
+  document.getElementById('modal-appointment-title').innerText = 'Editar Agendamento';
+
+  selectClientFromAutocomplete(app.clientId);
+
+  inModalSelectedDate = app.date;
+  selectedServiceIdsInModal = (app.services || []).map(s => s.id);
+  selectedProfessionalInModal = app.professional || 'Sem preferência';
+  selectedTimeInModal = app.time;
+
+  setFirstTime(Boolean(app.isFirstTime));
+
+  document.getElementById('app-status-select').value = app.status;
+
+  selectInModalDate(app.date);
+  renderBookingServicesByCategory();
+  renderBookingProfessionalsCards();
+  renderBookingTimeSlotsGrid();
+  updateBookingTotals();
+
+  document.getElementById('modal-appointment').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function renderBookingServicesByCategory() {
+  const container = document.getElementById('booking-services-by-category');
+  if (!container) return;
+
+  container.innerHTML = categoriesList.map(cat => {
+    const catServices = servicesList.filter(s => s.categoryId === cat.id);
+    if (catServices.length === 0) return '';
+
+    return `
+      <div class="p-3 rounded-2xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full" style="background-color: ${safeColor(cat.color)}"></span>
+          <h5 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">${escapeHtml(cat.name)}</h5>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${catServices.map(srv => {
+            const isChecked = selectedServiceIdsInModal.includes(srv.id);
+            return `
+              <div 
+                onclick="toggleServiceSelection(${Number(srv.id)})" 
+                class="p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${escapeHtml(isChecked ? 'border-brand-violet bg-brand-violet/15' : 'border-brand-lightBorder dark:border-brand-darkBorder hover:border-brand-violet/50')}"
+              >
+                <div>
+                  <div class="font-bold text-slate-900 dark:text-white">${escapeHtml(srv.name)}</div>
+                  <div class="text-[10px] text-slate-400 font-mono">${escapeHtml(srv.duration)} min • Planilha: <strong class="text-brand-gold">${escapeHtml(srv.shortCode || srv.name)}</strong></div>
+                </div>
+                <div class="font-black text-brand-gold">R$ ${Number(srv.price).toFixed(2)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleServiceSelection(srvId) {
+  const idx = selectedServiceIdsInModal.indexOf(srvId);
+  if (idx > -1) {
+    selectedServiceIdsInModal.splice(idx, 1);
+  } else {
+    selectedServiceIdsInModal.push(srvId);
+  }
+  renderBookingServicesByCategory();
+  updateBookingTotals();
+}
+
+function updateBookingTotals() {
+  const selected = servicesList.filter(s => selectedServiceIdsInModal.includes(s.id));
+  const totalPrice = selected.reduce((sum, s) => sum + Number(s.price), 0);
+  const totalDuration = selected.reduce((sum, s) => sum + Number(s.duration), 0);
+
+  const summary = document.getElementById('booking-services-summary');
+  if (summary) summary.innerText = `${selected.length} selecionado(s) • Total: R$ ${totalPrice.toFixed(2)}`;
+
+  const priceText = document.getElementById('booking-final-price-text');
+  if (priceText) priceText.innerText = `R$ ${totalPrice.toFixed(2)}`;
+
+  const durText = document.getElementById('booking-final-duration-text');
+  if (durText) durText.innerText = `(${totalDuration} min)`;
+}
+
+function renderBookingProfessionalsCards() {
+  const container = document.getElementById('booking-professionals-cards');
+  if (!container) return;
+
+  const pros = [{ id: 0, name: 'Sem preferência', photo: null }, ...professionalsList];
+
+  container.innerHTML = pros.map(p => {
+    const isSelected = selectedProfessionalInModal === p.name;
+    return `
+      <div 
+        onclick="selectProfessionalInModal('${jsStr(p.name)}')" 
+        class="p-2.5 rounded-2xl border text-center cursor-pointer transition-all ${escapeHtml(isSelected ? 'border-brand-gold bg-brand-gold/15 scale-105 shadow-md' : 'border-brand-lightBorder dark:border-brand-darkBorder hover:border-brand-gold/40')}"
+      >
+        <div class="w-10 h-10 mx-auto rounded-full bg-brand-purpleDeep text-brand-gold flex items-center justify-center font-bold text-xs mb-1 border border-brand-gold/30 overflow-hidden shadow">
+          ${safeImageSrc(p.photo) ? `<img src="${escapeHtml(safeImageSrc(p.photo))}" class="w-full h-full object-cover" alt="">` : escapeHtml((p.name || '?').charAt(0))}
+        </div>
+        <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(p.name)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectProfessionalInModal(name) {
+  selectedProfessionalInModal = name;
+  document.getElementById('app-selected-professional').value = name;
+  renderBookingProfessionalsCards();
+}
+
+function renderBookingTimeSlotsGrid() {
+  const container = document.getElementById('booking-time-slots-grid');
+  if (!container) return;
+
+  const slots = generate15MinSlots();
+  const dateStr = inModalSelectedDate || currentSelectedDate;
+  const daysApps = appointmentsList.filter(a => a.date === dateStr && a.status !== 'Cancelado');
+
+  container.innerHTML = slots.map(time => {
+    const count = daysApps.filter(a => a.time === time).length;
+    const isSelected = selectedTimeInModal === time;
+    const isOver = count >= companyConfig.maxClientsPerSlot;
+
+    let cls = 'p-2 rounded-xl text-center cursor-pointer transition-all border text-xs ';
+    if (isSelected) {
+      cls += 'bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white font-black border-brand-gold shadow-md';
+    } else if (isOver) {
+      cls += 'border-amber-500/40 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20';
+    } else {
+      cls += 'border-brand-lightBorder dark:border-brand-darkBorder text-slate-700 dark:text-slate-300 hover:border-brand-violet/50';
+    }
+
+    return `
+      <div onclick="selectTimeSlotInModal('${jsStr(time)}', ${count})" class="${escapeHtml(cls)}">
+        <div class="font-mono font-bold">${escapeHtml(time)}</div>
+        <div class="text-[9px] ${escapeHtml(isOver ? 'text-amber-500 font-extrabold' : 'text-slate-400')}">${count}/${escapeHtml(companyConfig.maxClientsPerSlot)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectTimeSlotInModal(time, count) {
+  selectedTimeInModal = time;
+  document.getElementById('app-selected-time').value = time;
+  renderBookingTimeSlotsGrid();
+}
+
+/* ========================================================
+ * BUSCA AUTOMÁTICA DE ENDEREÇO VIA CEP (VIACEP)
+ * ======================================================== */
+async function buscarEnderecoPorCEP(cepValue) {
+  const cleanCep = (cepValue || '').replace(/\D/g, '');
+  if (cleanCep.length !== 8) return;
+
+  const loadingIndicator = document.getElementById('cep-loading');
+  if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    const data = await res.json();
+
+    if (!data.erro) {
+      const streetInput = document.getElementById('cli-street');
+      const neighInput = document.getElementById('cli-neighborhood');
+      const cityInput = document.getElementById('cli-city');
+      const stateInput = document.getElementById('cli-state');
+
+      if (streetInput) streetInput.value = data.logradouro || '';
+      if (neighInput) neighInput.value = data.bairro || '';
+      if (cityInput) cityInput.value = data.localidade || '';
+      if (stateInput) stateInput.value = (data.uf || '').toUpperCase();
+
+      document.getElementById('cli-number')?.focus();
+      showToast('Endereço carregado via CEP!', 'success');
+    } else {
+      showToast('CEP não encontrado.', 'warning');
+    }
+  } catch (err) {
+    console.warn('Erro ao consultar CEP:', err);
+  } finally {
+    if (loadingIndicator) loadingIndicator.classList.add('hidden');
+  }
+}
+
+/* ========================================================
+ * CLIENTES & CPF
+ * ======================================================== */
+function validateCPF(cpf) {
+  cpf = (cpf || '').replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let sum = 0, rest;
+  for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf.substring(9, 10))) return false;
+  sum = 0;
+  for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  return rest === parseInt(cpf.substring(10, 11));
+}
+
+function validateCPFInputUI(input) {
+  const fb = document.getElementById('cpf-validation-feedback');
+  if (!fb) return;
+  if (!input || !input.value) {
+    fb.innerText = '';
+    return;
+  }
+  const valid = validateCPF(input.value);
+  if (valid) {
+    fb.innerText = '✓ CPF válido';
+    fb.className = 'text-[10px] mt-0.5 block font-semibold text-emerald-500';
+  } else {
+    fb.innerText = '⚠ CPF inválido';
+    fb.className = 'text-[10px] mt-0.5 block font-semibold text-rose-500';
+  }
+}
+
+function openClientModal(id = null) {
+  document.getElementById('cli-edit-id').value = id || '';
+  document.getElementById('modal-client-title').innerText = id ? 'Editar Cliente' : 'Novo Cliente';
+
+  const feedback = document.getElementById('cpf-validation-feedback');
+  if (feedback) feedback.innerText = '';
+
+  if (id) {
+    const client = clientsList.find(c => c.id === id);
+    if (client) {
+      document.getElementById('cli-name').value = client.name || '';
+      document.getElementById('cli-phone').value = client.phone || '';
+      document.getElementById('cli-cpf').value = client.cpf || '';
+      document.getElementById('cli-email').value = client.email || '';
+      document.getElementById('cli-birth').value = client.birth || '';
+      document.getElementById('cli-gender').value = client.gender || 'Feminino';
+
+      const addr = client.address || {};
+      document.getElementById('cli-cep').value = addr.cep || '';
+      document.getElementById('cli-street').value = addr.street || '';
+      document.getElementById('cli-number').value = addr.number || '';
+      document.getElementById('cli-neighborhood').value = addr.neighborhood || '';
+      document.getElementById('cli-reference').value = addr.reference || '';
+      document.getElementById('cli-city').value = addr.city || 'Maceió';
+      document.getElementById('cli-state').value = addr.state || 'AL';
+      const consent = document.getElementById('cli-consent');
+      if (consent) consent.checked = Boolean(client.privacyConsentAt);
+    }
+  } else {
+    document.getElementById('form-client')?.reset();
+    document.getElementById('cli-city').value = 'Maceió';
+    document.getElementById('cli-state').value = 'AL';
+  }
+
+  document.getElementById('modal-client')?.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function handleSaveClient(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById('cli-edit-id').value);
+  const name = document.getElementById('cli-name').value.trim();
+  const phone = document.getElementById('cli-phone').value.trim();
+  const cpf = document.getElementById('cli-cpf').value.trim();
+  const email = document.getElementById('cli-email').value.trim();
+  const birth = document.getElementById('cli-birth').value;
+  const gender = document.getElementById('cli-gender').value;
+  const consentChecked = Boolean(document.getElementById('cli-consent')?.checked);
+
+  const cep = document.getElementById('cli-cep').value.trim();
+  const street = document.getElementById('cli-street').value.trim();
+  const number = document.getElementById('cli-number').value.trim();
+  const neighborhood = document.getElementById('cli-neighborhood').value.trim();
+  const reference = document.getElementById('cli-reference').value.trim();
+  const city = document.getElementById('cli-city').value.trim();
+  const state = document.getElementById('cli-state').value.trim().toUpperCase();
+
+  if (!name) { showToast('Informe o nome da cliente.', 'error'); return; }
+  // LGPD: para NOVOS cadastros, a cliente precisa ter sido informada sobre o uso dos dados
+  if (!id && !consentChecked) {
+    showToast('Marque que a cliente foi informada sobre a Política de Privacidade.', 'warning');
+    document.getElementById('cli-consent')?.focus();
+    return;
+  }
+  if (cpf && !validateCPF(cpf)) { showToast('CPF inválido. Corrija antes de salvar.', 'error'); return; }
+  const cpfDigits = cpf.replace(/\D/g, '');
+  if (cpfDigits && clientsList.some(c => c.id !== id && (c.cpf || '').replace(/\D/g, '') === cpfDigits)) {
+    showToast('Já existe uma cliente cadastrada com este CPF.', 'error');
+    return;
+  }
+
+  const clientData = {
+    name,
+    phone,
+    cpf,
+    email,
+    birth,
+    gender,
+    address: {
+      cep,
+      street,
+      number,
+      neighborhood,
+      reference,
+      city,
+      state
+    }
+  };
+
+  if (id) {
+    const client = clientsList.find(c => c.id === id);
+    if (client) {
+      Object.assign(client, clientData);
+      if (consentChecked && !client.privacyConsentAt) client.privacyConsentAt = new Date().toISOString();
+      showToast(`Cliente ${name} atualizado!`, 'success');
+    }
+  } else {
+    clientsList.push({ id: Date.now(), ...clientData, privacyConsentAt: new Date().toISOString() });
+    showToast(`Cliente ${name} cadastrado!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+  closeModal('modal-client');
+  renderAllViews();
+}
+
+async function handleDeleteClient(id) {
+  const idx = clientsList.findIndex(c => c.id === id);
+  if (idx > -1) {
+    const name = clientsList[idx].name;
+    const temAgendamentos = appointmentsList.some(a => a.clientId === id && a.status !== 'Cancelado');
+    const aviso = temAgendamentos
+      ? `${name} possui agendamentos ativos. Excluir mesmo assim? (o histórico dos agendamentos será mantido)`
+      : `Excluir a cliente ${name}?`;
+    const ok = await showConfirm({ title: 'Excluir cliente', message: aviso, confirmText: 'Excluir', danger: true });
+    if (!ok) return;
+    clientsList.splice(idx, 1);
+    localStorage.removeItem(`depilclear_fidelity_${id}`);
+    saveAllToLocalStorage();
+    showToast(`Cliente ${name} excluído!`, 'warning');
+    renderAllViews();
+  }
+}
+
+// Procura por id aceitando número ou texto ("12" e 12 são a mesma cliente)
+function findClientById(id) {
+  return clientsList.find(c => String(c.id) === String(id));
+}
+
+// Executa uma etapa isolada: se ela falhar, o restante do painel continua funcionando
+function safeStep(label, fn) {
+  try { fn(); } catch (err) { console.error(`[PERFIL] Falha em "${label}":`, err); }
+}
+
+function openClientProfileModal(clientId, initialTab = 'dados') {
+  const client = findClientById(clientId);
+  if (!client) {
+    showToast('Cliente não encontrada. Atualize a página e tente de novo.', 'warning');
+    return;
+  }
+  clientId = client.id;
+
+  currentViewingClientId = clientId;
+
+  const avatar = document.getElementById('profile-avatar-circle');
+  if (avatar) avatar.innerText = String(client.name || '?').charAt(0);
+
+  document.getElementById('profile-client-name').innerText = client.name || 'Sem nome';
+  
+  const genderBadge = document.getElementById('profile-client-gender-badge');
+  if (genderBadge) {
+    genderBadge.innerText = client.gender;
+    genderBadge.className = `text-[10px] px-2.5 py-0.5 rounded-full font-bold ${client.gender === 'Masculino' ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500'}`;
+  }
+
+  const isInactive = isClientInactive(client.id);
+  const actBadge = document.getElementById('profile-client-activity-badge');
+  if (actBadge) {
+    const st = getClientStatus(client.id);
+    actBadge.innerText = st === 'inativa' ? 'Inativa (>3m)' : (st === 'nova' ? 'Nova' : 'Ativa');
+    actBadge.className = `text-[10px] px-2.5 py-0.5 rounded-full font-bold ${st === 'inativa' ? 'bg-rose-500/15 text-rose-500' : (st === 'nova' ? 'bg-sky-500/15 text-sky-500' : 'bg-emerald-500/15 text-emerald-500')}`;
+  }
+
+  document.getElementById('profile-client-subinfo').innerText = `CPF: ${client.cpf || '-'} • WhatsApp: ${client.phone || '-'}`;
+  document.getElementById('profile-data-name').innerText = client.name;
+  document.getElementById('profile-data-phone').innerText = client.phone;
+  document.getElementById('profile-data-cpf').innerText = client.cpf;
+  document.getElementById('profile-data-email').innerText = client.email || 'Não informado';
+  document.getElementById('profile-data-birth').innerText = client.birth || 'Não informada';
+  document.getElementById('profile-data-gender').innerText = client.gender;
+
+  const editBtn = document.getElementById('profile-btn-edit-client');
+  if (editBtn) {
+    editBtn.onclick = () => {
+      closeModal('modal-client-profile');
+      openClientModal(client.id);
+    };
+  }
+
+  safeStep('histórico', () => renderProfileHistoryTab(client.id));
+  safeStep('abas', () => switchProfileTab(initialTab));
+  document.getElementById('modal-client-profile')?.classList.remove('hidden');
+  safeStep('ícones', () => lucide.createIcons());
+}
+
+function switchProfileTab(tab) {
+  const btnDados = document.getElementById('profile-tab-btn-dados');
+  const btnHist = document.getElementById('profile-tab-btn-historico');
+  const btnFid = document.getElementById('profile-tab-btn-fidelidade');
+  const contentDados = document.getElementById('profile-tab-content-dados');
+  const contentHist = document.getElementById('profile-tab-content-historico');
+  const contentFid = document.getElementById('profile-tab-content-fidelidade');
+
+  const defaultBtnClass = 'px-4 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-brand-lightCard dark:bg-brand-darkCard hover:bg-brand-violet/20 transition-all';
+  const activeBtnClass = 'px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white transition-all shadow';
+
+  if (btnDados) btnDados.className = defaultBtnClass;
+  if (btnHist) btnHist.className = defaultBtnClass;
+  if (btnFid) btnFid.className = defaultBtnClass;
+
+  contentDados?.classList.add('hidden');
+  contentHist?.classList.add('hidden');
+  contentFid?.classList.add('hidden');
+
+  if (tab === 'dados') {
+    if (btnDados) btnDados.className = activeBtnClass;
+    contentDados?.classList.remove('hidden');
+  } else if (tab === 'historico') {
+    if (btnHist) btnHist.className = activeBtnClass;
+    contentHist?.classList.remove('hidden');
+  } else if (tab === 'fidelidade') {
+    if (btnFid) btnFid.className = activeBtnClass;
+    contentFid?.classList.remove('hidden');
+    renderClientProfileFidelity(currentViewingClientId);
+  }
+}
+
+function renderProfileHistoryTab(clientId) {
+  const catGrid = document.getElementById('profile-category-summary-grid');
+  const timeline = document.getElementById('profile-appointments-timeline');
+  if (!catGrid || !timeline) return;
+
+  const clientApps = appointmentsList.filter(a => String(a.clientId) === String(clientId)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const catCountMap = {};
+  clientApps.forEach(app => {
+    (app.services || []).forEach(srv => {
+      const catId = srv.categoryId || 1;
+      const catObj = categoriesList.find(c => c.id === catId);
+      const catName = catObj ? catObj.name : 'Geral';
+      const catColor = catObj ? catObj.color : '#a78bfa';
+      if (!catCountMap[catName]) {
+        catCountMap[catName] = { count: 0, color: catColor };
+      }
+      catCountMap[catName].count++;
+    });
+  });
+
+  const catEntries = Object.entries(catCountMap);
+  if (catEntries.length === 0) {
+    catGrid.innerHTML = `<span class="text-xs text-slate-400">Nenhum serviço realizado ainda.</span>`;
+  } else {
+    catGrid.innerHTML = catEntries.map(([catName, data]) => `
+      <div class="px-3 py-1.5 rounded-xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface dark:bg-brand-darkSurface flex items-center gap-2 text-xs">
+        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${safeColor(data.color)}"></span>
+        <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(catName)}:</span>
+        <span class="font-extrabold text-brand-gold">${escapeHtml(data.count)}x</span>
+      </div>
+    `).join('');
+  }
+
+  if (clientApps.length === 0) {
+    timeline.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Nenhum agendamento registrado.</div>`;
+  } else {
+    timeline.innerHTML = clientApps.map(app => {
+      const [y, m, d] = (app.date || '').split('-');
+      return `
+        <div class="p-3 rounded-2xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between text-xs">
+          <div class="space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="font-mono font-bold text-brand-gold">📅 ${escapeHtml(d)}/${escapeHtml(m)}/${escapeHtml(y)} às ${escapeHtml(app.time)}</span>
+              <span class="text-[9px] px-2 py-0.5 rounded-full font-bold border">${escapeHtml(app.status)}</span>
+            </div>
+            <p class="font-bold text-slate-900 dark:text-white">${escapeHtml(app.serviceName)}</p>
+            <span class="text-[10px] text-slate-400">Depiladora: ${escapeHtml(app.professional)} • R$ ${Number(app.price).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function renderClientsView() {
+  const tbody = document.getElementById('clients-table-body');
+  const badge = document.getElementById('badge-clientes-count');
+  if (badge) badge.innerText = clientsList.length;
+  if (!tbody) return;
+
+  let list = clientsList;
+  if (currentClientGenderFilter !== 'TODOS') list = list.filter(c => c.gender === currentClientGenderFilter);
+
+  const q = normalizeStr(document.getElementById('search-client-input')?.value || '');
+  if (q) {
+    const qDigits = q.replace(/\D/g, '');
+    list = list.filter(c =>
+      normalizeStr(c.name).includes(q) ||
+      (qDigits && ((c.cpf || '').replace(/\D/g, '').includes(qDigits) || (c.phone || '').replace(/\D/g, '').includes(qDigits)))
+    );
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-xs text-slate-400">Nenhuma cliente encontrada.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(c => {
+    const inactive = isClientInactive(c.id);
+    return `
+      <tr 
+        oncontextmenu="showCustomContextMenu(event, 'client', ${Number(c.id)})" 
+        onclick="openClientProfileModal(${Number(c.id)}, 'dados')"
+        class="hover:bg-brand-lightCard/40 dark:hover:bg-brand-darkBg/40 cursor-pointer transition-colors group"
+      >
+        <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white group-hover:text-brand-violet transition-colors">
+          ${escapeHtml(c.name)}
+          ${clientStatusBadgeHTML(c.id, 'ml-2')}
+        </td>
+        <td class="py-3.5 px-4"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${escapeHtml(c.gender === 'Masculino' ? 'bg-sky-500/15 text-sky-500' : 'bg-pink-500/15 text-pink-500')}">${escapeHtml(c.gender)}</span></td>
+        <td class="py-3.5 px-4 font-mono text-emerald-500 text-xs">${escapeHtml(c.cpf)}</td>
+        <td class="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300 text-xs">${escapeHtml(c.phone)}</td>
+        <td class="py-3.5 px-4 text-slate-400 text-xs">${escapeHtml(c.birth || '-')}</td>
+        <td class="py-3.5 px-4 text-right" onclick="event.stopPropagation()">
+          <button onclick="openClientProfileModal(${Number(c.id)}, 'historico')" class="p-1 text-slate-400 hover:text-emerald-400"><i data-lucide="history" class="w-4 h-4"></i></button>
+          <button onclick="openClientModal(${Number(c.id)})" class="p-1 text-slate-400 hover:text-brand-gold"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+          <button onclick="handleDeleteClient(${Number(c.id)})" class="p-1 text-slate-400 hover:text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  lucide.createIcons();
+}
+
+function filterClientsByGender(gender) {
+  currentClientGenderFilter = gender;
+  document.querySelectorAll('.client-gender-btn').forEach(btn => {
+    if (btn.getAttribute('data-gender') === gender) {
+      btn.className = 'client-gender-btn px-4 py-2 rounded-2xl text-xs font-bold bg-brand-violet text-white';
+    } else {
+      btn.className = 'client-gender-btn px-4 py-2 rounded-2xl text-xs font-semibold text-slate-500 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder';
+    }
+  });
+  renderClientsView();
+}
+
+/* ========================================================
+ * SERVIÇOS & CATEGORIAS
+ * ======================================================== */
+function openServiceModal(id = null) {
+  document.getElementById('srv-edit-id').value = id || '';
+  document.getElementById('modal-service-title').innerText = id ? 'Editar Serviço' : 'Cadastrar Serviço';
+
+  const select = document.getElementById('srv-category');
+  if (select) {
+    select.innerHTML = categoriesList.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+  }
+
+  if (id) {
+    const srv = servicesList.find(s => s.id === id);
+    if (srv) {
+      document.getElementById('srv-name').value = srv.name;
+      document.getElementById('srv-short').value = srv.shortCode || '';
+      document.getElementById('srv-category').value = srv.categoryId;
+      document.getElementById('srv-duration').value = srv.duration;
+      document.getElementById('srv-price').value = srv.price;
+    }
+  } else {
+    document.getElementById('form-service').reset();
+  }
+
+  document.getElementById('modal-service').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function handleSaveService(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById('srv-edit-id').value);
+  const name = document.getElementById('srv-name').value.trim();
+  const shortCode = document.getElementById('srv-short').value.trim();
+  const categoryId = parseInt(document.getElementById('srv-category').value);
+  const duration = parseInt(document.getElementById('srv-duration').value);
+  const price = parseFloat(document.getElementById('srv-price').value);
+
+  if (id) {
+    const s = servicesList.find(s => s.id === id);
+    if (s) {
+      s.name = name;
+      s.shortCode = shortCode;
+      s.categoryId = categoryId;
+      s.duration = duration;
+      s.price = price;
+      showToast(`Serviço ${name} atualizado!`, 'success');
+    }
+  } else {
+    servicesList.push({ id: Date.now(), name, shortCode, categoryId, duration, price });
+    showToast(`Serviço ${name} cadastrado!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+  closeModal('modal-service');
+  renderAllViews();
+}
+
+function handleDeleteService(id) {
+  const idx = servicesList.findIndex(s => s.id === id);
+  if (idx > -1) {
+    const name = servicesList[idx].name;
+    servicesList.splice(idx, 1);
+    saveAllToLocalStorage();
+    showToast(`Serviço ${name} excluído!`, 'warning');
+    renderAllViews();
+  }
+}
+
+function renderServicesView() {
+  const container = document.getElementById('services-grid');
+  if (!container) return;
+
+  container.innerHTML = servicesList.map(s => {
+    const cat = categoriesList.find(c => c.id === s.categoryId);
+    return `
+      <div 
+        oncontextmenu="showCustomContextMenu(event, 'service', ${Number(s.id)})" 
+        class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm flex flex-col justify-between gap-3 hover:border-brand-violet/60 transition-all cursor-pointer"
+      >
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] px-2.5 py-0.5 rounded-full font-bold text-slate-800 dark:text-white" style="background-color: ${safeColor(cat ? cat.color : null)}40; border: 1px solid ${safeColor(cat ? cat.color : null)}">
+              ${escapeHtml(cat ? cat.name : 'Geral')}
+            </span>
+            <span class="text-xs font-black text-brand-gold">R$ ${Number(s.price).toFixed(2)}</span>
+          </div>
+          <h4 class="text-sm font-black text-slate-900 dark:text-white">${escapeHtml(s.name)}</h4>
+          <span class="text-[10px] text-slate-400 font-mono block mt-1">Duração: ${escapeHtml(s.duration)} min • Planilha: <strong class="text-brand-gold">${escapeHtml(s.shortCode || s.name)}</strong></span>
+        </div>
+        <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+          <button onclick="openServiceModal(${Number(s.id)})" class="p-1.5 text-slate-400 hover:text-brand-gold"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+          <button onclick="handleDeleteService(${Number(s.id)})" class="p-1.5 text-slate-400 hover:text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  lucide.createIcons();
+}
+
+function openCategoryModal(id = null) {
+  document.getElementById('cat-edit-id').value = id || '';
+  document.getElementById('modal-category-title').innerText = id ? 'Editar Categoria' : 'Nova Categoria';
+
+  const paletteContainer = document.getElementById('category-color-palette');
+  if (paletteContainer) {
+    paletteContainer.innerHTML = SOFT_PASTEL_PALETTE.map(c => `
+      <button 
+        type="button" 
+        onclick="selectCategoryColor('${jsStr(c.hex)}')" 
+        title="${escapeHtml(c.name)}"
+        class="w-7 h-7 rounded-xl border border-black/20 hover:scale-110 transition-transform flex items-center justify-center" 
+        style="background-color: ${safeColor(c.hex)}"
+      >
+        <span id="palette-check-${escapeHtml(c.hex.replace('#', ''))}" class="text-[10px] text-black font-black hidden">✓</span>
+      </button>
+    `).join('');
+  }
+
+  if (id) {
+    const cat = categoriesList.find(c => c.id === id);
+    if (cat) {
+      document.getElementById('cat-name').value = cat.name;
+      selectCategoryColor(cat.color || '#a78bfa');
+    }
+  } else {
+    document.getElementById('form-category').reset();
+    selectCategoryColor('#a78bfa');
+  }
+
+  document.getElementById('modal-category').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function selectCategoryColor(hex) {
+  document.getElementById('cat-color').value = hex;
+  SOFT_PASTEL_PALETTE.forEach(c => {
+    const check = document.getElementById(`palette-check-${c.hex.replace('#', '')}`);
+    if (check) {
+      if (c.hex.toLowerCase() === hex.toLowerCase()) {
+        check.classList.remove('hidden');
+      } else {
+        check.classList.add('hidden');
+      }
+    }
+  });
+}
+
+function handleSaveCategory(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById('cat-edit-id').value);
+  const name = document.getElementById('cat-name').value.trim();
+  const color = document.getElementById('cat-color').value;
+
+  if (id) {
+    const c = categoriesList.find(c => c.id === id);
+    if (c) {
+      c.name = name;
+      c.color = color;
+      showToast(`Categoria ${name} atualizada!`, 'success');
+    }
+  } else {
+    categoriesList.push({ id: Date.now(), name, color });
+    showToast(`Categoria ${name} criada com sucesso!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+  closeModal('modal-category');
+  renderAllViews();
+}
+
+function handleDeleteCategory(id) {
+  const idx = categoriesList.findIndex(c => c.id === id);
+  if (idx > -1) {
+    const name = categoriesList[idx].name;
+    categoriesList.splice(idx, 1);
+    saveAllToLocalStorage();
+    showToast(`Categoria ${name} removida!`, 'warning');
+    renderAllViews();
+  }
+}
+
+function renderCategoriesView() {
+  const container = document.getElementById('categories-list');
+  if (!container) return;
+
+  container.innerHTML = categoriesList.map(cat => `
+    <div 
+      oncontextmenu="showCustomContextMenu(event, 'category', ${Number(cat.id)})"
+      class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder flex items-center justify-between shadow-sm cursor-pointer hover:border-brand-violet/60 transition-all"
+    >
+      <div class="flex items-center gap-2.5">
+        <span class="w-4 h-4 rounded-full border border-black/10 shrink-0" style="background-color: ${safeColor(cat.color)}"></span>
+        <span class="text-xs font-bold text-slate-800 dark:text-white">${escapeHtml(cat.name)}</span>
+      </div>
+      <div class="flex items-center gap-1" onclick="event.stopPropagation()">
+        <button onclick="openCategoryModal(${Number(cat.id)})" class="p-1.5 text-slate-400 hover:text-brand-gold"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+        <button onclick="handleDeleteCategory(${Number(cat.id)})" class="p-1.5 text-slate-400 hover:text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+/* ========================================================
+ * PROFISSIONAIS & CONFIGURAÇÕES DA EMPRESA
+ * ======================================================== */
+function openProfessionalModal(id = null) {
+  document.getElementById('pro-edit-id').value = id || '';
+  document.getElementById('modal-professional-title').innerText = id ? 'Editar Profissional' : 'Cadastrar Profissional';
+  tempProPhotoData = null;
+
+  const preview = document.getElementById('pro-photo-preview');
+
+  if (id) {
+    const p = professionalsList.find(p => p.id === id);
+    if (p) {
+      document.getElementById('pro-name').value = p.name;
+      if (safeImageSrc(p.photo)) {
+        preview.innerHTML = `<img src="${escapeHtml(safeImageSrc(p.photo))}" class="w-full h-full object-cover" alt="">`;
+        tempProPhotoData = safeImageSrc(p.photo);
+      } else {
+        preview.innerHTML = `<i data-lucide="user" class="w-6 h-6"></i>`;
+      }
+    }
+  } else {
+    document.getElementById('form-professional').reset();
+    preview.innerHTML = `<i data-lucide="user" class="w-6 h-6"></i>`;
+  }
+
+  document.getElementById('modal-professional').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+async function previewProfessionalPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    tempProPhotoData = safeImageSrc(await resizeImageToWebP(file, 256, 0.85), '');
+    const preview = document.getElementById('pro-photo-preview');
+    if (preview && tempProPhotoData) preview.innerHTML = `<img src="${escapeHtml(tempProPhotoData)}" class="w-full h-full object-cover" alt="Foto da depiladora">`;
+  } catch (err) {
+    showToast(err.message || 'Não foi possível usar esta imagem.', 'warning');
+    e.target.value = '';
+  }
+}
+
+function handleSaveProfessional(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById('pro-edit-id').value);
+  const name = document.getElementById('pro-name').value.trim();
+
+  if (id) {
+    const p = professionalsList.find(p => p.id === id);
+    if (p) {
+      p.name = name;
+      if (tempProPhotoData) p.photo = tempProPhotoData;
+      showToast(`Profissional ${name} atualizada!`, 'success');
+    }
+  } else {
+    professionalsList.push({ id: Date.now(), name, photo: tempProPhotoData });
+    showToast(`Profissional ${name} cadastrada!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+  closeModal('modal-professional');
+  renderAllViews();
+}
+
+function handleDeleteProfessional(id) {
+  const idx = professionalsList.findIndex(p => p.id === id);
+  if (idx > -1) {
+    const name = professionalsList[idx].name;
+    professionalsList.splice(idx, 1);
+    saveAllToLocalStorage();
+    showToast(`Profissional ${name} excluída!`, 'warning');
+    renderAllViews();
+  }
+}
+
+function renderProfessionalsView() {
+  const container = document.getElementById('professionals-grid');
+  if (!container) return;
+
+  container.innerHTML = professionalsList.map(p => `
+    <div class="p-4 rounded-3xl bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder shadow-sm flex flex-col items-center text-center justify-between gap-3">
+      <div class="w-16 h-16 rounded-full bg-brand-purpleDeep text-brand-gold flex items-center justify-center font-black text-xl border-2 border-brand-gold/60 overflow-hidden shadow">
+        ${safeImageSrc(p.photo) ? `<img src="${escapeHtml(safeImageSrc(p.photo))}" class="w-full h-full object-cover" alt="">` : escapeHtml((p.name || '?').charAt(0))}
+      </div>
+      <div>
+        <h4 class="text-sm font-black text-slate-900 dark:text-white">${escapeHtml(p.name)}</h4>
+        <span class="text-[10px] text-brand-gold font-semibold uppercase tracking-wider block mt-0.5">Depiladora Profissional</span>
+      </div>
+      <div class="pt-2 border-t border-brand-lightBorder dark:border-brand-darkBorder w-full flex items-center justify-center gap-2">
+        <button onclick="openProfessionalModal(${Number(p.id)})" class="px-3 py-1.5 rounded-xl bg-brand-violet/15 hover:bg-brand-violet text-brand-violet hover:text-white text-xs font-bold transition-all flex items-center gap-1">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Editar
+        </button>
+        <button onclick="handleDeleteProfessional(${Number(p.id)})" class="p-1.5 rounded-xl hover:bg-rose-500/15 text-slate-400 hover:text-rose-500 transition-all">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+// Redimensiona e converte qualquer imagem raster para WebP (até ~300 KB), devolvendo um data URL.
+const IMG_MAX_BYTES = 300 * 1024;
+function resizeImageToWebP(file, maxSide = 480, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    // SVG fica de fora: pode carregar script. Só imagens raster comuns.
+    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) return reject(new Error('Use uma imagem PNG, JPG, GIF ou WEBP.'));
+    if (file.size > 8 * 1024 * 1024) return reject(new Error('Imagem muito grande (máx. 8 MB).'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Não foi possível abrir a imagem.'));
+      img.onload = () => {
+        let side = maxSide, q = quality, out = '';
+        for (let tries = 0; tries < 5; tries++) {
+          const scale = Math.min(1, side / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          out = canvas.toDataURL('image/webp', q);
+          if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/png'); // navegador sem WebP no canvas
+          if (out.length * 0.75 <= IMG_MAX_BYTES) return resolve(out);
+          side = Math.round(side * 0.8); q = Math.max(0.5, q - 0.1);
+        }
+        reject(new Error('Não consegui reduzir a imagem para menos de 300 KB.'));
+      };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    companyConfig.logoUrl = safeImageSrc(await resizeImageToWebP(file, 480, 0.85), null);
+    if (!companyConfig.logoUrl) throw new Error('Imagem não aceita.');
+    saveAllToLocalStorage();
+    applyCompanyConfigToUI();
+    showToast('Logotipo atualizado no sistema!', 'success');
+  } catch (err) {
+    showToast(err.message || 'Não foi possível usar esta imagem.', 'error');
+    e.target.value = '';
+  }
+}
+
+// Aplica logo e dados da empresa salvos em toda a interface
+function applyCompanyConfigToUI() {
+  const logo = safeImageSrc(companyConfig.logoUrl, 'logo.webp');
+  document.querySelectorAll('[data-company-logo]').forEach(img => { img.src = logo; });
+
+  const preview = document.getElementById('company-logo-preview');
+  if (preview && safeImageSrc(companyConfig.logoUrl)) {
+    preview.innerHTML = `<img src="${escapeHtml(safeImageSrc(companyConfig.logoUrl))}" class="w-full h-full object-cover" alt="Logo">`;
+  }
+}
+
+// Preenche o formulário "Dados da Empresa" com o que está salvo
+// (antes ele sempre mostrava os valores padrão do HTML depois de recarregar)
+function fillCompanyConfigForm() {
+  const fields = {
+    'cfg-company-name': companyConfig.name,
+    'cfg-street': companyConfig.street,
+    'cfg-number': companyConfig.number,
+    'cfg-bairro': companyConfig.bairro,
+    'cfg-cep': companyConfig.cep,
+    'cfg-city': companyConfig.city,
+    'cfg-state': companyConfig.state,
+    'cfg-complement': companyConfig.complement,
+    'cfg-whatsapp': companyConfig.whatsapp
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  });
+}
+
+// Consulta de CEP (ViaCEP) nos dados da empresa — igual ao cadastro de clientes
+async function buscarEnderecoEmpresaPorCEP(cepValue) {
+  const cleanCep = (cepValue || '').replace(/\D/g, '');
+  if (cleanCep.length !== 8) return;
+
+  const cepInput = document.getElementById('cfg-cep');
+  if (cepInput) cepInput.value = `${cleanCep.slice(0, 5)}-${cleanCep.slice(5)}`;
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    const data = await res.json();
+    if (data.erro) {
+      showToast('CEP não encontrado.', 'warning');
+      return;
+    }
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    set('cfg-street', data.logradouro);
+    set('cfg-bairro', data.bairro);
+    set('cfg-city', data.localidade);
+    set('cfg-state', (data.uf || '').toUpperCase());
+    document.getElementById('cfg-number')?.focus();
+    showToast('Endereço da empresa carregado via CEP! Confira e clique em Salvar.', 'success');
+  } catch (err) {
+    console.warn('Erro ao consultar CEP:', err);
+    showToast('Não foi possível consultar o CEP agora.', 'warning');
+  }
+}
+
+function handleSaveCompanyInfo(e) {
+  e.preventDefault();
+  companyConfig.name = document.getElementById('cfg-company-name').value;
+  companyConfig.street = document.getElementById('cfg-street').value;
+  companyConfig.number = document.getElementById('cfg-number').value;
+  companyConfig.bairro = document.getElementById('cfg-bairro').value;
+  companyConfig.cep = document.getElementById('cfg-cep').value;
+  companyConfig.city = document.getElementById('cfg-city').value;
+  companyConfig.state = document.getElementById('cfg-state').value.toUpperCase();
+  companyConfig.complement = document.getElementById('cfg-complement').value;
+  companyConfig.whatsapp = document.getElementById('cfg-whatsapp').value;
+  saveAllToLocalStorage();
+  showToast('Informações da empresa salvas com sucesso!', 'success');
+}
+
+/* ========================================================
+ * WHATSAPP E AUTOMAÇÃO
+ * ======================================================== */
+// Mostra/esconde os campos conforme o gatilho escolhido
+function syncWppTemplateForm() {
+  const trigger = document.getElementById('wpp-tpl-trigger')?.value;
+  const isInactive = trigger === 'Inativo';
+  const advEnabled = Boolean(document.getElementById('wpp-tpl-advance-enable')?.checked);
+  document.getElementById('wpp-advance-box')?.classList.toggle('hidden', isInactive);
+  document.getElementById('wpp-advance-days-wrapper')?.classList.toggle('hidden', isInactive || !advEnabled);
+  document.getElementById('wpp-send-time-box')?.classList.toggle('hidden', !(isInactive || advEnabled));
+  document.getElementById('wpp-inactive-hint')?.classList.toggle('hidden', !isInactive);
+}
+
+function openNewWhatsAppTemplateModal(id = null) {
+  document.getElementById('wpp-tpl-id').value = id || '';
+  const advEnable = document.getElementById('wpp-tpl-advance-enable');
+  const advDays = document.getElementById('wpp-tpl-advance-days');
+  const advWrapper = document.getElementById('wpp-advance-days-wrapper');
+
+  if (id) {
+    const tpl = whatsappTemplates.find(t => t.id === id);
+    if (tpl) {
+      document.getElementById('wpp-tpl-title').value = tpl.title;
+      document.getElementById('wpp-tpl-trigger').value = tpl.trigger;
+      document.getElementById('wpp-tpl-active').value = tpl.active ? 'true' : 'false';
+      document.getElementById('wpp-tpl-text').value = tpl.text;
+
+      const hasAdvance = Boolean(tpl.advanceDays && tpl.advanceDays > 0);
+      if (advEnable) advEnable.checked = hasAdvance;
+      if (advDays) advDays.value = tpl.advanceDays || 1;
+      const timeInput = document.getElementById('wpp-tpl-send-time');
+      if (timeInput) timeInput.value = tpl.sendTime || '09:00';
+    }
+  } else {
+    document.getElementById('form-wpp-template').reset();
+    if (advEnable) advEnable.checked = false;
+    if (advDays) advDays.value = 1;
+    const timeInput = document.getElementById('wpp-tpl-send-time');
+    if (timeInput) timeInput.value = '09:00';
+  }
+  syncWppTemplateForm();
+  document.getElementById('modal-whatsapp-template').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function insertVariableIntoWpp(tag) {
+  const textarea = document.getElementById('wpp-tpl-text');
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  textarea.value = text.substring(0, start) + tag + text.substring(end);
+  textarea.focus();
+  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+}
+
+function handleSaveWppTemplate(e) {
+  e.preventDefault();
+  const id = document.getElementById('wpp-tpl-id').value || `tpl_${Date.now()}`;
+  const title = document.getElementById('wpp-tpl-title').value.trim();
+  const trigger = document.getElementById('wpp-tpl-trigger').value;
+  const active = document.getElementById('wpp-tpl-active').value === 'true';
+  const text = document.getElementById('wpp-tpl-text').value.trim();
+
+  const isAdvanceEnabled = document.getElementById('wpp-tpl-advance-enable')?.checked || false;
+  const isInactiveTrigger = trigger === 'Inativo';
+  const advanceDays = (isAdvanceEnabled && !isInactiveTrigger) ? Math.max(1, parseInt(document.getElementById('wpp-tpl-advance-days')?.value || '1', 10)) : null;
+  const sendTime = document.getElementById('wpp-tpl-send-time')?.value || '09:00';
+
+  const templateData = { id, title, trigger, active, text, advanceDays, sendTime: (advanceDays || isInactiveTrigger) ? sendTime : null };
+
+  const existingIdx = whatsappTemplates.findIndex(t => t.id === id);
+  if (existingIdx > -1) {
+    whatsappTemplates[existingIdx] = templateData;
+    showToast(`Modelo "${title}" atualizado!`, 'success');
+  } else {
+    whatsappTemplates.push(templateData);
+    showToast(`Modelo "${title}" criado!`, 'success');
+  }
+
+  saveAllToLocalStorage();
+  closeModal('modal-whatsapp-template');
+  renderWhatsAppTemplatesList();
+}
+
+function renderWhatsAppTemplatesList() {
+  const container = document.getElementById('whatsapp-templates-container');
+  if (!container) return;
+
+  container.innerHTML = whatsappTemplates.map(tpl => `
+    <div class="p-3.5 rounded-2xl bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder space-y-1.5">
+      <div class="flex items-center justify-between">
+        <h5 class="text-xs font-bold text-slate-900 dark:text-white">${escapeHtml(tpl.title)}</h5>
+        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${escapeHtml(tpl.active ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-500/20 text-slate-400')}">
+          ${escapeHtml(tpl.active ? 'Robô Ativo' : 'Pausado')}
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] text-brand-gold font-mono">${escapeHtml(tpl.trigger === 'Inativo' ? 'Gatilho: cliente Inativa (3 meses)' : 'Gatilho: Status = ' + tpl.trigger)}</span>
+        ${tpl.advanceDays ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ ${escapeHtml(tpl.advanceDays)} dia(s) antes, às ${escapeHtml(tpl.sendTime || '09:00')}</span>` : ''}
+        ${tpl.trigger === 'Inativo' ? `<span class="text-[10px] bg-brand-violet/20 text-brand-violet px-2 py-0.5 rounded-full font-bold">⏰ às ${escapeHtml(tpl.sendTime || '09:00')} (Brasília)</span>` : ''}
+      </div>
+      <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono whitespace-pre-wrap line-clamp-2">${escapeHtml(tpl.text)}</p>
+      <div class="flex justify-end gap-2 pt-1 border-t border-brand-lightBorder/50 dark:border-brand-darkBorder/50">
+        <button onclick="openNewWhatsAppTemplateModal('${jsStr(tpl.id)}')" class="text-xs text-brand-violet hover:underline font-bold">Editar</button>
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+/* ========================================================
+ * DISPARO SILENCIOSO DE WHATSAPP (VIA BACKEND /api/whatsapp)
+ * ======================================================== */
+// Monta o texto do modelo trocando {variáveis}; variável desconhecida fica como está
+function buildWhatsAppText(tpl, vars) {
+  return tpl.text.replace(/\{(\w+)\}/g, (full, key) => (key in vars ? vars[key] : full));
+}
+
+function formatBR(dateStr) {
+  const [y, m, d] = (dateStr || '').split('-');
+  return y ? `${d}/${m}/${y}` : '';
+}
+
+function buildWhatsAppVars(app, clientName, lastDate) {
+  return {
+    nome: clientName || (app && app.clientName) || '',
+    data: app ? formatBR(app.date) : '',
+    horario: app ? app.time : '',
+    servico: app ? app.serviceName : '',
+    profissional: app ? app.professional : '',
+    valor: app ? Number(app.price).toFixed(2) : '',
+    ultimo_atendimento: formatBR(lastDate),
+    empresa: companyConfig.name,
+    endereco: `${companyConfig.street}, ${companyConfig.number} - ${companyConfig.bairro}`
+  };
+}
+
+// Envia pela API. Retorna { ok, simulated }
+async function sendWhatsAppMessage(phone, message, label, { silent = false } = {}) {
+  if (!phone) return { ok: false };
+  if (!navigator.onLine) {
+    if (!silent) showToast('Sem internet: a mensagem de WhatsApp não foi enviada.', 'warning');
+    return { ok: false };
+  }
+  try {
+    const resposta = await authFetch('/api/whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, message })
+    });
+    const resultado = await resposta.json().catch(() => ({}));
+    if (resposta.ok && resultado.sucesso) {
+      showToast(resultado.simulacao
+        ? `📲 WhatsApp SIMULADO para ${label} (API não configurada).`
+        : `📲 WhatsApp enviado para ${label}!`, resultado.simulacao ? 'warning' : 'success');
+      return { ok: true, simulated: Boolean(resultado.simulacao) };
+    }
+    showToast(resultado.erro || 'Não foi possível enviar o WhatsApp.', 'error');
+  } catch (err) {
+    console.error('Erro no envio do WhatsApp:', err);
+    showToast('Falha de conexão ao enviar WhatsApp.', 'error');
+  }
+  return { ok: false };
+}
+
+// Disparo imediato quando o STATUS do agendamento muda.
+// Modelos com "antecedência" não disparam aqui: eles são enviados pelo agendador (abaixo).
+async function triggerWhatsAppWebhook(app, triggerStatus) {
+  const tpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active && !t.advanceDays);
+  if (!tpl || !app.phone) return;
+  await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName);
+}
+
+/* ---------- Agendador (lembretes com antecedência + clientes inativas) ----------
+ * Funciona enquanto o sistema estiver aberto em algum navegador logado (não há servidor
+ * rodando 24h; os dados ficam no navegador). Horário sempre de Brasília (UTC-3). */
+const WPP_SENT_KEY = 'depilclear_wpp_sent';
+const WPP_MAX_PER_RUN = 10;
+
+function getWppSent() {
+  try { return JSON.parse(localStorage.getItem(WPP_SENT_KEY) || '{}'); } catch (e) { return {}; }
+}
+
+function saveWppSent(map) {
+  try { localStorage.setItem(WPP_SENT_KEY, JSON.stringify(map)); } catch (e) { /* cota cheia */ }
+}
+
+// Instante de "dia + hora" no horário de Brasília
+function brasiliaInstant(dateStr, timeStr) {
+  return new Date(`${dateStr}T${timeStr || '09:00'}:00-03:00`).getTime();
+}
+
+function shiftDateStr(dateStr, { days = 0, months = 0 } = {}) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + months, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+let wppSchedulerRunning = false;
+
+async function runWhatsAppScheduler() {
+  if (wppSchedulerRunning || !getAuthToken() || !navigator.onLine) return;
+  wppSchedulerRunning = true;
+  try {
+    const now = Date.now();
+    const sent = getWppSent();
+    let count = 0;
+
+    const shouldSkip = (key) => {
+      const rec = sent[key];
+      if (!rec) return false;
+      if (rec.status === 'ok') return true;
+      return now - rec.at < 30 * 60 * 1000; // falhou: tenta de novo só depois de 30 min
+    };
+
+    // 1) Lembretes N dias antes do atendimento, no horário escolhido
+    for (const tpl of whatsappTemplates.filter(t => t.active && t.advanceDays)) {
+      for (const app of appointmentsList) {
+        if (count >= WPP_MAX_PER_RUN) break;
+        if (app.status !== tpl.trigger || !app.phone || !app.date || !app.time) continue;
+        const start = brasiliaInstant(app.date, app.time);
+        if (isNaN(start) || start <= now) continue; // atendimento já passou
+        const sendAt = brasiliaInstant(shiftDateStr(app.date, { days: -tpl.advanceDays }), tpl.sendTime);
+        if (now < sendAt) continue;
+        const key = `adv:${tpl.id}:${app.id}:${app.date}:${app.time}`;
+        if (shouldSkip(key)) continue;
+
+        const r = await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName, { silent: true });
+        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
+        saveWppSent(sent);
+        count++;
+      }
+    }
+
+    // 2) Cliente que completou 3 meses sem atendimento (só quem ficou inativa nos últimos 7 dias,
+    //    para não disparar para toda a base antiga de uma vez)
+    for (const tpl of whatsappTemplates.filter(t => t.active && t.trigger === 'Inativo')) {
+      for (const client of clientsList) {
+        if (count >= WPP_MAX_PER_RUN) break;
+        if (!client.phone) continue;
+        const last = getClientLastAppointmentDate(client.id);
+        if (!last) continue;
+        const sendAt = brasiliaInstant(shiftDateStr(last, { months: 3, days: 1 }), tpl.sendTime);
+        if (now < sendAt || now - sendAt > 7 * 86400000) continue;
+        if (getClientStatus(client.id) !== 'inativa') continue;
+        const key = `ina:${tpl.id}:${client.id}:${last}`;
+        if (shouldSkip(key)) continue;
+
+        const r = await sendWhatsAppMessage(client.phone, buildWhatsAppText(tpl, buildWhatsAppVars(null, client.name, last)), client.name, { silent: true });
+        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
+        saveWppSent(sent);
+        count++;
+      }
+    }
+  } catch (err) {
+    console.error('Erro no agendador de WhatsApp:', err);
+  } finally {
+    wppSchedulerRunning = false;
+  }
+}
+
+function startWhatsAppScheduler() {
+  if (window.__wppSchedulerStarted) return;
+  window.__wppSchedulerStarted = true;
+  setTimeout(runWhatsAppScheduler, 4000);
+  setInterval(runWhatsAppScheduler, 60 * 1000);
+}
+
+/* ========================================================
+ * EXPORTAÇÃO EXCEL (.XLSX) COM ESTILOS
+ * ======================================================== */
+// Biblioteca de planilhas (xlsx): só é baixada na hora de exportar (poupa carga inicial)
+let _xlsxPromise = null;
+function loadXlsxLib() {
+  if (typeof XLSX !== 'undefined') return Promise.resolve(XLSX);
+  if (_xlsxPromise) return _xlsxPromise;
+  const meta = document.querySelector('meta[name="lazy-xlsx"]');
+  if (!meta) return Promise.reject(new Error('Gerador de planilhas indisponível.'));
+  _xlsxPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = meta.content;
+    sc.crossOrigin = 'anonymous';
+    if (meta.dataset.integrity) sc.integrity = meta.dataset.integrity;
+    sc.onload = () => resolve(window.XLSX);
+    sc.onerror = () => { _xlsxPromise = null; reject(new Error('Não foi possível carregar o gerador de planilhas (sem internet?).')); };
+    document.head.appendChild(sc);
+  });
+  return _xlsxPromise;
+}
+
+async function handleGenerateMultiSheetExcel(event) {
+  event.preventDefault();
+  try {
+    showToast('Preparando a planilha...', 'info');
+    await loadXlsxLib();
+  } catch (err) {
+    showToast(err.message || 'Biblioteca de planilhas indisponível.', 'error');
+    return;
+  }
+
+  const startDateStr = document.getElementById('export-sheet-start-date').value;
+  const endDateStr = document.getElementById('export-sheet-end-date').value;
+  const startDate = new Date(startDateStr + 'T00:00:00');
+  const endDate = new Date(endDateStr + 'T00:00:00');
+
+  if (startDate > endDate) {
+    showToast('A data inicial não pode ser maior que a final!', 'error');
+    return;
+  }
+
+  const workbook = XLSX.utils.book_new();
+  const slots = generate15MinSlots();
+  const weekDaysShort = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  let currentDate = new Date(startDate);
+  let sheetsCreated = 0;
+
+  const borderSolid = {
+    top: { style: 'thin', color: { rgb: '2D2D2D' } },
+    bottom: { style: 'thin', color: { rgb: '2D2D2D' } },
+    left: { style: 'thin', color: { rgb: '2D2D2D' } },
+    right: { style: 'thin', color: { rgb: '2D2D2D' } }
+  };
+
+  while (currentDate <= endDate) {
+    const y = currentDate.getFullYear();
+    const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const d = String(currentDate.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+    const dayWeek = weekDaysShort[currentDate.getDay()];
+    const sheetName = `${d}-${m} ${dayWeek}`;
+
+    const dayApps = getMuralApps(dateStr);
+
+    let maxSlotsUsed = 2;
+    slots.forEach(time => {
+      const count = dayApps.filter(a => a.time === time).length;
+      if (count > maxSlotsUsed) maxSlotsUsed = count;
+    });
+
+    const totalCols = 1 + maxSlotsUsed * 2;
+    const sheetData = [];
+
+    const titleRow = new Array(totalCols).fill('');
+    titleRow[0] = `DEPILCLEAR WOMEN & MEN - MURAL DA RECEPÇÃO - ${d}/${m}/${y} (${dayWeek})`;
+    sheetData.push(titleRow);
+    sheetData.push(new Array(totalCols).fill(''));
+
+    const headerRow = ['HR'];
+    for (let i = 1; i <= maxSlotsUsed; i++) {
+      headerRow.push(i === 1 ? 'NOME' : `NOME ${i}`);
+      headerRow.push(i === 1 ? 'ÁREA / SERVIÇO' : `ÁREA / SERVIÇO ${i}`);
+    }
+    sheetData.push(headerRow);
+
+    const rowArrivedFlags = [];
+
+    slots.forEach(time => {
+      const appsAtTime = dayApps.filter(a => a.time === time);
+      const rowData = [time];
+      const arrivedFlags = [];
+
+      for (let i = 0; i < maxSlotsUsed; i++) {
+        const app = appsAtTime[i];
+        if (app) {
+          const nameText = app.isFirstTime ? `${app.clientName} (1° vez)` : app.clientName;
+          const servicesSortedText = formatServicesShortTextSorted(app.services, app.professional);
+          rowData.push(nameText);
+          rowData.push(servicesSortedText);
+          arrivedFlags.push(Boolean(app.arrivedAtReception));
+        } else {
+          rowData.push('');
+          rowData.push('');
+          arrivedFlags.push(false);
+        }
+      }
+      sheetData.push(rowData);
+      rowArrivedFlags.push(arrivedFlags);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+    const colWidths = [{ wch: 10 }];
+    for (let i = 0; i < maxSlotsUsed; i++) {
+      colWidths.push({ wch: 28 });
+      colWidths.push({ wch: 34 });
+    }
+    worksheet['!cols'] = colWidths;
+    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }];
+
+    const titleRef = XLSX.utils.encode_cell({ r: 0, c: 0 });
+    if (worksheet[titleRef]) {
+      worksheet[titleRef].s = {
+        font: { name: 'Arial', sz: 12, bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1E1135' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+    }
+
+    for (let c = 0; c < totalCols; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 2, c });
+      if (!worksheet[cellRef]) worksheet[cellRef] = { t: 's', v: '' };
+      worksheet[cellRef].s = {
+        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: '0F172A' } },
+        fill: { fgColor: { rgb: 'E2E8F0' } },
+        alignment: { horizontal: c === 0 ? 'center' : 'left', vertical: 'center' },
+        border: borderSolid
+      };
+    }
+
+    slots.forEach((time, slotIdx) => {
+      const r = 3 + slotIdx;
+      const arrivedFlags = rowArrivedFlags[slotIdx] || [];
+
+      const hrRef = XLSX.utils.encode_cell({ r, c: 0 });
+      if (!worksheet[hrRef]) worksheet[hrRef] = { t: 's', v: time };
+      worksheet[hrRef].s = {
+        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: '1E293B' } },
+        fill: { fgColor: { rgb: 'F1F5F9' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: borderSolid
+      };
+
+      for (let i = 0; i < maxSlotsUsed; i++) {
+        const isArrived = arrivedFlags[i];
+        const nameCol = 1 + i * 2;
+        const areaCol = 2 + i * 2;
+
+        const nameRef = XLSX.utils.encode_cell({ r, c: nameCol });
+        const areaRef = XLSX.utils.encode_cell({ r, c: areaCol });
+
+        if (!worksheet[nameRef]) worksheet[nameRef] = { t: 's', v: '' };
+        if (!worksheet[areaRef]) worksheet[areaRef] = { t: 's', v: '' };
+
+        const clientStyle = {
+          font: { name: 'Arial', sz: 10, bold: isArrived, color: { rgb: isArrived ? '064E3B' : '1E293B' } },
+          fill: { fgColor: { rgb: isArrived ? 'A7F3D0' : 'FFFFFF' } },
+          alignment: { horizontal: 'left', vertical: 'center' },
+          border: borderSolid
+        };
+
+        worksheet[nameRef].s = clientStyle;
+        worksheet[areaRef].s = clientStyle;
+      }
+    });
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    sheetsCreated++;
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  const fileName = `DepilClear_Planilha_${startDateStr}_a_${endDateStr}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+  closeModal('modal-export-spreadsheet');
+  showToast(`Planilha gerada com sucesso (${sheetsCreated} abas)!`, 'success');
+}
+
+function openExportSpreadsheetModal() {
+  document.getElementById('export-sheet-start-date').value = currentSelectedDate;
+  const future = new Date();
+  future.setDate(future.getDate() + 6);
+  document.getElementById('export-sheet-end-date').value = localDateStr(future);
+  document.getElementById('modal-export-spreadsheet').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function toggleTimeSliceInputs() {
+  const mode = document.getElementById('wpp-img-range-mode')?.value;
+  const inputs = document.getElementById('wpp-time-slice-inputs');
+  if (inputs) {
+    if (mode === 'CUSTOM') inputs.classList.remove('hidden');
+    else inputs.classList.add('hidden');
+  }
+}
+
+function generateWhatsAppSheetImage(action) {
+  const canvas = document.getElementById('hidden-render-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const mode = document.getElementById('wpp-img-range-mode')?.value;
+  const startTime = mode === 'CUSTOM' ? document.getElementById('wpp-img-start-time')?.value || '08:00' : '08:00';
+  const endTime = mode === 'CUSTOM' ? document.getElementById('wpp-img-end-time')?.value || '18:00' : '18:00';
+
+  let slots = generate15MinSlots();
+  if (mode === 'CUSTOM') slots = slots.filter(s => s >= startTime && s <= endTime);
+
+  const [y, m, d] = currentSelectedDate.split('-');
+  const dateFormatted = `${d}/${m}/${y}`;
+  const daysApps = getMuralApps(currentSelectedDate);
+
+  let maxColsPairs = 2;
+  slots.forEach(time => {
+    const count = daysApps.filter(a => a.time === time).length;
+    if (count > maxColsPairs) maxColsPairs = count;
+  });
+
+  const rowHeight = 28;
+  const headerHeight = 70;
+  const colWidths = [70];
+  for (let i = 0; i < maxColsPairs; i++) {
+    colWidths.push(220);
+    colWidths.push(240);
+  }
+
+  canvas.width = colWidths.reduce((a, b) => a + b, 0);
+  canvas.height = headerHeight + (slots.length + 1) * rowHeight + 30;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#1e1135';
+  ctx.font = 'bold 16px Arial';
+  ctx.fillText(`DEPILCLEAR WOMEN & MEN - MURAL DA RECEPÇÃO`, 15, 30);
+  ctx.font = 'bold 13px Arial';
+  ctx.fillText(`DATA: ${dateFormatted} • HORÁRIO: ${slots[0] || '08:00'} às ${slots[slots.length - 1] || '18:00'}`, 15, 52);
+
+  let curY = headerHeight;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.fillRect(0, curY, canvas.width, rowHeight);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 12px Arial';
+
+  const headers = ['HR'];
+  for (let i = 1; i <= maxColsPairs; i++) {
+    headers.push(i === 1 ? 'NOME' : `NOME ${i}`);
+    headers.push(i === 1 ? 'ÁREA / SERVIÇO' : `ÁREA / SERVIÇO ${i}`);
+  }
+
+  let curX = 0;
+  headers.forEach((h, idx) => {
+    ctx.strokeStyle = '#334155';
+    ctx.strokeRect(curX, curY, colWidths[idx], rowHeight);
+    ctx.fillText(h, curX + 10, curY + 18);
+    curX += colWidths[idx];
+  });
+
+  slots.forEach(time => {
+    curY += rowHeight;
+    curX = 0;
+    const appsAtTime = daysApps.filter(a => a.time === time);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(curX, curY, colWidths[0], rowHeight);
+    ctx.strokeStyle = '#334155';
+    ctx.strokeRect(curX, curY, colWidths[0], rowHeight);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 11px Arial';
+    ctx.fillText(time, curX + 18, curY + 18);
+    curX += colWidths[0];
+
+    for (let i = 0; i < maxColsPairs; i++) {
+      const app = appsAtTime[i] || null;
+      const nameColWidth = colWidths[1 + i * 2];
+      const areaColWidth = colWidths[2 + i * 2];
+      const isArrived = app && app.arrivedAtReception;
+      const bg = isArrived ? '#a7f3d0' : '#ffffff';
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(curX, curY, nameColWidth, rowHeight);
+      ctx.strokeStyle = '#334155';
+      ctx.strokeRect(curX, curY, nameColWidth, rowHeight);
+      if (app) {
+        ctx.fillStyle = isArrived ? '#064e3b' : '#0f172a';
+        ctx.font = 'bold 11px Arial';
+        const nameText = app.isFirstTime ? `${app.clientName} (1° vez)` : app.clientName;
+        ctx.fillText(nameText.substring(0, 26), curX + 8, curY + 18);
+      }
+      curX += nameColWidth;
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(curX, curY, areaColWidth, rowHeight);
+      ctx.strokeStyle = '#334155';
+      ctx.strokeRect(curX, curY, areaColWidth, rowHeight);
+      if (app) {
+        ctx.fillStyle = isArrived ? '#064e3b' : '#0f172a';
+        ctx.font = '11px Arial';
+        const srvText = formatServicesShortTextSorted(app.services, app.professional);
+        ctx.fillText(srvText.substring(0, 30), curX + 8, curY + 18);
+      }
+      curX += areaColWidth;
+    }
+  });
+
+  if (action === 'download') {
+    const a = document.createElement('a');
+    a.download = `Mural_DepilClear_${currentSelectedDate}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('Imagem PNG baixada com sucesso!', 'success');
+  } else {
+    canvas.toBlob(blob => {
+      try {
+        const item = new ClipboardItem({ 'image/png': blob });
+        navigator.clipboard.write([item]).then(() => {
+          showToast('Imagem copiada! Cole no WhatsApp Web com Ctrl+V.', 'success');
+        });
+      } catch (err) {
+        const a = document.createElement('a');
+        a.download = `Mural_DepilClear_${currentSelectedDate}.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+        showToast('Imagem baixada para envio no WhatsApp!', 'info');
+      }
+    });
+  }
+}
+
+/* ========================================================
+ * INICIALIZAÇÃO E SINCRONIZAÇÃO GERAL
+ * ======================================================== */
+function renderAllViews() {
+  const todayApps = appointmentsList.filter(a => a.date === currentSelectedDate && a.status !== 'Cancelado');
+  const metricToday = document.getElementById('dash-metric-today');
+  if (metricToday) metricToday.innerText = todayApps.length;
+  
+  const metricCompleted = document.getElementById('dash-metric-completed');
+  if (metricCompleted) metricCompleted.innerText = appointmentsList.filter(a => a.status === 'Finalizado').length;
+
+  const metricReschedule = document.getElementById('dash-metric-reschedule');
+  if (metricReschedule) metricReschedule.innerText = appointmentsList.filter(a => a.status === 'Reagendar').length;
+
+  const metricClients = document.getElementById('dash-metric-clients');
+  if (metricClients) metricClients.innerText = clientsList.length;
+
+  const badgeAppCount = document.getElementById('badge-agendamentos-count');
+  if (badgeAppCount) badgeAppCount.innerText = appointmentsList.filter(a => a.status !== 'Cancelado').length;
+
+  renderAgendaView();
+  renderPhysicalReceptionSheet();
+  renderClientsView();
+  renderServicesView();
+  renderCategoriesView();
+  renderProfessionalsView();
+  renderWhatsAppTemplatesList();
+  renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
+}
+
+window.addEventListener('online', () => {
+  const badge = document.getElementById('connection-indicator-desktop');
+  if (badge) {
+    badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold';
+    document.getElementById('connection-text').innerText = 'Online';
+  }
+  showToast('Conexão com a internet restabelecida!', 'success');
+});
+
+window.addEventListener('offline', () => {
+  const badge = document.getElementById('connection-indicator-desktop');
+  if (badge) {
+    badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold';
+    document.getElementById('connection-text').innerText = 'Modo Offline (Gravando no PC)';
+  }
+  showToast('Você está offline. O sistema continua gravando normalmente no disco local.', 'warning');
+});
+
+// Libera o dashboard SOMENTE se o token for validado pelo servidor (/api/me).
+// Offline: só se já houve uma validação bem-sucedida nesta aba nas últimas 8h.
+async function checkUserSession() {
+  const hadToken = Boolean(getAuthToken());
+  const result = await validateSession();
+
+  if (!result.ok) {
+    clearSession();
+    document.getElementById('view-dashboard')?.classList.add('hidden');
+    document.getElementById('view-dashboard')?.classList.remove('flex');
+    document.getElementById('view-login')?.classList.remove('hidden');
+    if (hadToken) {
+      showToast(result.reason === 'offline'
+        ? 'Sem conexão para validar o login. Conecte-se à internet e entre novamente.'
+        : 'Sua sessão expirou. Faça login novamente.', 'warning');
+    }
+    return false;
+  }
+
+  document.documentElement.classList.add('has-session');
+  const user = (result.usuario && result.usuario.email) || sessionStorage.getItem('depilclear_active_user') || '';
+  document.getElementById('view-login')?.classList.add('hidden');
+  const dash = document.getElementById('view-dashboard');
+  if (dash) {
+    dash.classList.remove('hidden');
+    dash.classList.add('flex');
+  }
+
+  const userDisplay = document.getElementById('user-display-email');
+  if (userDisplay) userDisplay.innerText = user;
+
+  applyCompanyConfigToUI();
+  fillCompanyConfigForm();
+  startWhatsAppScheduler();
+  initCalendar();
+  renderAllViews();
+  lucide.createIcons();
+  return true;
+}
+
+window.onload = function() {
+  loadAllFromLocalStorage();
+
+  if (localStorage.getItem('depilclear_theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+
+  const emailInput = document.getElementById('login-email');
+  const pwdInput = document.getElementById('login-password');
+  if (emailInput) emailInput.value = '';
+  if (pwdInput) pwdInput.value = '';
+
+  checkUserSession();
+  applyCompanyConfigToUI();
+  if (!navigator.onLine) window.dispatchEvent(new Event('offline'));
+  lucide.createIcons();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('Service Worker registado com sucesso!'))
+      .catch((err) => console.error('Falha ao registar o Service Worker:', err));
+  }
+};
+
+/* ========================================================
+ * CONTADORES DINÂMICOS (AGENDA E MURAL)
+ * ======================================================== */
+function updateAgendaCounters(selectedDate) {
+  const agendamentosDoDia = appointmentsList.filter(a => a.date === selectedDate && a.status !== 'Cancelado');
+  const totalAgendadas = agendamentosDoDia.filter(a => a.status === 'Agendado' || a.status === 'Confirmada').length;
+  const totalConfirmadas = agendamentosDoDia.filter(a => a.status === 'Confirmada').length;
+
+  const badgeAgendadas = document.getElementById('badge-total-agendadas');
+  const badgeConfirmadas = document.getElementById('badge-total-confirmadas');
+
+  if (badgeAgendadas) badgeAgendadas.textContent = `${totalAgendadas} agendada(s)`;
+  if (badgeConfirmadas) badgeConfirmadas.textContent = `${totalConfirmadas} confirmada(s)`;
+}
+
+function updateMuralCounters() {
+  const appsDaData = appointmentsList.filter(a => a.date === currentSelectedDate && a.status !== 'Cancelado');
+  const totalAgendadasData = appsDaData.filter(a => a.status === 'Agendado' || a.status === 'Confirmada').length;
+  const confirmadasData = appsDaData.filter(a => a.status === 'Confirmada').length;
+
+  const totalEl = document.getElementById('mural-total-clientes');
+  const confirmadasEl = document.getElementById('mural-confirmadas-hoje');
+
+  if (totalEl) totalEl.textContent = totalAgendadasData;
+  if (confirmadasEl) confirmadasEl.textContent = confirmadasData;
+}
+
+/* ========================================================
+ * CALENDÁRIO ESTILIZADO DE RELATÓRIOS (JANELA MODAL)
+ * ======================================================== */
+function openReportCalendarModal() {
+  const modal = document.getElementById('modal-report-calendar');
+  if (!modal) return;
+  const startVal = document.getElementById('rep-start-date')?.value || '';
+  const endVal = document.getElementById('rep-end-date')?.value || '';
+  document.getElementById('cal-modal-rep-start').value = startVal;
+  document.getElementById('cal-modal-rep-end').value = endVal;
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function setQuickReportRange(type) {
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+
+  if (type === 'today') {
+    // Mantém a data de hoje para início e término
+  } else if (type === 'week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    start = new Date(now.setDate(diff));
+    end = new Date(start);
+    end.setDate(start.getDate() + 5);
+  } else if (type === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  document.getElementById('cal-modal-rep-start').value = fmt(start);
+  document.getElementById('cal-modal-rep-end').value = fmt(end);
+}
+
+function applyCustomReportDateRange() {
+  const s = document.getElementById('cal-modal-rep-start').value;
+  const e = document.getElementById('cal-modal-rep-end').value;
+
+  if (s && e && s > e) {
+    showToast('A data inicial não pode ser maior que a data final!', 'error');
+    return;
+  }
+
+  document.getElementById('rep-start-date').value = s;
+  document.getElementById('rep-end-date').value = e;
+
+  const display = document.getElementById('rep-period-display-text');
+  if (display) {
+    if (s && e) {
+      display.innerText = `${s.split('-').reverse().join('/')} até ${e.split('-').reverse().join('/')}`;
+    } else if (s) {
+      display.innerText = `A partir de ${s.split('-').reverse().join('/')}`;
+    } else {
+      display.innerText = 'Todo o Histórico';
+    }
+  }
+
+  closeModal('modal-report-calendar');
+  generateBusinessReport();
+  showToast('Período de relatório atualizado!', 'success');
+}
+
+function clearReportDateFilter() {
+  document.getElementById('rep-start-date').value = '';
+  document.getElementById('rep-end-date').value = '';
+  const display = document.getElementById('rep-period-display-text');
+  if (display) display.innerText = 'Todo o Histórico';
+  generateBusinessReport();
+  showToast('Filtro de período limpo.', 'info');
+}
+
+
+/* ========================================================
+ * 1. RELATÓRIOS GERENCIAIS DE ATENDIMENTO E FATURAMENTO
+ * ======================================================== */
+function generateBusinessReport() {
+  const start = document.getElementById('rep-start-date')?.value;
+  const end = document.getElementById('rep-end-date')?.value;
+
+  let filtered = appointmentsList.filter(a => a.status === 'Finalizado');
+  if (start) filtered = filtered.filter(a => a.date >= start);
+  if (end) filtered = filtered.filter(a => a.date <= end);
+
+  const distinctClients = new Set(filtered.map(a => a.clientId));
+  const totalClientsEl = document.getElementById('rep-total-clients');
+  if (totalClientsEl) totalClientsEl.textContent = distinctClients.size;
+
+  let totalProcedimentos = 0;
+  let faturamentoTotal = 0;
+  const serviceCountMap = {};
+  const proCountMap = {};
+
+  filtered.forEach(app => {
+    faturamentoTotal += Number(app.price || 0);
+    const pro = app.professional || 'Sem indicação';
+    proCountMap[pro] = (proCountMap[pro] || 0) + 1;
+
+    (app.services || []).forEach(srv => {
+      totalProcedimentos++;
+      serviceCountMap[srv.name] = (serviceCountMap[srv.name] || { qtd: 0, total: 0 });
+      serviceCountMap[srv.name].qtd++;
+      serviceCountMap[srv.name].total += Number(srv.price || 0);
+    });
+  });
+
+  const totalServicesEl = document.getElementById('rep-total-services');
+  if (totalServicesEl) totalServicesEl.textContent = totalProcedimentos;
+
+  const totalAmountEl = document.getElementById('rep-total-amount');
+  if (totalAmountEl) totalAmountEl.textContent = `R$ ${faturamentoTotal.toFixed(2)}`;
+
+  let topProName = '-';
+  let topProCount = 0;
+  for (const [pro, qtd] of Object.entries(proCountMap)) {
+    if (qtd > topProCount) {
+      topProCount = qtd;
+      topProName = `${pro} (${qtd} atend.)`;
+    }
+  }
+  const topProEl = document.getElementById('rep-top-pro');
+  if (topProEl) topProEl.textContent = topProName;
+
+  const srvContainer = document.getElementById('rep-services-breakdown');
+  if (srvContainer) {
+    srvContainer.innerHTML = Object.entries(serviceCountMap).map(([name, data]) => `
+      <div class="flex items-center justify-between p-2.5 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg text-xs">
+        <div>
+          <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(name)}</span>
+          <span class="block text-[10px] text-slate-400 font-mono">${escapeHtml(data.qtd)} realizados</span>
+        </div>
+        <span class="font-black text-emerald-500">R$ ${data.total.toFixed(2)}</span>
+      </div>
+    `).join('') || '<p class="text-xs text-slate-400">Nenhum atendimento no período.</p>';
+  }
+
+  const proContainer = document.getElementById('rep-pro-breakdown');
+  if (proContainer) {
+    proContainer.innerHTML = Object.entries(proCountMap).map(([name, qtd]) => `
+      <div class="flex items-center justify-between p-2.5 rounded-xl bg-brand-lightCard dark:bg-brand-darkBg text-xs">
+        <span class="font-bold text-slate-800 dark:text-slate-200">👩‍⚕️ ${escapeHtml(name)}</span>
+        <span class="font-black text-brand-gold">${qtd} clientes atendidas</span>
+      </div>
+    `).join('') || '<p class="text-xs text-slate-400">Sem dados.</p>';
+  }
+}
+
+/* ========================================================
+ * 2. CARTÃO FIDELIDADE (CARREGAMENTO COMPLETO & MODAL)
+ * ======================================================== */
+function renderFidelidadeCardsGrid(search = '') {
+  const container = document.getElementById('fidelidade-cards-grid');
+  if (!container) return;
+
+  const query = (search || '').toLowerCase().trim();
+  // Exibe TODOS os clientes cadastrados imediatamente sem precisar pesquisar
+  const list = query 
+    ? clientsList.filter(c => c.name.toLowerCase().includes(query) || (c.phone || '').includes(query))
+    : clientsList;
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 col-span-full">Nenhum cliente cadastrado no sistema.</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(c => {
+    const f = getClientFidelity(c.id);
+    return generateFidelityCardHTML(c, f);
+  }).join('');
+
+  lucide.createIcons({ root: container });
+}
+
+// 'YYYY-MM-DD' -> 'dd/mm' (a data completa aparece ao passar o mouse)
+function shortDate(d) {
+  const p = (d || '').split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}` : '--/--';
+}
+
+function generateFidelityCardHTML(client, f) {
+  const pointsCount = f.points ? f.points.length : 0;
+  let circlesHTML = '';
+
+  for (let i = 0; i < 10; i++) {
+    const pt = f.points ? f.points[i] : null;
+    if (pt) {
+      const isIndicacao = pt.type === 'indicacao';
+      circlesHTML += `
+        <div class="relative group flex flex-col items-center justify-center w-full aspect-square max-w-[3.75rem] mx-auto rounded-2xl ${escapeHtml(isIndicacao ? 'bg-amber-500 text-slate-950' : 'bg-brand-violet text-white')} shadow-md leading-none">
+          <span class="text-xs font-black">${escapeHtml(i + 1)}</span>
+          <span class="text-[9px] font-extrabold mt-0.5">${escapeHtml(shortDate(pt.date))}</span>
+          <span class="text-[7px] uppercase tracking-tighter font-bold opacity-80">${escapeHtml(isIndicacao ? 'indicação' : 'ok')}</span>
+          <div class="hidden group-hover:block absolute bottom-full mb-1 z-30 p-1.5 rounded-lg bg-slate-900 text-white text-[9px] whitespace-nowrap shadow-xl">
+            ${escapeHtml((pt.date || '').split('-').reverse().join('/'))} - ${escapeHtml(pt.desc || (isIndicacao ? 'Indicação' : 'Atendimento'))}
+          </div>
+        </div>
+      `;
+    } else {
+      circlesHTML += `
+        <div class="flex items-center justify-center w-full aspect-square max-w-[3.75rem] mx-auto rounded-2xl border-2 border-dashed border-slate-300 dark:border-brand-darkBorder text-slate-400 text-xs font-bold">
+          ${escapeHtml(i + 1)}
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div class="p-5 rounded-3xl bg-gradient-to-br from-brand-lightSurface to-brand-lightCard dark:from-brand-darkSurface dark:to-brand-darkCard border-2 border-brand-gold/40 shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h4 class="text-sm font-black text-slate-900 dark:text-white">${escapeHtml(client.name)}</h4>
+          <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(client.phone)}</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-xl text-xs font-black ${escapeHtml(pointsCount === 10 ? 'bg-emerald-500 text-white animate-pulse' : 'bg-brand-gold/15 text-brand-gold')}">
+          ${pointsCount}/10 SELOS
+        </span>
+      </div>
+
+      <div class="grid grid-cols-5 gap-2 my-3">
+        ${circlesHTML}
+      </div>
+
+      <div class="flex items-center justify-between gap-2 text-[11px] font-semibold mb-3">
+        <span class="text-slate-500 dark:text-slate-400">🤝 Indicações: <b class="text-brand-gold">${escapeHtml(countIndicacoesPendentes(f))}/${INDICACOES_PARA_BRINDE}</b> para Íntima grátis</span>
+        ${f.freeIntimas > 0 ? `<span class="px-2 py-0.5 rounded-lg bg-emerald-500 text-white font-black">🎁 ${escapeHtml(f.freeIntimas)} Íntima grátis</span>` : ''}
+      </div>
+
+      <div class="pt-3 border-t border-brand-lightBorder/60 dark:border-brand-darkBorder/60 flex items-center justify-between text-xs gap-2">
+        <button type="button" onclick="addManualFidelityPoint(${Number(client.id)}, 'indicacao', 'Indicação')" class="flex-1 py-1.5 px-2 bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-brand-gold font-bold rounded-xl transition-all text-[11px]">
+          + Selo Indicação
+        </button>
+        <button type="button" onclick="openAppFidelityManageModal(${Number(client.id)})" class="flex-1 py-1.5 px-2 bg-brand-violet/15 hover:bg-brand-violet hover:text-white text-brand-violet font-bold rounded-xl transition-all text-[11px]">
+          Gerenciar / Resgatar
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function openAppFidelityManageModal(clientId) {
+  const client = clientsList.find(c => c.id === clientId);
+  if (!client) return;
+
+  document.getElementById('app-fid-client-id').value = client.id;
+  document.getElementById('app-fid-client-name').innerText = client.name;
+  
+  const f = getClientFidelity(clientId);
+  updateAppFidModalInfo(clientId);
+
+  document.getElementById('modal-app-fidelidade-manage')?.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function updateAppFidModalInfo(clientId) {
+  const f = getClientFidelity(clientId);
+  const countEl = document.getElementById('app-fid-modal-count');
+  if (countEl) countEl.innerText = `${f.points.length} / 10`;
+  const extra = document.getElementById('app-fid-modal-extra');
+  if (extra) {
+    extra.innerText = `Indicações: ${countIndicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE}` +
+      (f.freeIntimas > 0 ? ` • 🎁 ${f.freeIntimas} Íntima(s) grátis disponível(is)` : '');
+  }
+}
+
+function addIndicacaoFromAppModal() {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  if (addManualFidelityPoint(clientId, 'indicacao', 'Indicação')) updateAppFidModalInfo(clientId);
+}
+
+function adjustFidelityPointsApp(delta) {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  const f = getClientFidelity(clientId);
+  if (!f.points) f.points = [];
+
+  if (delta > 0 && f.points.length < 10) {
+    f.points.push({ date: localDateStr(), type: 'manual', desc: 'Ajuste Manual' });
+    showToast('Selo adicionado com sucesso!', 'success');
+  } else if (delta < 0 && f.points.length > 0) {
+    const removed = f.points.pop();
+    if (removed.type === 'indicacao' && removed.rewarded) {
+      f.freeIntimas = Math.max(0, (f.freeIntimas || 0) - 1);
+      f.points.filter(p => p.type === 'indicacao' && p.rewarded).slice(-(INDICACOES_PARA_BRINDE - 1)).forEach(p => { p.rewarded = false; });
+    }
+    showToast('Selo removido.', 'info');
+  }
+
+  saveClientFidelity(clientId, f);
+  updateAppFidModalInfo(clientId);
+  refreshFidelityViews(clientId);
+}
+
+function confirmFidelityPercentageDiscountApp() {
+  const clientId = parseInt(document.getElementById('app-fid-client-id').value, 10);
+  const perc = parseInt(document.getElementById('app-fid-discount-perc').value || 50, 10);
+  const f = getClientFidelity(clientId);
+
+  if (!f.points || f.points.length === 0) {
+    return showToast('O cliente não possui selos suficientes para resgate!', 'error');
+  }
+
+  f.points.pop();
+  saveClientFidelity(clientId, f);
+
+  closeModal('modal-app-fidelidade-manage');
+  refreshFidelityViews(clientId);
+  showToast(`✓ Desconto de ${perc}% concedido em troca de 1 selo!`, 'success');
+}
+
+/* ========================================================
+ * CARTÃO FIDELIDADE - FUNÇÕES BASE (estavam ausentes)
+ * Mesmo formato usado pelo caixa.js:
+ *   depilclear_fidelity_<id> = { points: [{date,type,desc}], rewardsClaimed }
+ * ======================================================== */
+function getClientFidelity(clientId) {
+  try {
+    const raw = localStorage.getItem(`depilclear_fidelity_${clientId}`);
+    const f = raw ? JSON.parse(raw) : {};
+    if (!Array.isArray(f.points)) f.points = [];
+    if (typeof f.rewardsClaimed !== 'number') f.rewardsClaimed = 0;
+    if (typeof f.freeIntimas !== 'number') f.freeIntimas = 0;
+    return f;
+  } catch (err) {
+    console.error('Fidelidade corrompida para o cliente', clientId, err);
+    return { points: [], rewardsClaimed: 0, freeIntimas: 0 };
+  }
+}
+
+function saveClientFidelity(clientId, fidelity) {
+  try {
+    localStorage.setItem(`depilclear_fidelity_${clientId}`, JSON.stringify(fidelity));
+  } catch (err) {
+    console.error('Erro ao salvar fidelidade:', err);
+    showToast('Não foi possível salvar o cartão fidelidade.', 'error');
+  }
+}
+
+function refreshFidelityViews(clientId) {
+  renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
+  const profileOpen = !document.getElementById('modal-client-profile')?.classList.contains('hidden');
+  if (profileOpen && currentViewingClientId === clientId) renderClientProfileFidelity(clientId);
+}
+
+// Regra: a cada 3 selos de indicação a cliente ganha 1 Íntima Completa grátis
+// (os selos continuam no cartão; só ficam marcados como "já premiados").
+const INDICACOES_PARA_BRINDE = 3;
+
+function countIndicacoesPendentes(f) {
+  return f.points.filter(p => p.type === 'indicacao' && !p.rewarded).length;
+}
+
+function processIndicacaoReward(f) {
+  const pendentes = f.points.filter(p => p.type === 'indicacao' && !p.rewarded);
+  if (pendentes.length >= INDICACOES_PARA_BRINDE) {
+    pendentes.slice(0, INDICACOES_PARA_BRINDE).forEach(p => { p.rewarded = true; });
+    f.freeIntimas = (f.freeIntimas || 0) + 1;
+    return true;
+  }
+  return false;
+}
+
+// Selo extra (ex.: indicação) concedido manualmente no cartão
+function addManualFidelityPoint(clientId, type = 'indicacao', desc = 'Indicação') {
+  const client = clientsList.find(c => c.id === clientId);
+  if (!client) return false;
+
+  const f = getClientFidelity(clientId);
+  if (f.points.length >= 10) {
+    showToast(`${client.name} já completou 10 selos. Faça o resgate no caixa.`, 'warning');
+    return false;
+  }
+
+  f.points.push({ date: localDateStr(), type, desc });
+  let brinde = false;
+  if (type === 'indicacao') brinde = processIndicacaoReward(f);
+  saveClientFidelity(clientId, f);
+
+  if (brinde) {
+    showToast(`🎁 ${client.name} completou 3 indicações e ganhou 1 Íntima Completa GRÁTIS! Resgate no caixa.`, 'success');
+  } else if (type === 'indicacao') {
+    showToast(`Selo de indicação para ${client.name} (${countIndicacoesPendentes(f)}/${INDICACOES_PARA_BRINDE} para a Íntima grátis).`, 'success');
+  } else {
+    showToast(`Selo adicionado para ${client.name} (${f.points.length}/10).`, 'success');
+  }
+  refreshFidelityViews(clientId);
+  return true;
+}
+
+// Concede 1 selo quando um atendimento é finalizado (no máximo 1 por agendamento e 1 por dia/cliente,
+// para não duplicar com o selo que o caixa também concede na venda).
+function checkAndAwardFidelityPoint(appointment) {
+  if (!appointment || !appointment.clientId) return;
+
+  const f = getClientFidelity(appointment.clientId);
+  if (f.points.length >= 10) return;
+
+  const jaTemDoAgendamento = f.points.some(p => p.appId === appointment.id);
+  const jaTemNoDia = f.points.some(p => p.type === 'atendimento' && p.date === appointment.date);
+  if (jaTemDoAgendamento || jaTemNoDia) return;
+
+  f.points.push({
+    date: appointment.date || localDateStr(),
+    type: 'atendimento',
+    desc: `Atendimento: ${appointment.serviceShort || appointment.serviceName || ''}`.trim(),
+    appId: appointment.id
+  });
+  saveClientFidelity(appointment.clientId, f);
+  showToast(`⭐ Selo fidelidade concedido a ${appointment.clientName} (${f.points.length}/10).`, 'success');
+  refreshFidelityViews(appointment.clientId);
+}
+
+// Aba "Fidelidade" dentro do perfil da cliente
+function renderClientProfileFidelity(clientId) {
+  let box = document.getElementById('profile-fidelity-container');
+  if (!box) {
+    const parent = document.getElementById('profile-tab-content-fidelidade');
+    if (!parent) return;
+    box = document.createElement('div');
+    box.id = 'profile-fidelity-container';
+    parent.appendChild(box);
+  }
+  const client = findClientById(clientId);
+  if (!client) { box.innerHTML = '<p class="text-xs text-slate-400">Cliente não encontrada.</p>'; return; }
+  try {
+    box.innerHTML = generateFidelityCardHTML(client, getClientFidelity(clientId));
+    lucide.createIcons({ root: box });
+  } catch (err) {
+    console.error('Erro ao montar cartão fidelidade:', err);
+    box.innerHTML = '<p class="text-xs text-rose-500">Não foi possível exibir o cartão. Recarregue a página.</p>';
+  }
+}
+
+// Busca na tela de Clientes (chamada pelo oninput do campo de busca)
+function filterClientsList() {
+  renderClientsView();
+}
+
+
+/* ========================================================
+ * BOTÃO "1ª VEZ" (abaixo do nome da cliente)
+ * ======================================================== */
+function setFirstTime(value) {
+  const input = document.getElementById('app-first-time-toggle');
+  if (input) input.checked = Boolean(value);
+  const btn = document.getElementById('btn-first-time');
+  if (!btn) return;
+  const on = Boolean(value);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.className = on
+    ? 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-amber-500 text-slate-950 border border-amber-500 shadow transition-all'
+    : 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-brand-lightSurface dark:bg-brand-darkSurface text-amber-500 border border-amber-500/50 hover:bg-amber-500/15 transition-all';
+  btn.innerText = on ? '⭐ 1ª vez ✓' : '⭐ 1ª vez';
+}
+
+function toggleFirstTime() {
+  setFirstTime(!document.getElementById('app-first-time-toggle')?.checked);
+}
+
+/* ========================================================
+ * CONSTRUTOR DE RELATÓRIOS PERSONALIZADOS
+ * - Valores financeiros vêm das NOTAS DO CAIXA (o que a cliente realmente pagou).
+ * - A agenda só informa atendimentos (sem valores).
+ * ======================================================== */
+const REPORT_SECTIONS = [
+  { key: 'resumo', label: 'Resumo' },
+  { key: 'notas', label: 'Notas emitidas (caixa)' },
+  { key: 'clientes', label: 'Valor pago por cliente' },
+  { key: 'servicos', label: 'Procedimentos vendidos' },
+  { key: 'canceladas', label: 'Notas canceladas' },
+  { key: 'fidelidade', label: 'Uso do cartão fidelidade' },
+  { key: 'caixa', label: 'Fechamento de caixa' },
+  { key: 'lista', label: 'Agenda: atendimentos' },
+  { key: 'profissionais', label: 'Atendimentos por depiladora' },
+  { key: 'inativas', label: 'Clientes inativas' }
+];
+const REPORT_METRICS = [
+  { key: 'clientes', label: 'Clientes cadastradas' },
+  { key: 'atendidas', label: 'Clientes atendidas (com nota)' },
+  { key: 'atendimentos', label: 'Atendimentos na agenda' },
+  { key: 'notas', label: 'Notas finalizadas' },
+  { key: 'bruto', label: 'Vendas brutas' },
+  { key: 'descontos', label: 'Descontos concedidos' },
+  { key: 'ticket', label: 'Ticket médio por nota' },
+  { key: 'canceladas', label: 'Notas canceladas' },
+  { key: 'fidelidade', label: 'Prêmios de fidelidade' },
+  { key: 'primeira', label: 'Clientes de 1ª vez' }
+];
+const REPORT_COLUMNS = [
+  { key: 'data', label: 'Data' },
+  { key: 'hora', label: 'Hora' },
+  { key: 'nome', label: 'Cliente' },
+  { key: 'telefone', label: 'Telefone' },
+  { key: 'genero', label: 'Gênero' },
+  { key: 'servicos', label: 'Procedimentos' },
+  { key: 'profissional', label: 'Depiladora' },
+  { key: 'status', label: 'Status' }
+];
+const REPORT_NOTECOLS = [
+  { key: 'data', label: 'Data/Hora' },
+  { key: 'cliente', label: 'Cliente' },
+  { key: 'itens', label: 'Itens' },
+  { key: 'formas', label: 'Formas de pagamento' },
+  { key: 'desconto', label: 'Desconto' },
+  { key: 'total', label: 'Total pago' },
+  { key: 'situacao', label: 'Situação' }
+];
+const REPORT_STATUSES = ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar', 'Cancelado'];
+const REPORT_NSTATUS = ['Finalizada', 'Cancelada'];
+
+const REPORT_PRESETS = {
+  completo: {
+    label: 'Relatório completo', title: 'Relatório Completo', period: 'mes',
+    sections: ['resumo', 'notas', 'clientes', 'servicos', 'canceladas', 'fidelidade', 'caixa', 'lista', 'profissionais'],
+    metrics: ['clientes', 'atendidas', 'atendimentos', 'notas', 'bruto', 'descontos', 'ticket', 'canceladas', 'fidelidade', 'primeira'],
+    columns: ['data', 'hora', 'nome', 'telefone', 'genero', 'servicos', 'profissional', 'status'],
+    notecols: ['data', 'cliente', 'itens', 'formas', 'desconto', 'total', 'situacao'],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar'], nstatus: ['Finalizada', 'Cancelada']
+  },
+  mensal: {
+    label: 'Mês com valores brutos', title: 'Relatório Mensal - Valores Brutos', period: 'mes',
+    sections: ['resumo', 'clientes', 'servicos'],
+    metrics: ['atendidas', 'notas', 'bruto', 'descontos', 'ticket', 'canceladas', 'fidelidade'],
+    columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada']
+  },
+  fechamento: {
+    label: 'Fechamento de caixa', title: 'Fechamento de Caixa', period: 'hoje',
+    sections: ['resumo', 'caixa', 'canceladas', 'fidelidade'],
+    metrics: ['notas', 'bruto', 'descontos', 'canceladas', 'fidelidade'],
+    columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada', 'Cancelada']
+  },
+  notas: {
+    label: 'Notas emitidas', title: 'Notas Emitidas no Caixa', period: 'mes',
+    sections: ['resumo', 'notas'],
+    metrics: ['notas', 'bruto', 'descontos', 'canceladas'],
+    columns: [], notecols: ['data', 'cliente', 'itens', 'formas', 'desconto', 'total', 'situacao'],
+    statuses: ['Finalizado'], nstatus: ['Finalizada', 'Cancelada']
+  },
+  atendimentos: {
+    label: 'Agenda do dia', title: 'Agenda de Atendimentos', period: 'hoje',
+    sections: ['lista'], metrics: [],
+    columns: ['data', 'hora', 'nome', 'servicos', 'profissional', 'status'], notecols: [],
+    statuses: ['Agendado', 'Confirmada', 'Finalizado', 'Reagendar'], nstatus: ['Finalizada']
+  },
+  inativas: {
+    label: 'Clientes inativas', title: 'Clientes Inativas', period: 'tudo',
+    sections: ['inativas'], metrics: [], columns: [], notecols: [], statuses: ['Finalizado'], nstatus: ['Finalizada']
+  }
+};
+
+function reportChip(group, key, label, checked) {
+  return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-brand-lightBorder dark:border-brand-darkBorder text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer hover:border-brand-gold">
+    <input type="checkbox" data-rp-group="${escapeHtml(group)}" value="${escapeHtml(key)}" ${escapeHtml(checked ? 'checked' : '')}> ${escapeHtml(label)}</label>`;
+}
+
+function getReportChecked(group) {
+  return [...document.querySelectorAll(`input[data-rp-group="${escapeHtml(group)}"]:checked`)].map(i => i.value);
+}
+
+function setReportChecked(group, keys) {
+  document.querySelectorAll(`input[data-rp-group="${escapeHtml(group)}"]`).forEach(i => { i.checked = keys.includes(i.value); });
+}
+
+function setReportPeriod(kind) {
+  const now = new Date();
+  let start = '', end = '';
+  if (kind === 'hoje') { start = end = localDateStr(now); }
+  else if (kind === 'mes') {
+    start = localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    end = localDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  } else if (kind === 'mesPassado') {
+    start = localDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    end = localDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
+  }
+  document.getElementById('rp-start').value = start;
+  document.getElementById('rp-end').value = end;
+}
+
+function applyReportPreset(name) {
+  const p = REPORT_PRESETS[name];
+  if (!p) return;
+  document.getElementById('rp-title').value = p.title;
+  setReportPeriod(p.period);
+  setReportChecked('sections', p.sections);
+  setReportChecked('metrics', p.metrics);
+  setReportChecked('columns', p.columns);
+  setReportChecked('notecols', p.notecols);
+  setReportChecked('statuses', p.statuses);
+  setReportChecked('nstatus', p.nstatus);
+  document.getElementById('rp-preview')?.classList.add('hidden');
+}
+
+function openPrintReportModal() {
+  const chips = (id, group, list, isObj = true) => {
+    document.getElementById(id).innerHTML = list.map(x => isObj
+      ? reportChip(group, x.key, x.label, false) : reportChip(group, x, x, false)).join('');
+  };
+  document.getElementById('rp-presets').innerHTML = Object.entries(REPORT_PRESETS).map(([k, p]) =>
+    `<button type="button" onclick="applyReportPreset('${jsStr(k)}')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-brand-violet/10 text-brand-violet border border-brand-violet/40 hover:bg-brand-violet hover:text-white">${escapeHtml(p.label)}</button>`).join('');
+  chips('rp-sections', 'sections', REPORT_SECTIONS);
+  chips('rp-metrics', 'metrics', REPORT_METRICS);
+  chips('rp-columns', 'columns', REPORT_COLUMNS);
+  chips('rp-notecols', 'notecols', REPORT_NOTECOLS);
+  chips('rp-statuses', 'statuses', REPORT_STATUSES, false);
+  chips('rp-nstatus', 'nstatus', REPORT_NSTATUS, false);
+
+  applyReportPreset('completo');
+  const s0 = document.getElementById('rep-start-date')?.value;
+  const e0 = document.getElementById('rep-end-date')?.value;
+  if (s0 || e0) {
+    document.getElementById('rp-start').value = s0 || '';
+    document.getElementById('rp-end').value = e0 || '';
+  }
+  document.getElementById('modal-print-report').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function reportMoney(n) {
+  return 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',');
+}
+
+function reportDateTime(ts) {
+  return new Date(ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Origem do prêmio de uma linha de nota
+function rewardOriginOfItem(item) {
+  if (item.rewardType) return item.rewardType;
+  return /indica/i.test(item.name || '') ? 'indicacao' : 'fidelidade';
+}
+
+function buildReportHTML() {
+  const title = document.getElementById('rp-title').value.trim() || 'Relatório';
+  const start = document.getElementById('rp-start').value;
+  const end = document.getElementById('rp-end').value;
+  const gender = document.getElementById('rp-gender').value;
+  const sections = getReportChecked('sections');
+  const metrics = getReportChecked('metrics');
+  const columns = REPORT_COLUMNS.filter(c => getReportChecked('columns').includes(c.key));
+  const noteCols = REPORT_NOTECOLS.filter(c => getReportChecked('notecols').includes(c.key));
+  const statuses = getReportChecked('statuses');
+  const nstatus = getReportChecked('nstatus');
+  const inactiveMonths = Math.max(1, parseInt(document.getElementById('rp-inactive-months').value, 10) || 3);
+  const includeNever = document.getElementById('rp-inactive-never').checked;
+
+  if (sections.length === 0) return { error: 'Marque pelo menos uma seção para mostrar no relatório.' };
+  if (sections.includes('lista') && columns.length === 0) return { error: 'Marque pelo menos uma coluna para a agenda.' };
+  if (sections.includes('notas') && noteCols.length === 0) return { error: 'Marque pelo menos uma coluna para as notas emitidas.' };
+
+  // escapa porque o resultado entra direto em células HTML do relatório
+  const fmtDate = d => escapeHtml((d || '').split('-').reverse().join('/'));
+  const periodText = (start || end) ? `${start ? fmtDate(start) : 'início'} a ${end ? fmtDate(end) : 'hoje'}` : 'Todo o histórico';
+
+  // ----- Dados: agenda -----
+  const apps = appointmentsList
+    .filter(a => (!start || a.date >= start) && (!end || a.date <= end))
+    .filter(a => statuses.includes(a.status))
+    .filter(a => gender === 'TODOS' || a.gender === gender)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+  // ----- Dados: notas do caixa -----
+  const startMs = start ? new Date(start + 'T00:00:00').getTime() : -Infinity;
+  const endMs = end ? new Date(end + 'T23:59:59.999').getTime() : Infinity;
+  let allSales = [], ops = [];
+  allSales = safeReadStore('depilclear_sales_log');
+  ops = safeReadStore('depilclear_cash_ops');
+  const inPeriod = ts => { const t = new Date(ts).getTime(); return !isNaN(t) && t >= startMs && t <= endMs; };
+  const clientGender = id => (clientsList.find(c => c.id === id) || {}).gender;
+
+  const periodSales = allSales
+    .filter(x => inPeriod(x.timestamp))
+    .filter(x => gender === 'TODOS' || (x.clientId && clientGender(x.clientId) === gender))
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const okSales = periodSales.filter(x => x.status !== 'Cancelada');
+  const canceledSales = periodSales.filter(x => x.status === 'Cancelada');
+  const noteSales = periodSales.filter(x => nstatus.includes(x.status === 'Cancelada' ? 'Cancelada' : 'Finalizada'));
+  const periodOps = ops.filter(o => inPeriod(o.timestamp));
+
+  const bruto = okSales.reduce((t, x) => t + Number(x.finalTotal || 0), 0);
+  const descontos = okSales.reduce((t, x) => t + Number(x.discount || 0), 0);
+  const canceladoTotal = canceledSales.reduce((t, x) => t + Number(x.finalTotal || 0), 0);
+  const rewardRows = [];
+  periodSales.forEach(x => (x.items || []).filter(i => i.isFidelityReward).forEach(i => rewardRows.push({ sale: x, origin: rewardOriginOfItem(i) })));
+  const rewardsValid = rewardRows.filter(r => r.sale.status !== 'Cancelada').length;
+  const clientesAtendidas = new Set(okSales.map(x => x.clientId || ('n:' + x.clientName))).size;
+
+  // ----- Visual da empresa -----
+  const logo = safeImageSrc(companyConfig.logoUrl, 'logo.webp');
+  const PURPLE = '#4c1d95', VIOLET = '#7c3aed', GOLD = '#d4af37', SOFT = '#f6f1fb';
+  const th = `style="text-align:left;background:${PURPLE};color:#fff;padding:6px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;"`;
+  const tdBase = 'padding:5px 8px;font-size:11px;vertical-align:top;border-bottom:1px solid #e5dcf2;';
+  const h3 = `style="font-size:13px;margin:20px 0 8px;color:${PURPLE};border-bottom:2px solid ${GOLD};padding-bottom:4px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;"`;
+  const table = (heads, rows, { rightCols = [] } = {}) => rows.length === 0
+    ? '<p style="font-size:11px;color:#6b5b7b;margin:4px 0;">Nenhum registro no período.</p>'
+    : `<table style="width:100%;border-collapse:collapse;margin-bottom:4px;"><thead><tr>${heads.map((h, i) => `<th ${th.replace('text-align:left', rightCols.includes(i) ? 'text-align:right' : 'text-align:left')}>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r, ri) => `<tr style="background:${escapeHtml(ri % 2 ? SOFT : '#fff')};">${r.map((c, i) => `<td style="${tdBase}${escapeHtml(rightCols.includes(i) ? 'text-align:right;white-space:nowrap;' : '')}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+  let html = `<div style="font-family:'Montserrat',Arial,Helvetica,sans-serif;color:#1f1330;background:#fff;padding:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid ${GOLD};padding-bottom:10px;">
+      <img src="${escapeHtml(logo)}" alt="Logo" style="height:70px;width:auto;object-fit:contain;">
+      <div style="flex:1;">
+        <div style="font-size:11px;color:#6b5b7b;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(companyConfig.name || 'DepilClear')}</div>
+        <div style="font-size:20px;font-weight:800;color:${PURPLE};line-height:1.2;">${escapeHtml(title)}</div>
+        <div style="font-size:11px;color:#444;margin-top:2px;">Período: <b>${escapeHtml(periodText)}</b>${gender !== 'TODOS' ? ' • Gênero: <b>' + escapeHtml(gender) + '</b>' : ''}</div>
+      </div>
+    </div>`;
+
+  if (sections.includes('resumo')) {
+    const cards = [];
+    if (metrics.includes('clientes')) cards.push(['Clientes cadastradas', clientsList.length]);
+    if (metrics.includes('atendidas')) cards.push(['Clientes atendidas', clientesAtendidas]);
+    if (metrics.includes('atendimentos')) cards.push(['Atendimentos na agenda', apps.length]);
+    if (metrics.includes('notas')) cards.push(['Notas finalizadas', okSales.length]);
+    if (metrics.includes('bruto')) cards.push(['Vendas brutas', reportMoney(bruto)]);
+    if (metrics.includes('descontos')) cards.push(['Descontos concedidos', reportMoney(descontos)]);
+    if (metrics.includes('ticket')) cards.push(['Ticket médio por nota', reportMoney(okSales.length ? bruto / okSales.length : 0)]);
+    if (metrics.includes('canceladas')) cards.push(['Notas canceladas', `${canceledSales.length} (${reportMoney(canceladoTotal)})`]);
+    if (metrics.includes('fidelidade')) cards.push(['Prêmios de fidelidade', rewardsValid]);
+    if (metrics.includes('primeira')) cards.push(['Clientes de 1ª vez', apps.filter(a => a.isFirstTime).length]);
+    html += `<h3 ${h3}>Resumo</h3>` + (cards.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${cards.map(c => `<div style="flex:1 1 150px;border:1.5px solid ${GOLD};border-radius:10px;padding:8px 10px;background:${SOFT};"><div style="font-size:9.5px;color:#6b5b7b;text-transform:uppercase;letter-spacing:.4px;">${escapeHtml(c[0])}</div><div style="font-size:16px;font-weight:800;color:${PURPLE};">${escapeHtml(c[1])}</div></div>`).join('')}</div>`
+      : '<p style="font-size:11px;color:#6b5b7b;">Nenhum indicador selecionado.</p>');
+  }
+
+  if (sections.includes('notas')) {
+    const cell = {
+      data: x => reportDateTime(x.timestamp),
+      cliente: x => escapeHtml(x.clientName),
+      itens: x => escapeHtml((x.items || []).map(i => `${i.qtd}x ${i.name}`).join(', ')),
+      formas: x => escapeHtml(x.method || ''),
+      desconto: x => reportMoney(x.discount),
+      total: x => x.status === 'Cancelada' ? `<s style="color:#9b1c4a;">${escapeHtml(reportMoney(x.finalTotal))}</s>` : `<b>${escapeHtml(reportMoney(x.finalTotal))}</b>`,
+      situacao: x => x.status === 'Cancelada' ? '<b style="color:#be123c;">Cancelada</b>' : '<span style="color:#047857;font-weight:700;">Finalizada</span>'
+    };
+    const right = noteCols.map((c, i) => ['desconto', 'total'].includes(c.key) ? i : -1).filter(i => i >= 0);
+    html += `<h3 ${h3}>Notas emitidas (${noteSales.length})</h3>` + table(noteCols.map(c => c.label), noteSales.map(x => noteCols.map(c => cell[c.key](x))), { rightCols: right });
+    if (noteCols.some(c => c.key === 'total')) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total das notas finalizadas: <b style="color:${PURPLE};">${escapeHtml(reportMoney(bruto))}</b></p>`;
+  }
+
+  if (sections.includes('clientes')) {
+    const map = {};
+    okSales.forEach(x => {
+      const k = x.clientId ? 'c' + x.clientId : 'n:' + x.clientName;
+      map[k] = map[k] || { nome: x.clientName, notas: 0, total: 0, ultima: x.timestamp };
+      map[k].notas++; map[k].total += Number(x.finalTotal || 0);
+      if (new Date(x.timestamp) > new Date(map[k].ultima)) map[k].ultima = x.timestamp;
+    });
+    const rows = Object.values(map).sort((a, b) => b.total - a.total)
+      .map(v => [escapeHtml(v.nome), v.notas, `<b>${escapeHtml(reportMoney(v.total))}</b>`, reportDateTime(v.ultima)]);
+    html += `<h3 ${h3}>Valor pago por cliente</h3>` + table(['Cliente', 'Notas', 'Total pago', 'Último pagamento'], rows, { rightCols: [1, 2] });
+    html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total: <b style="color:${PURPLE};">${escapeHtml(reportMoney(bruto))}</b></p>`;
+  }
+
+  if (sections.includes('servicos')) {
+    const map = {};
+    okSales.forEach(x => (x.items || []).forEach(i => {
+      const k = (i.name || 'Sem nome').replace(/\s*\(Prêmio[^)]*\)\s*$/i, '');
+      map[k] = map[k] || { pagos: 0, premios: 0, valor: 0 };
+      if (i.isFidelityReward) map[k].premios += Number(i.qtd || 1);
+      else { map[k].pagos += Number(i.qtd || 1); map[k].valor += Number(i.price || 0) * Number(i.qtd || 1); }
+    }));
+    const rows = Object.entries(map).sort((a, b) => b[1].pagos - a[1].pagos)
+      .map(([n, v]) => [escapeHtml(n), v.pagos, v.premios, reportMoney(v.valor)]);
+    html += `<h3 ${h3}>Procedimentos vendidos</h3>` + table(['Procedimento', 'Qtd paga', 'Prêmios (grátis)', 'Valor de tabela'], rows, { rightCols: [1, 2, 3] });
+    html += '<p style="font-size:10px;color:#6b5b7b;margin:4px 0 0;">Valores de tabela, antes dos descontos dados na nota. O valor realmente pago está em "Vendas brutas".</p>';
+  }
+
+  if (sections.includes('canceladas')) {
+    const rows = canceledSales.map(x => [reportDateTime(x.timestamp), escapeHtml(x.clientName), escapeHtml((x.items || []).map(i => `${i.qtd}x ${i.name}`).join(', ')), escapeHtml(x.method || ''), `<b style="color:#9b1c4a;">${escapeHtml(reportMoney(x.finalTotal))}</b>`]);
+    html += `<h3 ${h3}>Notas canceladas (${canceledSales.length})</h3>` + table(['Data/Hora', 'Cliente', 'Itens', 'Formas', 'Valor'], rows, { rightCols: [4] });
+    if (rows.length) html += `<p style="font-size:12px;text-align:right;margin:6px 0 0;">Total cancelado: <b style="color:#9b1c4a;">${escapeHtml(reportMoney(canceladoTotal))}</b></p>`;
+  }
+
+  if (sections.includes('fidelidade')) {
+    const label = o => o === 'indicacao' ? '3 indicações (Íntima grátis)' : 'Cartão completo (10 selos)';
+    const rows = rewardRows.map(r => [reportDateTime(r.sale.timestamp), escapeHtml(r.sale.clientName), label(r.origin),
+      r.sale.status === 'Cancelada' ? '<b style="color:#be123c;">Nota cancelada</b>' : '<span style="color:#047857;font-weight:700;">Utilizado</span>']);
+    html += `<h3 ${h3}>Uso do cartão fidelidade (${escapeHtml(rewardsValid)} válido(s))</h3>` + table(['Data/Hora', 'Cliente', 'Prêmio', 'Situação'], rows);
+  }
+
+  if (sections.includes('caixa')) {
+    const t = { dinheiro: 0, pix: 0, credito: 0, debito: 0, saldo: 0, fundo: 0, supr: 0, sangria: 0 };
+    okSales.forEach(x => {
+      t.dinheiro += Number(x.cashAmount || 0); t.pix += Number(x.pixAmount || 0);
+      t.credito += Number(x.cardCreditAmount || 0); t.debito += Number(x.cardDebitAmount || 0); t.saldo += Number(x.creditAmount || 0);
+    });
+    periodOps.forEach(o => {
+      if (o.type === 'fundo') t.fundo += Number(o.amount);
+      if (o.type === 'suprimento' || o.type === 'recarga_credito') t.supr += Number(o.amount);
+      if (o.type === 'sangria') t.sangria += Number(o.amount);
+    });
+    const gaveta = t.fundo + t.dinheiro + t.supr - t.sangria;
+    html += `<h3 ${h3}>Fechamento de caixa</h3>` + table(['Item', 'Valor'], [
+      ['Notas finalizadas', okSales.length], ['<b>Vendas brutas</b>', `<b>${escapeHtml(reportMoney(bruto))}</b>`], ['Descontos concedidos', reportMoney(descontos)],
+      ['Notas canceladas', `${canceledSales.length} (${reportMoney(canceladoTotal)})`], ['Prêmios de fidelidade usados', rewardsValid],
+      ['Dinheiro (líquido de troco)', reportMoney(t.dinheiro)], ['PIX', reportMoney(t.pix)], ['Cartão de crédito', reportMoney(t.credito)],
+      ['Cartão de débito', reportMoney(t.debito)], ['Saldo em crédito usado', reportMoney(t.saldo)],
+      ['Fundo de abertura', reportMoney(t.fundo)], ['Suprimentos', reportMoney(t.supr)], ['Sangrias', reportMoney(t.sangria)],
+      ['<b>Dinheiro esperado na gaveta</b>', `<b>${escapeHtml(reportMoney(gaveta))}</b>`]
+    ], { rightCols: [1] });
+  }
+
+  if (sections.includes('lista')) {
+    const cell = {
+      data: a => fmtDate(a.date), hora: a => escapeHtml(a.time), nome: a => escapeHtml(a.clientName) + (a.isFirstTime ? ' ⭐' : ''),
+      telefone: a => escapeHtml(a.phone || ''), genero: a => escapeHtml(a.gender || ''),
+      servicos: a => escapeHtml(a.serviceName || ''), profissional: a => escapeHtml(a.professional || ''), status: a => escapeHtml(a.status)
+    };
+    html += `<h3 ${h3}>Agenda: atendimentos (${apps.length})</h3>` + table(columns.map(c => c.label), apps.map(a => columns.map(c => cell[c.key](a))));
+  }
+
+  if (sections.includes('profissionais')) {
+    const map = {};
+    apps.forEach(a => {
+      const k = a.professional || 'Sem preferência';
+      map[k] = map[k] || { qtd: 0, clientes: new Set() };
+      map[k].qtd++; map[k].clientes.add(a.clientId);
+    });
+    const rows = Object.entries(map).sort((a, b) => b[1].qtd - a[1].qtd).map(([n, v]) => [escapeHtml(n), v.qtd, v.clientes.size]);
+    html += `<h3 ${h3}>Atendimentos por depiladora</h3>` + table(['Depiladora', 'Atendimentos', 'Clientes'], rows, { rightCols: [1, 2] });
+  }
+
+  if (sections.includes('inativas')) {
+    const limite = new Date(); limite.setMonth(limite.getMonth() - inactiveMonths);
+    const rows = [];
+    clientsList.filter(c => gender === 'TODOS' || c.gender === gender).forEach(c => {
+      const ultima = getClientLastAppointmentDate(c.id);
+      if (!ultima) { if (includeNever) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), 'Nunca atendida', '-']); return; }
+      const t = new Date(ultima + 'T23:59:59');
+      if (t < limite) rows.push([escapeHtml(c.name), escapeHtml(c.phone || ''), fmtDate(ultima), Math.floor((Date.now() - t.getTime()) / 86400000) + ' dias']);
+    });
+    rows.sort((a, b) => a[0].localeCompare(b[0]));
+    html += `<h3 ${h3}>Clientes inativas há mais de ${escapeHtml(inactiveMonths)} mês(es) (${rows.length})</h3>` + table(['Cliente', 'Telefone', 'Último atendimento', 'Sem vir há'], rows);
+  }
+
+  const end1 = [companyConfig.street, companyConfig.number].filter(Boolean).join(', ');
+  const end2 = [companyConfig.bairro, companyConfig.city && companyConfig.state ? `${companyConfig.city}/${companyConfig.state}` : (companyConfig.city || '')].filter(Boolean).join(' - ');
+  html += `<div style="margin-top:22px;padding-top:8px;border-top:2px solid ${GOLD};font-size:9.5px;color:#6b5b7b;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span>${escapeHtml(companyConfig.name || '')} • ${escapeHtml(end1)}${escapeHtml(end2 ? ' • ' + escapeHtml(end2) : '')}${escapeHtml(companyConfig.whatsapp ? ' • WhatsApp ' + escapeHtml(companyConfig.whatsapp) : '')}</span>
+      <span>Emitido em ${escapeHtml(reportDateTime(Date.now()))} (Brasília)</span>
+    </div></div>`;
+  return { html };
+}
+
+function previewCustomReport() {
+  const r = buildReportHTML();
+  const box = document.getElementById('rp-preview');
+  if (r.error) { showToast(r.error, 'warning'); return; }
+  box.innerHTML = r.html;
+  box.classList.remove('hidden');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function printCustomReport() {
+  const r = buildReportHTML();
+  if (r.error) { showToast(r.error, 'warning'); return; }
+  document.getElementById('printable-report-target').innerHTML = r.html;
+  document.body.classList.add('printing-report');
+  const cleanup = () => {
+    document.body.classList.remove('printing-report');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(() => window.print(), 80);
+}
