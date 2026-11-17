@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Página não encontrada — DepilClear</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#4c1d95">
+  <link rel="icon" type="image/webp" href="/icon-192.webp">
+  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
+  <style>
+    :root { --bg: #faf7fd; --card: #ffffff; --text: #1e1530; --muted: #475569; --border: #e9def5; --accent: #6d28d9; }
+    html.dark { --bg: #0d0716; --card: #170e28; --text: #f1f5f9; --muted: #cbd5e1; --border: #2e1f47; --accent: #a78bfa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--text); font: 15px/1.5 Montserrat, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { width: 100%; max-width: 440px; text-align: center; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 36px 28px; box-shadow: 0 20px 50px -20px rgba(76, 29, 149, .35); animation: up .35s cubic-bezier(.2,.7,.2,1) both; }
+    img { width: 180px; height: auto; margin-bottom: 8px; }
+    html.dark img { background: #fff; border-radius: 14px; padding: 6px 12px; }
+    .code { font-size: 56px; font-weight: 800; letter-spacing: -2px; margin: 8px 0 0; color: var(--accent); }
+    h1 { font-size: 20px; margin: 4px 0 8px; }
+    p { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    a, button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; border-radius: 16px; font: inherit; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
+    .primary { background: linear-gradient(90deg, #4c1d95, #7c3aed); color: #fff; border: 1px solid rgba(212,175,55,.5); }
+    .secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    :focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
+    @keyframes up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { main { animation: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/logo.webp" alt="DepilClear Women & Men" width="640" height="347">
+    <p class="code" id="err-code" aria-hidden="true">404</p>
+    <h1 id="err-title">Página não encontrada</h1>
+    <p id="err-text">O endereço digitado não existe ou foi movido. Volte ao sistema para continuar.</p>
+    <div class="actions">
+      <a class="primary" href="/">Voltar ao sistema</a>
+      <button class="secondary" type="button" onclick="history.length > 1 ? history.back() : location.assign('/')">Página anterior</button>
+    </div>
+  </main>
+  <script>
+    // Mesma página para outros erros: /404.html?e=500 | 403 | offline
+    (function () {
+      var msgs = {
+        '403': ['Acesso negado', 'Você não tem permissão para ver esta página. Entre com um usuário autorizado.'],
+        '500': ['Erro no servidor', 'Algo deu errado do nosso lado. Tente novamente em alguns instantes.'],
+        'offline': ['Sem conexão', 'Não foi possível carregar esta página sem internet. Verifique a conexão e tente de novo.']
+      };
+      var e = new URLSearchParams(location.search).get('e');
+      if (!msgs[e]) return;
+      document.getElementById('err-code').textContent = e === 'offline' ? '⚡' : e;
+      document.getElementById('err-title').textContent = msgs[e][0];
+      document.getElementById('err-text').textContent = msgs[e][1];
+      document.title = msgs[e][0] + ' — DepilClear';
+    })();
+  </script>
+</body>
+</html>
