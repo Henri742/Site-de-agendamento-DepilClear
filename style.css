@@ -351,3 +351,103 @@ html.dark .text-brand-violet { color: #a78bfa; }
 
 /* painel de modal recebe foco programático sem anel */
 [tabindex="-1"]:focus { outline: none; }
+
+/* ========================================================
+ * ANIMAÇÕES (só transform/opacity: rodam na GPU, sem recalcular layout)
+ * ======================================================== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Troca de aba */
+.tab-pane:not(.hidden) { animation: fadeUp 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* Cartão de login */
+#view-login > .max-w-md { animation: fadeUp 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* Modais: fundo esmaece, painel sobe */
+[role="dialog"]:not(.hidden) { animation: overlayIn 0.16s ease-out both; }
+[role="dialog"]:not(.hidden) > div { animation: modalIn 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Botão de login ocupado */
+#login-submit[disabled] { opacity: 0.75; cursor: progress; }
+
+/* Linhas clicáveis da tabela com foco de teclado visível */
+tr[tabindex="0"]:focus-visible { outline: 2px solid #d4af37; outline-offset: -2px; }
+
+/* ========================================================
+ * AÇÃO PRINCIPAL FIXA NO CELULAR (FAB)
+ * ======================================================== */
+#mobile-fab { display: none; }
+@media (max-width: 767px) {
+  #mobile-fab:not([hidden]) {
+    display: flex;
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 35;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 20px;
+    border-radius: 9999px;
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    background: linear-gradient(90deg, #4c1d95, #7c3aed);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 10px 25px -5px rgba(76, 29, 149, 0.55);
+    animation: fadeUp 0.25s ease-out both;
+  }
+  /* Conteúdo não fica escondido atrás do botão */
+  #view-dashboard main { padding-bottom: 88px; }
+  /* Avisos aparecem acima do botão */
+  #toast-wrapper { bottom: calc(84px + env(safe-area-inset-bottom)); right: 0; }
+}
+
+/* Mensagens do login (cores fixas: estas classes não estão no tailwind.css compilado) */
+#login-error { color: #9f1239; background: #fff1f2; border-color: #fecdd3; }
+html.dark #login-error { color: #fecdd3; background: rgba(136, 19, 55, 0.35); border-color: #881337; }
+#login-caps { color: #92400e; }
+html.dark #login-caps { color: #fcd34d; }
+
+/* Botões de ação das tabelas ficam lado a lado (no celular empilhavam e cada linha ficava enorme) */
+#clients-table-body td:last-child { white-space: nowrap; }
+
+/* ========================================================
+ * CONTRASTE (WCAG AA) no tema ESCURO — medido em todas as abas
+ * ======================================================== */
+html.dark .text-slate-500 { color: #94a3b8; }
+html.dark .text-emerald-600\/80 { color: #34d399; }
+html.dark .text-amber-600\/80 { color: #fbbf24; }
+html.dark .bg-brand-lightBorder.rounded-full { background-color: #2e1f47; }
+/* etiquetas de categoria no mural: a cor do texto vem inline e é escura */
+html.dark .sheet-table span[style*="color"] { color: #f1f5f9 !important; }
+/* texto branco sobre âmbar (ambos os temas): âmbar mais escuro */
+.bg-amber-600 { background-color: #b45309; }
+.hover\:bg-amber-500:hover { background-color: #d97706; }
+
+/* CONTRASTE no tema CLARO — complementos medidos */
+html:not(.dark) .text-pink-500 { color: #be185d; }
+html:not(.dark) .text-teal-500,
+html:not(.dark) .text-teal-600 { color: #0f766e; }
+html:not(.dark) .text-emerald-600,
+html:not(.dark) .text-emerald-600\/80 { color: #047857; }
+html:not(.dark) .text-amber-600\/80 { color: #92400e; }
+/* dourado sobre roxo escuro (iniciais da depiladora) continua dourado claro */
+html:not(.dark) .bg-brand-purpleDeep.text-brand-gold { color: #d4af37; }
+
+/* Toque: botões só com ícone ganham área mínima de 40px (WCAG 2.5.8) */
+@media (pointer: coarse) {
+  :is(main, [role="dialog"]) :is(button.p-1, button.p-1\.5, button.p-2):has(> svg:only-child) {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

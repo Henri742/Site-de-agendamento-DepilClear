@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- Evita o "piscar" da tela de login quando já existe sessão ativa -->
   <style>html.has-session #view-login{display:none !important}</style>
-  <script>try{var t=sessionStorage.getItem('depilclear_token');if(t){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(p&&p.exp*1000>Date.now()){document.documentElement.classList.add('has-session')}}}catch(e){}</script>
+  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}try{var t=sessionStorage.getItem('depilclear_token');if(t){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(p&&p.exp*1000>Date.now()){document.documentElement.classList.add('has-session')}}}catch(e){}</script>
   <title>DepilClear Women & Men - Sandra Ramos</title>
   <meta name="description" content="Sistema interno de agendamentos, recepção e caixa da DepilClear Women & Men - Sandra Ramos.">
   <meta name="robots" content="noindex, nofollow">
@@ -18,13 +18,13 @@
 
   <!-- Lucide Icons & SheetJS Style -->
   <!-- SEGURANÇA: versão fixa. O hash SRI (integrity="sha384-...") é gerado por "node tools/generate-sri.mjs" (precisa de internet). Tailwind CDN é runtime e não aceita SRI: ver SEGURANCA.md e vercel.json (CSP). -->
-  <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" crossorigin="anonymous" data-sri-pending></script>
+  <script defer src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" crossorigin="anonymous" data-sri-pending></script>
   <meta name="lazy-xlsx" content="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" data-sri-pending>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,800;1,400;1,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..900&display=swap" rel="stylesheet">
   <!-- Ícone da Aba do Navegador (Evita o erro 404 de favicon.ico) -->
   <link rel="icon" type="image/webp" href="icon-192.webp">
   <link rel="stylesheet" href="tailwind.css">
@@ -80,7 +80,7 @@
 
       <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Endereço de e-mail</label>
+          <label for="login-email" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail</label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
               <i data-lucide="mail" class="w-4 h-4"></i>
@@ -89,14 +89,15 @@
               type="email" 
               id="login-email" 
               required 
-              placeholder="Digite seu e-mail"
-              class="w-full pl-10 pr-4 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
+              autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" autofocus
+              placeholder="seu@email.com"
+              class="w-full pl-10 pr-4 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
             >
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Senha</label>
+          <label for="login-password" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Senha</label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
               <i data-lucide="lock" class="w-4 h-4"></i>
@@ -105,29 +106,34 @@
               type="password" 
               id="login-password" 
               required 
-              placeholder="Digite sua senha"
-              class="w-full pl-10 pr-11 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
+              autocomplete="current-password"
+              placeholder="Sua senha"
+              class="w-full pl-10 pr-11 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
             >
             <button 
               type="button" 
               onclick="toggleLoginPassword()" 
-              class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              id="login-eye-btn" aria-label="Mostrar senha" aria-pressed="false"
+              class="absolute inset-y-0 right-0 px-3.5 flex items-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-r-2xl"
             >
               <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
+        <p id="login-error" role="alert" aria-live="assertive" class="hidden text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl px-3 py-2"></p>
+        <p id="login-caps" aria-live="polite" class="hidden text-[11px] font-semibold text-amber-800 dark:text-amber-300">Caps Lock está ativado.</p>
+
         <button 
-          type="submit" 
-          class="w-full py-3.5 bg-gradient-to-r from-brand-purpleDeep via-brand-violet to-brand-purpleDeep hover:brightness-110 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 mt-2 border border-brand-gold/40"
+          type="submit" id="login-submit"
+          class="w-full min-h-[48px] py-3.5 bg-gradient-to-r from-brand-purpleDeep via-brand-violet to-brand-purpleDeep hover:brightness-110 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 mt-2 border border-brand-gold/40"
         >
-          <span>ENTRAR NO SISTEMA</span>
+          <span id="login-submit-text">Entrar</span>
           <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
       </form>
       <p class="mt-4 text-center text-[11px] text-slate-500 dark:text-slate-400">
-        Ao entrar, você concorda com o uso de dados descrito na <a href="privacidade.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Política de Privacidade</a>.
+        Ao entrar, você concorda com os <a href="termos.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Termos de Uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Política de Privacidade</a>.
       </p>
     </div>
   </section>
@@ -137,6 +143,10 @@
   <!-- ========================================== -->
   <div id="view-dashboard" class="hidden w-full h-screen flex-col md:flex-row overflow-hidden">
     <div id="mobile-menu-overlay" onclick="closeMobileMenu()" class="hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"></div>
+    <!-- Ação principal da aba atual, fixa no celular (preenchida por updateMobileFab em app.js) -->
+    <button type="button" id="mobile-fab" hidden onclick="runMobileFab()">
+      <i data-lucide="plus" class="w-5 h-5"></i><span id="mobile-fab-label">Novo</span>
+    </button>
     
     <!-- Sidebar Desktop -->
     <aside id="app-sidebar" class="w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
@@ -219,6 +229,7 @@
         <div class="truncate">
           <p id="user-display-email" class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">admin@depilclear.com</p>
           <a href="privacidade.html" target="_blank" rel="noopener" class="text-[10px] text-brand-violet underline font-semibold">Política de Privacidade</a>
+          <a href="termos.html" target="_blank" rel="noopener" class="text-[10px] text-brand-violet underline font-semibold ml-2">Termos de Uso</a>
           <span id="storage-status-badge" class="text-[10px] text-brand-gold font-medium flex items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Gravando Localmente
           </span>
@@ -1651,7 +1662,7 @@
     </div>
 
     <canvas id="hidden-render-canvas" class="hidden"></canvas>
-    <script src="security.js"></script>
-    <script src="app.js"></script>
+    <script defer src="security.js"></script>
+    <script defer src="app.js"></script>
 </body>
 </html>

@@ -296,19 +296,30 @@ async function handleLoginSubmit(event) {
   const email = emailInput ? emailInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
+  const submitBtn = document.getElementById('login-submit');
+  const submitText = document.getElementById('login-submit-text');
+  const errorBox = document.getElementById('login-error');
+  const showLoginError = (msg) => {
+    if (errorBox) { errorBox.textContent = msg; errorBox.classList.remove('hidden'); }
+    else showToast(msg, 'error');
+  };
+  if (errorBox) errorBox.classList.add('hidden');
+
   if (!email || !password) {
-    showToast('Preencha seu e-mail e senha.', 'warning');
+    showLoginError('Preencha seu e-mail e senha.');
     return false;
   }
 
   // Em produção, credenciais só trafegam por HTTPS
   const isLocalHost = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
   if (location.protocol !== 'https:' && !isLocalHost) {
-    showToast('Conexão não segura. Acesse o sistema por HTTPS para entrar.', 'error');
+    showLoginError('Conexão não segura. Acesse o sistema por HTTPS para entrar.');
     return false;
   }
 
-  showToast('A verificar credenciais...', 'info');
+  if (submitBtn?.disabled) return false; // evita duplo envio
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitText) submitText.textContent = 'Entrando…';
 
   try {
     const resposta = await fetch('/api/login', {
@@ -317,15 +328,17 @@ async function handleLoginSubmit(event) {
       body: JSON.stringify({ email, password })
     });
 
-    const dados = await resposta.json();
+    // Se o servidor devolver HTML (erro 404/500 da hospedagem), não quebra no JSON
+    const dados = await resposta.json().catch(() => ({}));
 
     if (!resposta.ok) {
-      showToast(dados.erro || 'Credenciais inválidas.', 'error');
+      showLoginError(dados.erro || (resposta.status >= 500 ? 'Servidor indisponível. Tente novamente em instantes.' : 'E-mail ou senha incorretos.'));
+      passwordInput?.select();
       return false;
     }
 
     if (!tokenLooksValid(dados.token || '')) {
-      showToast('Resposta de login inválida. Tente novamente.', 'error');
+      showLoginError('Resposta de login inválida. Tente novamente.');
       return false;
     }
     // O acesso depende do TOKEN (validado no servidor em /api/me). Nada de flag booleana.
@@ -353,7 +366,10 @@ async function handleLoginSubmit(event) {
     lucide.createIcons();
   } catch (erro) {
     console.error('Erro de conexão:', erro);
-    showToast('Erro ao ligar ao servidor.', 'error');
+    showLoginError(navigator.onLine ? 'Não foi possível falar com o servidor. Tente novamente.' : 'Sem internet. Conecte-se para entrar.');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (submitText) submitText.textContent = 'Entrar';
   }
 
   return false;
@@ -363,15 +379,20 @@ function toggleLoginPassword() {
   const pwd = document.getElementById('login-password');
   const eyeIcon = document.getElementById('login-eye-icon');
   if (!pwd) return;
-  if (pwd.type === 'password') {
-    pwd.type = 'text';
-    eyeIcon?.setAttribute('data-lucide', 'eye-off');
-  } else {
-    pwd.type = 'password';
-    eyeIcon?.setAttribute('data-lucide', 'eye');
-  }
+  const btn = document.getElementById('login-eye-btn');
+  const mostrar = pwd.type === 'password';
+  pwd.type = mostrar ? 'text' : 'password';
+  eyeIcon?.setAttribute('data-lucide', mostrar ? 'eye-off' : 'eye');
+  btn?.setAttribute('aria-label', mostrar ? 'Ocultar senha' : 'Mostrar senha');
+  btn?.setAttribute('aria-pressed', String(mostrar));
   lucide.createIcons();
 }
+
+// Aviso de Caps Lock no campo de senha
+document.addEventListener('keyup', (e) => {
+  if (e.target?.id !== 'login-password' || typeof e.getModifierState !== 'function') return;
+  document.getElementById('login-caps')?.classList.toggle('hidden', !e.getModifierState('CapsLock'));
+});
 
 function handleLogout(message) {
   clearSession();
@@ -441,7 +462,31 @@ function switchTab(tabId) {
   }
 
   renderAllViews();
+  updateMobileFab(tabId);
   lucide.createIcons();
+}
+
+// Botão de ação fixo no celular: mostra a ação principal da aba aberta
+const MOBILE_FAB_ACTIONS = {
+  dashboard: ['Novo agendamento', () => openNewAppointmentModal()],
+  agendamentos: ['Novo agendamento', () => openNewAppointmentModal()],
+  recepcao: ['Novo agendamento', () => openNewAppointmentModal()],
+  clientes: ['Nova cliente', () => openClientModal()],
+  servicos: ['Novo serviço', () => openServiceModal()],
+  categorias: ['Nova categoria', () => openCategoryModal()],
+  profissionais: ['Nova depiladora', () => openProfessionalModal()]
+};
+let currentMobileFabTab = 'agendamentos';
+function updateMobileFab(tabId) {
+  currentMobileFabTab = tabId;
+  const fab = document.getElementById('mobile-fab');
+  const acao = MOBILE_FAB_ACTIONS[tabId];
+  if (!fab) return;
+  fab.hidden = !acao;
+  if (acao) document.getElementById('mobile-fab-label').textContent = acao[0];
+}
+function runMobileFab() {
+  MOBILE_FAB_ACTIONS[currentMobileFabTab]?.[1]();
 }
 
 function showToast(message, type = 'info') {
@@ -569,12 +614,22 @@ function generate15MinSlots() {
 }
 
 // Último agendamento (não cancelado) da cliente, em 'YYYY-MM-DD', ou null se ainda não tem nenhum
+// Índice clientId -> última data, refeito a cada tarefa (antes: varria todos os agendamentos POR cliente,
+// o que deixava a lista de clientes lenta com milhares de registros).
+let _lastDateIndex = null;
 function getClientLastAppointmentDate(clientId) {
-  const datas = appointmentsList
-    .filter(a => String(a.clientId) === String(clientId) && a.status !== 'Cancelado' && a.date)
-    .map(a => a.date)
-    .sort();
-  return datas.length ? datas[datas.length - 1] : null;
+  if (!_lastDateIndex || _lastDateIndex.list !== appointmentsList || _lastDateIndex.len !== appointmentsList.length) {
+    const map = new Map();
+    for (const a of appointmentsList) {
+      if (a.status === 'Cancelado' || !a.date) continue;
+      const k = String(a.clientId);
+      const atual = map.get(k);
+      if (!atual || a.date > atual) map.set(k, a.date);
+    }
+    _lastDateIndex = { map, list: appointmentsList, len: appointmentsList.length };
+    queueMicrotask(() => { _lastDateIndex = null; });
+  }
+  return _lastDateIndex.map.get(String(clientId)) || null;
 }
 
 // 'nova'    = cadastrada, mas ainda sem nenhum agendamento
@@ -2271,7 +2326,6 @@ function renderClientsView() {
   }
 
   tbody.innerHTML = list.map(c => {
-    const inactive = isClientInactive(c.id);
     return `
       <tr 
         oncontextmenu="showCustomContextMenu(event, 'client', ${Number(c.id)})" 
@@ -3330,18 +3384,22 @@ function generateWhatsAppSheetImage(action) {
     a.click();
     showToast('Imagem PNG baixada com sucesso!', 'success');
   } else {
+    // Sem permissão de área de transferência (promessa rejeitada ou API ausente): baixa a imagem
+    const baixar = () => {
+      const a = document.createElement('a');
+      a.download = `Mural_DepilClear_${currentSelectedDate}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      showToast('Imagem baixada para envio no WhatsApp!', 'info');
+    };
     canvas.toBlob(blob => {
       try {
         const item = new ClipboardItem({ 'image/png': blob });
-        navigator.clipboard.write([item]).then(() => {
-          showToast('Imagem copiada! Cole no WhatsApp Web com Ctrl+V.', 'success');
-        });
+        navigator.clipboard.write([item])
+          .then(() => showToast('Imagem copiada! Cole no WhatsApp Web com Ctrl+V.', 'success'))
+          .catch(baixar);
       } catch (err) {
-        const a = document.createElement('a');
-        a.download = `Mural_DepilClear_${currentSelectedDate}.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-        showToast('Imagem baixada para envio no WhatsApp!', 'info');
+        baixar();
       }
     });
   }
@@ -3367,14 +3425,19 @@ function renderAllViews() {
   const badgeAppCount = document.getElementById('badge-agendamentos-count');
   if (badgeAppCount) badgeAppCount.innerText = appointmentsList.filter(a => a.status !== 'Cancelado').length;
 
-  renderAgendaView();
-  renderPhysicalReceptionSheet();
-  renderClientsView();
-  renderServicesView();
-  renderCategoriesView();
-  renderProfessionalsView();
-  renderWhatsAppTemplatesList();
-  renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
+  const badgeClients = document.getElementById('badge-clientes-count');
+  if (badgeClients) badgeClients.innerText = clientsList.length;
+
+  // Só redesenha a aba visível: as ocultas são redesenhadas pelo switchTab quando forem abertas.
+  const visible = (id) => !document.getElementById(id)?.classList.contains('hidden');
+  if (visible('section-agendamentos')) renderAgendaView();
+  if (visible('section-recepcao')) renderPhysicalReceptionSheet();
+  if (visible('section-clientes')) renderClientsView();
+  if (visible('section-servicos')) renderServicesView();
+  if (visible('section-categorias')) renderCategoriesView();
+  if (visible('section-profissionais')) renderProfessionalsView();
+  if (visible('section-configuracoes')) renderWhatsAppTemplatesList();
+  if (visible('section-fidelidade')) renderFidelidadeCardsGrid(document.getElementById('fidelidade-search-input')?.value || '');
 }
 
 window.addEventListener('online', () => {
@@ -3435,7 +3498,8 @@ async function checkUserSession() {
   return true;
 }
 
-window.onload = function() {
+// DOMContentLoaded (e não window.onload): não espera fontes/imagens para liberar a tela
+document.addEventListener('DOMContentLoaded', function() {
   loadAllFromLocalStorage();
 
   if (localStorage.getItem('depilclear_theme') === 'dark') {
@@ -3444,12 +3508,8 @@ window.onload = function() {
     document.documentElement.classList.remove('dark');
   }
 
-  const emailInput = document.getElementById('login-email');
-  const pwdInput = document.getElementById('login-password');
-  if (emailInput) emailInput.value = '';
-  if (pwdInput) pwdInput.value = '';
-
   checkUserSession();
+  updateMobileFab('agendamentos');
   applyCompanyConfigToUI();
   if (!navigator.onLine) window.dispatchEvent(new Event('offline'));
   lucide.createIcons();
@@ -3459,7 +3519,7 @@ window.onload = function() {
       .then(() => console.log('Service Worker registado com sucesso!'))
       .catch((err) => console.error('Falha ao registar o Service Worker:', err));
   }
-};
+});
 
 /* ========================================================
  * CONTADORES DINÂMICOS (AGENDA E MURAL)

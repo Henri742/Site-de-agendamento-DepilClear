@@ -35,7 +35,7 @@ export default async function handler(req, res) {
 
   const supabase = getSupabase();
   if (!supabase) {
-    console.error('[FIDELIDADE] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não configurados.');
+    console.error(`[FIDELIDADE] variáveis ausentes: ${[!process.env.SUPABASE_URL && 'SUPABASE_URL', !process.env.SUPABASE_SERVICE_ROLE_KEY && 'SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean).join(', ')}`);
     return res.status(500).json({ erro: 'Configuração interna do servidor pendente.' });
   }
 

@@ -30,8 +30,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Método não permitido.' });
 
   // Falha FECHADO: sem configuração completa, ninguém entra
-  if (!JWT_SECRET || !SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('ERRO CRÍTICO: JWT_SECRET, SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados.');
+  const faltando = [['JWT_SECRET', JWT_SECRET], ['SUPABASE_URL', SUPABASE_URL], ['SUPABASE_SERVICE_ROLE_KEY', SUPABASE_KEY]]
+    .filter(([, valor]) => !valor).map(([nome]) => nome);
+  if (faltando.length) {
+    // Só o NOME da variável vai para o log da Vercel (nunca o valor). Procure por "ERRO CRÍTICO" em Logs.
+    console.error(`ERRO CRÍTICO: variáveis de ambiente ausentes na Vercel: ${faltando.join(', ')}`);
     return res.status(500).json({ erro: 'Configuração interna do servidor pendente.' });
   }
 

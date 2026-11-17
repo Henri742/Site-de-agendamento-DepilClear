@@ -1470,4 +1470,4 @@ function closeModal(id) {
   document.getElementById(id)?.classList.add('hidden');
 }
 
-window.onload = initPOS;
+document.addEventListener('DOMContentLoaded', initPOS);

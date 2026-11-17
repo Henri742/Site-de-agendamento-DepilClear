@@ -24,7 +24,7 @@ Escopo: `index.html`, `app.js`, `caixa.html`, `caixa.js`, `security.js` (novo), 
 | 5 | Médio | WhatsApp: telefone pouco validado, sem auditoria | `^55\d{10,11}$`; mensagem ≤ 2000; rate limit 30/min; auditoria (usuário, telefone **mascarado**, horário, tamanho — sem o texto). Erro do gateway só no log. |
 | 6 | Médio | Credenciais por HTTP | `handleLoginSubmit` exige HTTPS fora de `localhost`. |
 | 6 | Médio | 401 não deslogava | `authFetch` intercepta 401 → `handleLogout()`. |
-| 6 | Baixo | Cache do SW | `depilclear-offline-v4`; comentário sobre respostas opacas de CDN. |
+| 6 | Baixo | Cache do SW | `depilclear-offline-v5`; comentário sobre respostas opacas de CDN. |
 | 6 | Baixo | Resposta de login com id interno | Retorna só `nome`, `email`, `funcao`. |
 
 ## (b) Limitações residuais (leia com atenção)
@@ -37,7 +37,9 @@ Escopo: `index.html`, `app.js`, `caixa.html`, `caixa.js`, `security.js` (novo), 
 6. **Rate limit sem Upstash** é por instância (melhor esforço). Configure `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Limite por IP depende de `x-forwarded-for` da Vercel; atrás de NAT, usuários legítimos compartilham o contador.
 7. **Revogação de token:** o `jti` já existe, mas não há lista de revogação; logout limpa só o navegador (o token vale até 8 h).
 8. **Lembretes/mensagens agendadas** só rodam com o sistema aberto (não há servidor 24 h).
-9. **`ADMIN_ROLES`**: o padrão é `admin`. Se a coluna `funcao` do seu banco usar outro valor, configure a variável, senão POST/DELETE em `/api/fidelidade` retornam 403 (hoje o front não usa essa rota).
+8b. **A sessão vale por aba do navegador** (fica em `sessionStorage`): abrir o caixa pelo botão do menu funciona (mesma aba); abrir `caixa.html` em uma aba nova, digitando o endereço, pede login de novo.
+9. **Exportar para Excel sob a CSP** não foi testado em produção: se o console mostrar erro de `unsafe-eval` ao exportar, acrescente `'unsafe-eval'` ao `script-src` do `vercel.json`.
+9b. **`ADMIN_ROLES`**: o padrão é `admin`. Se a coluna `funcao` do seu banco usar outro valor, configure a variável, senão POST/DELETE em `/api/fidelidade` retornam 403 (hoje o front não usa essa rota).
 
 ## Plano de migração resumido (dados → Supabase)
 

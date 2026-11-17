@@ -11,16 +11,16 @@
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preload" as="image" href="logo.webp" type="image/webp">
   <link rel="icon" type="image/webp" href="icon-192.webp">
-  <script>document.documentElement.classList.add('auth-pending')</script>
+  <script>document.documentElement.classList.add('auth-pending');try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
 
   <!-- Tailwind CSS CDN -->
 
   <!-- Lucide Icons & Google Fonts -->
   <!-- SEGURANÇA: versão fixa. O hash SRI (integrity="sha384-...") é gerado por "node tools/generate-sri.mjs" (precisa de internet). Tailwind CDN é runtime e não aceita SRI: ver SEGURANCA.md e vercel.json (CSP). -->
-  <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" crossorigin="anonymous" data-sri-pending></script>
+  <script defer src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" crossorigin="anonymous" data-sri-pending></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tailwind.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="caixa.css">
@@ -726,7 +726,7 @@
     <div id="custom-context-menu-content"></div>
   </div>
 
-  <script src="security.js"></script>
-  <script src="caixa.js"></script>
+  <script defer src="security.js"></script>
+  <script defer src="caixa.js"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "scripts": {
-    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o tailwind.css --minify"
+    "build:css": "tailwindcss -c tailwind.config.cjs -i tailwind.input.css -o tailwind.css --minify"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.19"

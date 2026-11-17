@@ -8,6 +8,42 @@
  *  3) Sessão: validação do JWT no servidor (/api/me) com limite offline
  * ======================================================== */
 
+/* ---------- 0) DESEMPENHO DOS ÍCONES ---------- */
+// lucide 0.462 ignora "root" e varre o documento INTEIRO a cada createIcons() (com milhares de linhas
+// isso custava ~90 ms por chamada, várias vezes por clique). Agrupa todas as chamadas da mesma tarefa
+// em uma só, executada antes da próxima pintura. Sem a CDN (offline sem cache), vira no-op em vez de quebrar.
+(function () {
+  if (!window.lucide || typeof window.lucide.createIcons !== 'function') {
+    window.lucide = { createIcons() {}, icons: {} };
+    return;
+  }
+  const original = window.lucide.createIcons;
+  let agendado = false;
+  // Só (re)desenha <i data-lucide> novos e <svg> cujo data-lucide mudou (ex.: olho da senha);
+  // os SVGs já corretos são pulados em vez de recriados.
+  function desenharPendentes() {
+    agendado = false;
+    let algum = false;
+    document.querySelectorAll('[data-lucide]').forEach((el) => {
+      const nome = el.getAttribute('data-lucide');
+      if (el.getAttribute('data-lucide-done') === nome) return;
+      el.setAttribute('data-lucide-todo', nome);
+      algum = true;
+    });
+    if (!algum) return;
+    original({ nameAttr: 'data-lucide-todo' });
+    document.querySelectorAll('[data-lucide-todo]').forEach((el) => {
+      el.setAttribute('data-lucide-done', el.getAttribute('data-lucide-todo'));
+      el.removeAttribute('data-lucide-todo');
+    });
+  }
+  window.lucide.createIcons = function () {
+    if (agendado) return;
+    agendado = true;
+    queueMicrotask(desenharPendentes);
+  };
+})();
+
 /* ---------- 1) PROTEÇÃO CONTRA XSS ---------- */
 
 // ÚNICA função de escape do projeto. Use em TODO dado dinâmico dentro de innerHTML,
@@ -409,13 +445,33 @@ function enhanceModalsA11y() {
   });
 }
 
+// Itens clicáveis que não são <button> (células do mural, cartões, linhas da tabela) ficam
+// acessíveis pelo teclado: entram no Tab e respondem a Enter/Espaço como um clique.
+const _NATIVE_CLICKABLE = 'button, a, input, select, textarea, label, summary';
+function makeClickablesFocusable() {
+  document.querySelectorAll('[onclick]:not([tabindex]):not([id^="modal-"])').forEach(el => {
+    if (el.matches(_NATIVE_CLICKABLE) || el.id === 'mobile-menu-overlay') return;
+    const h = el.getAttribute('onclick') || '';
+    if (/^\s*event\.stopPropagation\(\);?\s*$/.test(h) || h.includes('handleBackdropClick')) return;
+    el.setAttribute('tabindex', '0');
+    if (el.tagName !== 'TR' && !el.hasAttribute('role')) el.setAttribute('role', 'button');
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target;
+  if (!(el instanceof HTMLElement) || el.getAttribute('tabindex') !== '0' || !el.hasAttribute('onclick') || el.matches(_NATIVE_CLICKABLE)) return;
+  e.preventDefault();
+  el.click();
+});
+
 function initA11y() {
   enhanceModalsA11y();
-  labelIconButtons(); linkLabels();
+  labelIconButtons(); linkLabels(); makeClickablesFocusable();
   let timer = null;
   new MutationObserver(() => {
     clearTimeout(timer);
-    timer = setTimeout(() => { labelIconButtons(); linkLabels(); }, 250);
+    timer = setTimeout(() => { labelIconButtons(); linkLabels(); makeClickablesFocusable(); }, 250);
   }).observe(document.body, { childList: true, subtree: true });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initA11y); else initA11y();

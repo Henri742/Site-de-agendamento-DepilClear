@@ -3,7 +3,7 @@
 // ATENÇÃO: respostas de CDN guardadas aqui são "opacas" (no-cors): o navegador NÃO consegue conferir o
 // hash SRI delas ao servir do cache. A verificação de integridade acontece na 1ª carga pela rede; a cópia
 // em cache é confiável apenas se a 1ª carga foi legítima. Ao trocar de versão de CDN, suba o número do cache.
-const CACHE_NAME = 'depilclear-offline-v5';
+const CACHE_NAME = 'depilclear-offline-v7';
 
 const LOCAL_ASSETS = [
   '/',
@@ -19,7 +19,9 @@ const LOCAL_ASSETS = [
   '/icon-512.webp',
   '/tailwind.css',
   '/manifest.webmanifest',
-  '/privacidade.html'
+  '/privacidade.html',
+  '/termos.html',
+  '/404.html'
 ];
 
 // Bibliotecas externas das quais as telas dependem (sem elas o layout quebra offline)

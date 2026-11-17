@@ -94,7 +94,7 @@ depilclear-sistema/
 ├── caixa.html / caixa.js      # Frente de Caixa (PDV)
 ├── security.js                # Escape (XSS), HMAC de integridade, validação de sessão
 ├── tailwind.css               # CSS compilado (gere com: npm run build:css)
-├── tailwind.config.js / tailwind.input.css   # Configuração do Tailwind
+├── tailwind.config.cjs / tailwind.input.css   # Configuração do Tailwind
 ├── style.css / caixa.css      # Estilos
 ├── sw.js                      # Service Worker (offline) — cache v5
 ├── privacidade.html           # Política de Privacidade (LGPD)
