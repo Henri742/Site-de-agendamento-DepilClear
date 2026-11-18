@@ -18,7 +18,10 @@ export const ALLOWED_ORIGINS = [...DEFAULT_ORIGINS, ...EXTRA_ORIGINS];
 export function applyCors(req, res, methods = 'POST, OPTIONS') {
   const origin = req.headers.origin;
   res.setHeader('Vary', 'Origin');
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+  // Mesma origem (domínio de produção, preview da Vercel ou app instalado) sempre pode
+  let sameHost = false;
+  try { sameHost = !!origin && new URL(origin).host === (req.headers['x-forwarded-host'] || req.headers.host); } catch {}
+  if (origin && !sameHost && !ALLOWED_ORIGINS.includes(origin)) {
     res.status(403).json({ erro: 'Origem não permitida.' });
     return false;
   }
