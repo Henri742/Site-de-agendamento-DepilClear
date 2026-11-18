@@ -426,13 +426,27 @@ document.addEventListener('keydown', (e) => {
   el.click();
 });
 
+// Celular: cada célula recebe o nome da sua coluna (data-label) para a tabela virar lista de cartões no CSS.
+// Fica de fora a planilha do mural (precisa ser grade) e a lista de clientes (tem layout próprio).
+function rotularTabelas(root = document) {
+  root.querySelectorAll('table:not(.sheet-table)').forEach(t => {
+    if (t.querySelector('#clients-table-body')) return;
+    const nomes = [...t.querySelectorAll('thead th')].map(th => th.textContent.replace(/\s+/g, ' ').trim());
+    if (!nomes.length) return;
+    t.classList.add('tabela-cartoes');
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      [...tr.children].forEach((td, i) => { if (!td.hasAttribute('colspan') && nomes[i] && td.dataset.label !== nomes[i]) td.dataset.label = nomes[i]; });
+    });
+  });
+}
+
 function initA11y() {
   enhanceModalsA11y();
-  labelIconButtons(); linkLabels(); makeClickablesFocusable();
+  labelIconButtons(); linkLabels(); makeClickablesFocusable(); rotularTabelas();
   let timer = null;
   new MutationObserver(() => {
     clearTimeout(timer);
-    timer = setTimeout(() => { labelIconButtons(); linkLabels(); makeClickablesFocusable(); }, 250);
+    timer = setTimeout(() => { labelIconButtons(); linkLabels(); makeClickablesFocusable(); rotularTabelas(); }, 120);
   }).observe(document.body, { childList: true, subtree: true });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initA11y); else initA11y();

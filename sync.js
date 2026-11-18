@@ -370,7 +370,7 @@
     else if (enviando || n) { texto = `Sincronizando · ${n}`; tom = 'sync'; }
     else if (estadoCanal && estadoCanal !== 'SUBSCRIBED') { texto = 'Reconectando…'; tom = 'sync'; }
     else { texto = 'Online · sincronizado'; tom = 'ok'; }
-    const el = document.getElementById('connection-text');
+    const el = document.getElementById('connection-text') || document.getElementById('connection-status-text'); // sistema | caixa
     if (el) el.textContent = texto;
     const badge = document.getElementById('connection-indicator-desktop');
     if (badge) badge.dataset.sync = tom;

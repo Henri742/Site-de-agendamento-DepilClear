@@ -322,3 +322,63 @@ html.dark #mais-sheet:not([hidden]), html.dark [id^="modal-"].fixed > div { back
 html.dark .ms-grade > *, html.dark .ms-fechar { background: var(--t-card); border-color: var(--t-border); }
 
 * { scrollbar-color: color-mix(in srgb, var(--t-accent) 35%, transparent) transparent; }
+
+/* ===================== CELULAR: demais páginas ===================== */
+@media (max-width: 767px) {
+  /* Tabelas comuns viram cartões: rótulo da coluna à esquerda, valor à direita */
+  table.tabela-cartoes { min-width: 0 !important; width: 100%; }
+  table.tabela-cartoes thead { display: none; }
+  table.tabela-cartoes, table.tabela-cartoes tbody { display: block; }
+  table.tabela-cartoes tbody tr { display: block; padding: 10px 14px; border-bottom: 1px solid var(--t-border); }
+  table.tabela-cartoes tbody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 0 !important; border: 0 !important; text-align: right !important; font-size: 13px; min-width: 0; }
+  table.tabela-cartoes tbody td[data-label]::before { content: attr(data-label); flex-shrink: 0; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--t-muted); }
+  table.tabela-cartoes tbody td:first-child { font-size: 15px; font-weight: 800; }
+  table.tabela-cartoes tbody td:first-child::before { display: none; }
+  table.tabela-cartoes tbody td:first-child { justify-content: flex-start; text-align: left !important; }
+  table.tabela-cartoes tbody td[colspan] { display: block; text-align: center !important; }
+  table.tabela-cartoes tbody td > * { max-width: 70%; }
+  table.tabela-cartoes tbody td:first-child > * { max-width: 100%; }
+
+  /* Caixa: botões do topo em grade (sem fileira com rolagem lateral) */
+  body:has(#pos-items-table-body) > header { gap: 10px !important; }
+  body:has(#pos-items-table-body) > header > div:last-child {
+    display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px !important; overflow: visible !important; padding-bottom: 0 !important;
+  }
+  body:has(#pos-items-table-body) > header > div:last-child > button:not(.theme-switch-track) {
+    flex-direction: column; justify-content: center; gap: 4px !important; min-height: 58px; padding: 8px 4px !important;
+    white-space: normal !important; text-align: center; font-size: 11px !important; line-height: 1.15; border-radius: 14px !important;
+  }
+  body:has(#pos-items-table-body) > header > div:last-child > button:not(.theme-switch-track) svg { width: 18px !important; height: 18px !important; }
+  /* status e "Agenda" já estão no topo/barra inferior; o tema vai para a linha do logo */
+  body:has(#pos-items-table-body) > header > div:last-child > a[href="index.html"] { display: none !important; }
+  body:has(#pos-items-table-body) > header > div:last-child > #connection-status-pos { grid-column: 1 / -1; justify-self: center; padding: 4px 12px !important; }
+  body:has(#pos-items-table-body) > header > div:last-child > .theme-switch-track { position: absolute !important; top: 12px; right: 16px; }
+  body:has(#pos-items-table-body) > header { position: relative; }
+  #dc-sync-pill { display: none !important; }
+
+  /* Páginas de texto (privacidade, termos) */
+  body > main.max-w-3xl, body > main.max-w-4xl { padding-left: 16px !important; padding-right: 16px !important; }
+}
+
+@media (max-width: 767px) {
+  /* Formulários: nada de 3 colunas espremidas no celular */
+  #section-configuracoes .grid:not(.grid-cols-1),
+  [id^="modal-"] form .grid.grid-cols-3,
+  [id^="modal-"] form .grid.sm\:grid-cols-3 { grid-template-columns: 1fr 1fr !important; }
+  #section-configuracoes .grid > .col-span-2,
+  #section-configuracoes .grid > [class*="col-span-2"] { grid-column: 1 / -1; }
+  #section-configuracoes input, #section-configuracoes select, #section-configuracoes textarea { font-size: 16px !important; } /* evita zoom automático do iPhone */
+}
+@media (max-width: 400px) {
+  #section-configuracoes .grid:not(.grid-cols-1) { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 767px) {
+  /* iPhone dá zoom sozinho em campos com letra menor que 16px: fixa 16px em todos */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea { font-size: 16px !important; }
+}
+@media (max-width: 767px) {
+  /* Letras miúdas do desktop (9–11px) ficam legíveis no celular */
+  .text-\[9px\], .text-\[10px\], .text-\[10\.5px\] { font-size: 11.5px !important; }
+  .text-\[11px\] { font-size: 12px !important; }
+  .text-xs { font-size: 13px !important; line-height: 1.45 !important; }
+}
