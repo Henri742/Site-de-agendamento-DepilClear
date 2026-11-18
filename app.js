@@ -381,6 +381,8 @@ document.addEventListener('keyup', (e) => {
 
 function handleLogout(message) {
   clearSession();
+  document.documentElement.classList.remove('modo-mural');
+  delete document.documentElement.dataset.funcao;
 
   const pwdInput = document.getElementById('login-password');
   if (pwdInput) pwdInput.value = '';

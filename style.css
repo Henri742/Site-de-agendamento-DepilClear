@@ -503,3 +503,15 @@ html.dark #imp-modal .imp-resumo { color: #6ee7b7; }
 #imp-modal .imp-acoes button { min-height: 44px; padding: 0 16px; border-radius: 14px; font-weight: 700; font-size: 13px; border: 1px solid rgba(124, 58, 237, .3); }
 #imp-modal .imp-primario { background: linear-gradient(90deg, #4c1d95, #7c3aed); color: #fff; border-color: transparent !important; }
 #imp-modal .imp-primario[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Botão "Sair" do mural (o menu lateral fica escondido nesse modo) */
+#mural-sair { display: none; }
+html.modo-mural #mural-sair {
+  display: inline-flex; align-items: center; gap: 6px; position: fixed; z-index: 60;
+  top: calc(10px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right));
+  min-height: 40px; padding: 0 14px; border-radius: 999px; font: 700 13px/1 Montserrat, system-ui, sans-serif;
+  background: #ffffff; color: #be123c; border: 1px solid #fecdd3; box-shadow: 0 6px 16px -8px rgba(0,0,0,.35); cursor: pointer;
+}
+html.modo-mural #mural-sair:hover { background: #fff1f2; }
+html.dark.modo-mural #mural-sair { background: #2a0f18; color: #fda4af; border-color: #7f1d1d; }
+html.modo-mural header.sticky { padding-right: 96px; }
