@@ -124,3 +124,124 @@ main h2.text-xl, main h2.text-2xl { letter-spacing: -.4px; }
 
 /* Cliente importada sem sexo informado: esconde a etiqueta vazia */
 #clients-table-body span.rounded-full.font-bold:empty { display: none; }
+
+/* ===================== CELULAR (estilo app) ===================== */
+#bottom-nav, #mais-sheet, #mais-overlay, #mobile-sync { display: none; }
+
+@media (max-width: 767px) {
+  /* Topo: logo à esquerda, status e tema à direita (o menu "hambúrguer" vira a aba "Mais") */
+  header.md\:hidden > button[onclick="toggleMobileMenu()"] { display: none !important; }
+  header.md\:hidden { gap: 8px; }
+  header.md\:hidden img { margin-right: auto; }
+  #mobile-sync { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font: 700 11px/1 Montserrat, system-ui, sans-serif; color: #047857; background: #ecfdf5; }
+  #mobile-sync .ms-ponto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  #mobile-sync[data-sync="off"] { color: #92400e; background: #fef3c7; }
+  #mobile-sync[data-sync="sync"] { color: #5b21b6; background: #ede9fe; }
+  html.dark #mobile-sync { background: #052e22; color: #6ee7b7; }
+  html.dark #mobile-sync[data-sync="off"] { background: #3a2a05; color: #fcd34d; }
+  html.dark #mobile-sync[data-sync="sync"] { background: #241540; color: #c4b5fd; }
+
+  /* Barra de abas inferior */
+  #bottom-nav {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--t-surface) 92%, transparent);
+    backdrop-filter: blur(14px) saturate(1.3);
+    border-top: 1px solid var(--t-border);
+  }
+  #bottom-nav > * {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 52px; border: 0; background: none; border-radius: 14px;
+    color: var(--t-muted); font: 700 10.5px/1 Montserrat, system-ui, sans-serif; text-decoration: none; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #bottom-nav svg { width: 23px; height: 23px; stroke-width: 2; transition: transform .15s ease; }
+  #bottom-nav [aria-current="page"] { color: var(--t-accent); }
+  #bottom-nav [aria-current="page"] svg { transform: translateY(-1px) scale(1.08); stroke-width: 2.4; }
+  #bottom-nav > *:active svg { transform: scale(.9); }
+
+  /* Espaço para a barra e para o botão "Novo" */
+  #view-dashboard main { padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important; }
+  #mobile-fab:not([hidden]) { bottom: calc(76px + env(safe-area-inset-bottom)) !important; right: 14px !important; min-height: 50px !important; }
+  #toast-wrapper { bottom: calc(140px + env(safe-area-inset-bottom)) !important; }
+
+  /* Folha "Mais" (sobe de baixo) */
+  #mais-overlay:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(10, 6, 20, .45); backdrop-filter: blur(2px); animation: overlayIn .2s ease both; }
+  #mais-sheet:not([hidden]) {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 46;
+    max-height: 88dvh; overflow-y: auto;
+    padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+    background: var(--t-surface); color: var(--t-text);
+    border-radius: 26px 26px 0 0; box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, .45);
+    animation: sheetUp .28s cubic-bezier(.2, .8, .2, 1) both;
+  }
+  .ms-alca { width: 40px; height: 5px; border-radius: 99px; background: var(--t-border); margin: 4px auto 10px; }
+  .ms-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .ms-topo h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -.3px; }
+  .ms-topo p { margin: 2px 0 0; font-size: 12px; color: var(--t-muted); }
+  .ms-fechar { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--t-card); color: var(--t-text); display: grid; place-items: center; }
+  .ms-fechar svg { width: 20px; height: 20px; }
+  .ms-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ms-grade > * {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    min-height: 88px; padding: 10px 6px; border-radius: 18px; border: 1px solid var(--t-border);
+    background: var(--t-card); color: var(--t-text); text-decoration: none; text-align: center;
+    font: 700 12px/1.2 Montserrat, system-ui, sans-serif; cursor: pointer;
+  }
+  .ms-grade > .hidden { display: none !important; }
+  .ms-grade svg { width: 24px; height: 24px; color: var(--t-accent); }
+  .ms-grade [aria-current="page"] { border-color: var(--t-accent); background: var(--t-accent-soft); }
+  .ms-rodape { display: grid; gap: 8px; margin-top: 14px; }
+  .ms-rodape button { display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 16px; border-radius: 16px; border: 1px solid var(--t-border); background: none; color: var(--t-text); font: 700 14px/1 Montserrat, system-ui, sans-serif; }
+  .ms-rodape svg { width: 20px; height: 20px; }
+  .ms-rodape .ms-sair { color: #be123c; }
+  html.dark .ms-rodape .ms-sair { color: #fda4af; }
+  .ms-links { text-align: center; font-size: 12px; color: var(--t-muted); margin: 14px 0 0; }
+  .ms-links a { color: var(--t-accent); font-weight: 700; }
+
+  /* Janelas (cadastros, agendamento…) viram folhas que sobem de baixo, como nos apps */
+  [id^="modal-"].fixed { align-items: flex-end !important; padding: 0 !important; }
+  [id^="modal-"].fixed > div {
+    width: 100% !important; max-width: none !important; margin: 0 !important;
+    max-height: 92dvh !important; overflow-y: auto !important;
+    border-radius: 26px 26px 0 0 !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    animation: sheetUp .28s cubic-bezier(.2, .8, .2, 1) both !important;
+  }
+
+  /* Clientes: tabela vira lista de cartões (nome + WhatsApp + ações) */
+  #section-clientes table thead { display: none; }
+  #section-clientes table, #clients-table-body { display: block; width: 100%; }
+  #clients-table-body tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 2px; padding: 12px 14px; border-bottom: 1px solid var(--t-border); }
+  #clients-table-body td { display: block; padding: 0 !important; border: 0 !important; }
+  #clients-table-body td:nth-child(1) { grid-column: 1; grid-row: 1; font-size: 15px; white-space: normal; }
+  #clients-table-body td:nth-child(4) { grid-column: 1; grid-row: 2; font-size: 13px; }
+  #clients-table-body td:nth-child(2), #clients-table-body td:nth-child(3), #clients-table-body td:nth-child(5) { display: none; }
+  #clients-table-body td:last-child { grid-column: 2; grid-row: 1 / span 2; }
+  #clients-table-body td[colspan] { grid-column: 1 / -1; grid-row: auto; }
+
+  /* Menos aperto: títulos e espaçamentos de app */
+  main .tab-pane { gap: 14px; }
+  main .tab-pane > * + * { margin-top: 14px !important; }
+  main h2.text-xl, main h2.text-2xl { font-size: 20px !important; }
+  main .p-5 { padding: 16px !important; }
+}
+
+/* Depiladora e TV: sem barra inferior */
+html.modo-mural #bottom-nav, html.modo-mural #mais-sheet, html.modo-mural #mais-overlay { display: none !important; }
+html.modo-mural #view-dashboard main { padding-bottom: 24px !important; }
+
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { #mais-sheet, [id^="modal-"].fixed > div { animation: none !important; } }
+
+@media (max-width: 767px) {
+  /* O botão flutuante "Novo…" já cobre estas ações: some o botão repetido do topo de cada aba */
+  main .tab-pane > div:first-child :is(button[onclick^="openNewAppointmentModal"], button[onclick^="openClientModal"], button[onclick^="openServiceModal"], button[onclick^="openCategoryModal"], button[onclick^="openProfessionalModal"]) { display: none !important; }
+}
+
+@media (max-width: 767px) {
+  /* Caixa: espaço para a barra inferior; selo de sincronização acima dela */
+  body:has(#bottom-nav):not(:has(#view-dashboard)) { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  #dc-sync-pill { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
+}

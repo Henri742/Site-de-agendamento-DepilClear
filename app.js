@@ -421,6 +421,34 @@ function toggleMobileMenu() {
   document.getElementById('mobile-menu-overlay')?.classList.toggle('hidden', !willOpen);
 }
 
+/* ---------- Celular: folha "Mais" ---------- */
+let _maisAbertoPor = null;
+function abrirMais() {
+  const sheet = document.getElementById('mais-sheet');
+  if (!sheet) return;
+  _maisAbertoPor = document.activeElement;
+  document.getElementById('mais-usuario').textContent = document.getElementById('user-display-email')?.textContent || '';
+  sheet.hidden = false; document.getElementById('mais-overlay').hidden = false;
+  document.documentElement.classList.add('mais-aberto');
+  setTimeout(() => sheet.querySelector('.ms-grade button, .ms-grade a')?.focus({ preventScroll: true }), 50);
+}
+function fecharMais() {
+  const sheet = document.getElementById('mais-sheet');
+  if (!sheet || sheet.hidden) return;
+  sheet.hidden = true; document.getElementById('mais-overlay').hidden = true;
+  document.documentElement.classList.remove('mais-aberto');
+  _maisAbertoPor?.focus?.({ preventScroll: true });
+}
+function irPeloMais(tabId) { fecharMais(); switchTab(tabId); }
+
+// Barra inferior do celular: marca a aba atual ("Mais" quando a aba está dentro da folha)
+function marcarAbaCelular(tabId) {
+  const naBarra = ['agendamentos', 'recepcao', 'clientes'].includes(tabId);
+  document.querySelectorAll('#bottom-nav [data-tab], #mais-sheet [data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === tabId ? 'page' : 'false'));
+  document.getElementById('bottom-nav-mais')?.setAttribute('aria-current', naBarra ? 'false' : 'page');
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharMais(); });
+
 function closeMobileMenu() {
   document.getElementById('app-sidebar')?.classList.add('-translate-x-full');
   document.getElementById('mobile-menu-overlay')?.classList.add('hidden');
@@ -444,6 +472,7 @@ function switchTab(tabId) {
     activeNav.classList.add('bg-gradient-to-r', 'from-brand-purpleDeep', 'to-brand-violet', 'text-white', 'shadow-md', 'shadow-purple-900/30');
     activeNav.setAttribute('aria-current', 'page');
   }
+  marcarAbaCelular(tabId);
 
   const sidebar = document.getElementById('app-sidebar');
   if (window.innerWidth < 768 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
@@ -3579,6 +3608,14 @@ function aposEntrar(usuario) {
   html.classList.toggle('modo-mural', soMural);
   if (funcao === 'depiladora') muralDiaOffset = 0;
   if (soMural) switchTab('recepcao');
+  else {
+    // Vindo da barra do caixa: index.html?aba=clientes (ou ?aba=mais para abrir o menu)
+    const aba = new URLSearchParams(location.search).get('aba');
+    if (aba === 'mais') { marcarAbaCelular('mais'); setTimeout(abrirMais, 150); }
+    else if (aba && document.getElementById(`section-${aba}`)) switchTab(aba);
+    else marcarAbaCelular((document.querySelector('.tab-pane:not(.hidden)')?.id || 'section-agendamentos').replace('section-', ''));
+    if (aba) history.replaceState(null, '', location.pathname);
+  }
   document.querySelectorAll('[data-so-admin]').forEach(el => el.classList.toggle('hidden', funcao !== 'admin'));
   DC.iniciar();
 }

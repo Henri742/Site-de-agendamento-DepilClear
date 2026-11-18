@@ -152,6 +152,39 @@
     </button>
     
     <!-- Sidebar Desktop -->
+    <!-- Celular: barra de abas inferior (estilo apps) + folha "Mais" com o resto do menu -->
+    <nav id="bottom-nav" aria-label="Navegação principal">
+      <button type="button" data-tab="agendamentos" onclick="switchTab('agendamentos')"><i data-lucide="calendar"></i><span>Agenda</span></button>
+      <button type="button" data-tab="recepcao" onclick="switchTab('recepcao')"><i data-lucide="sheet"></i><span>Mural</span></button>
+      <button type="button" data-tab="clientes" onclick="switchTab('clientes')"><i data-lucide="users"></i><span>Clientes</span></button>
+      <a href="caixa.html"><i data-lucide="receipt"></i><span>Caixa</span></a>
+      <button type="button" id="bottom-nav-mais" onclick="abrirMais()" aria-haspopup="dialog" aria-controls="mais-sheet"><i data-lucide="layout-grid"></i><span>Mais</span></button>
+    </nav>
+    <div id="mais-overlay" hidden onclick="fecharMais()"></div>
+    <div id="mais-sheet" role="dialog" aria-modal="true" aria-labelledby="mais-titulo" hidden>
+      <div class="ms-alca" aria-hidden="true"></div>
+      <div class="ms-topo">
+        <div><h2 id="mais-titulo">Menu</h2><p id="mais-usuario"></p></div>
+        <button type="button" class="ms-fechar" onclick="fecharMais()" aria-label="Fechar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="ms-grade">
+        <button type="button" data-tab="dashboard" onclick="irPeloMais('dashboard')"><i data-lucide="layout-dashboard"></i><span>Visão geral</span></button>
+        <button type="button" data-tab="servicos" onclick="irPeloMais('servicos')"><i data-lucide="sparkles"></i><span>Serviços</span></button>
+        <button type="button" data-tab="categorias" onclick="irPeloMais('categorias')"><i data-lucide="tags"></i><span>Categorias</span></button>
+        <button type="button" data-tab="profissionais" onclick="irPeloMais('profissionais')"><i data-lucide="smile"></i><span>Depiladoras</span></button>
+        <button type="button" data-tab="relatorios" onclick="irPeloMais('relatorios')"><i data-lucide="bar-chart-3"></i><span>Relatórios</span></button>
+        <button type="button" data-tab="fidelidade" onclick="irPeloMais('fidelidade')"><i data-lucide="award"></i><span>Fidelidade</span></button>
+        <button type="button" data-tab="configuracoes" onclick="irPeloMais('configuracoes')"><i data-lucide="settings"></i><span>Configurações</span></button>
+        <a href="usuarios.html" data-so-admin class="hidden"><i data-lucide="shield-check"></i><span>Usuários</span></a>
+        <a href="index.html?mural" target="_blank" rel="noopener"><i data-lucide="monitor"></i><span>Mural na TV</span></a>
+      </div>
+      <div class="ms-rodape">
+        <button type="button" onclick="toggleTheme()"><i data-lucide="moon"></i><span>Tema claro / escuro</span></button>
+        <button type="button" class="ms-sair" onclick="fecharMais(); handleLogout()"><i data-lucide="log-out"></i><span>Sair</span></button>
+      </div>
+      <p class="ms-links"><a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a> · <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a></p>
+    </div>
+
     <aside id="app-sidebar" class="w-64 h-full bg-brand-lightSurface dark:bg-brand-darkSurface border-r border-brand-lightBorder dark:border-brand-darkBorder flex flex-col shrink-0 z-40 fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-lg md:shadow-none">
 
       <!-- Brand Sidebar Header -->
@@ -263,6 +296,7 @@
           <i data-lucide="menu" class="w-6 h-6"></i>
         </button>
         <img src="logo.webp" data-company-logo alt="DepilClear" width="640" height="347" class="h-9 w-auto object-contain">
+        <span id="mobile-sync" role="status" data-sync="ok"><span class="ms-ponto" aria-hidden="true"></span><span id="mobile-sync-text">Online</span></span>
         <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
           <div class="theme-switch-thumb">
             <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>

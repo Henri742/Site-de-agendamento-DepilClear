@@ -374,6 +374,11 @@
     if (el) el.textContent = texto;
     const badge = document.getElementById('connection-indicator-desktop');
     if (badge) badge.dataset.sync = tom;
+    const mob = document.getElementById('mobile-sync');
+    if (mob) {
+      mob.dataset.sync = tom;
+      document.getElementById('mobile-sync-text').textContent = tom === 'ok' ? 'Online' : texto.replace(' · salvando no aparelho', '');
+    }
     let pill = document.getElementById('dc-sync-pill');
     if (!el) {
       if (!pill && document.body) {
