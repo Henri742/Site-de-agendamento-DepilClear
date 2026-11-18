@@ -312,7 +312,7 @@ async function handleLoginSubmit(event) {
   if (submitText) submitText.textContent = 'Entrando…';
 
   try {
-    const resultado = await DC.login(email, password);
+    const resultado = await DC.login(email, password, document.getElementById('login-lembrar')?.checked !== false);
     if (!resultado.ok) {
       showLoginError(resultado.erro);
       passwordInput?.select();
@@ -444,7 +444,11 @@ function closeMobileMenu() {
   document.getElementById('mobile-menu-overlay')?.classList.add('hidden');
 }
 
+const NOME_ABA = { dashboard: 'Visão geral', agendamentos: 'Agenda', recepcao: 'Mural', clientes: 'Clientes', servicos: 'Serviços', categorias: 'Categorias',
+  profissionais: 'Profissionais', relatorios: 'Relatórios', fidelidade: 'Fidelidade', configuracoes: 'Configurações' };
+let _ultimaAbaLog = '';
 function switchTab(tabId) {
+  if (tabId !== _ultimaAbaLog && window.DC) { _ultimaAbaLog = tabId; DC.log('abriu', `tela: ${NOME_ABA[tabId] || tabId}`); }
   closeMobileMenu();
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
   const target = document.getElementById(`section-${tabId}`);
@@ -2258,6 +2262,7 @@ function safeStep(label, fn) {
 
 function openClientProfileModal(clientId, initialTab = 'dados') {
   const client = findClientById(clientId);
+  if (client && window.DC) DC.log('abriu', `ficha da cliente: ${client.name}`, { aba: initialTab });
   if (!client) {
     showToast('Cliente não encontrada. Atualize a página e tente de novo.', 'warning');
     return;
@@ -3075,6 +3080,7 @@ function oferecerWhatsAppWeb(urlWeb) {
 
 function abrirWhatsApp(phone, texto, nome) {
   const urlApp = linkWhatsApp(phone, texto, 'app');
+  if (urlApp && window.DC) DC.log('whatsapp', `mensagem para ${nome || 'cliente'}`, { modo: wppModo() });
   if (!urlApp) { showToast(`O telefone de ${nome || 'cliente'} não serve para WhatsApp. Confira o cadastro.`, 'error'); return false; }
   const urlWeb = linkWhatsApp(phone, texto, 'web');
   const modo = wppModo();
@@ -3317,7 +3323,8 @@ function loadXlsxLib() {
   return _xlsxPromise;
 }
 
-async function handleGenerateMultiSheetExcel(event) {
+async function handleGenerateMultiSheetExcel(...args) { if (window.DC) DC.log('exportou', 'planilha Excel'); return _handleGenerateMultiSheetExcel(...args); }
+async function _handleGenerateMultiSheetExcel(event) {
   event.preventDefault();
   try {
     showToast('Preparando a planilha...', 'info');
@@ -3503,6 +3510,7 @@ function toggleTimeSliceInputs() {
 }
 
 function generateWhatsAppSheetImage(action) {
+  if (window.DC) DC.log('exportou', 'imagem do mural', { acao: action });
   const canvas = document.getElementById('hidden-render-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -3752,6 +3760,7 @@ function aposEntrar(usuario) {
     if (aba) history.replaceState(null, '', location.pathname);
   }
   document.querySelectorAll('[data-so-admin]').forEach(el => el.classList.toggle('hidden', funcao !== 'admin'));
+  DC.souAuditor().then(ok => document.querySelectorAll('[data-so-auditor]').forEach(el => el.classList.toggle('hidden', !ok)));
   DC.iniciar();
 }
 
@@ -4669,7 +4678,8 @@ function previewCustomReport() {
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function printCustomReport() {
+function printCustomReport(...args) { if (window.DC) DC.log('exportou', 'relatório impresso'); return _printCustomReport(...args); }
+function _printCustomReport() {
   const r = buildReportHTML();
   if (r.error) { showToast(r.error, 'warning'); return; }
   document.getElementById('printable-report-target').innerHTML = r.html;

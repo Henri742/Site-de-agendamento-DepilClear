@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- Evita o "piscar" da tela de login quando já existe sessão ativa -->
   <style>html.has-session #view-login{display:none !important}</style>
-  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}try{var a=JSON.parse(localStorage.getItem('dc-auth')||'null');if(a&&a.refresh_token&&localStorage.getItem('dc-perfil')){document.documentElement.classList.add('has-session')}}catch(e){}</script>
+  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}try{var a=JSON.parse(localStorage.getItem('dc-auth')||sessionStorage.getItem('dc-auth')||'null');if(a&&a.refresh_token&&localStorage.getItem('dc-perfil')){document.documentElement.classList.add('has-session')}}catch(e){}</script>
   <title>DepilClear Women & Men - Sandra Ramos</title>
   <meta name="description" content="Sistema interno de agendamentos, recepção e caixa da DepilClear Women & Men - Sandra Ramos.">
   <meta name="robots" content="noindex, nofollow">
@@ -45,98 +45,89 @@
 <!-- ========================================== -->
   <!-- 1. TELA DE LOGIN COM LOGO DEPILCLEAR       -->
   <!-- ========================================== -->
-  <section id="view-login" class="min-h-screen w-full flex flex-col items-center justify-center p-4 relative overflow-hidden bg-brand-lightBg dark:bg-brand-darkBg">
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-brand-violet/20 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-brand-gold/15 rounded-full blur-3xl pointer-events-none"></div>
-    
-    <!-- Top Bar Controls -->
-    <div class="absolute top-5 right-5 flex items-center gap-3 z-20">
-      <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
-        <div class="theme-switch-thumb">
-          <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
-          <i data-lucide="moon" class="w-3.5 h-3.5 text-slate-800 hidden dark:block stroke-[2.5]"></i>
-        </div>
-      </button>
-      <div id="connection-status-login" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-brand-lightBorder dark:border-brand-darkBorder bg-brand-lightSurface dark:bg-brand-darkSurface text-xs font-semibold">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-[11px] text-slate-500 dark:text-slate-400">Online</span>
+  <section id="view-login" class="lg-tela">
+    <!-- Painel da marca (computador: coluna esquerda | celular: faixa no topo) -->
+    <aside class="lg-marca" aria-hidden="false">
+      <div class="lg-marca-topo">
+        <img src="logo.webp" data-company-logo alt="DepilClear Women & Men" width="640" height="347" class="lg-logo">
       </div>
-    </div>
-
-    <!-- LOGO CENTRALIZADA -->
-    <div class="mb-6 text-center z-10 flex flex-col items-center max-w-sm">
-      <img 
-        src="logo.webp" data-company-logo
-        alt="DepilClear Women & Men" width="640" height="347" 
-        class="w-64 sm:w-72 h-auto object-contain drop-shadow-md py-2"
-      >
-    </div>
-
-    <!-- Login Card Centralizado -->
-    <div class="w-full max-w-md p-7 sm:p-9 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl shadow-2xl relative z-10 gold-border-glow">
-      <div class="text-center mb-6">
-        <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Bem-vindo!</h2>
-        <p class="text-xs text-brand-lightMuted dark:text-slate-400 mt-1">Acesse a gestão profissional de agendamentos e recepção</p>
+      <div class="lg-marca-meio">
+        <p class="lg-selo">Sistema interno</p>
+        <h1 class="lg-titulo">Agenda, mural e caixa da clínica em um só lugar.</h1>
+        <ul class="lg-recursos">
+          <li><i data-lucide="calendar-check"></i><span><b>Agenda e mural ao vivo</b> em todos os computadores e celulares</span></li>
+          <li><i data-lucide="wifi-off"></i><span><b>Funciona sem internet</b> e sincroniza quando a conexão volta</span></li>
+          <li><i data-lucide="shield-check"></i><span><b>Dados protegidos</b>, acesso registrado e backup diário</span></li>
+        </ul>
       </div>
+      <p class="lg-rodape-marca">DepilClear Women &amp; Men · Sandra Ramos · Maceió/AL</p>
+    </aside>
 
-      <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-4">
-        <div>
-          <label for="login-email" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
-              <i data-lucide="mail" class="w-4 h-4"></i>
-            </span>
-            <input 
-              type="email" 
-              id="login-email" 
-              required 
-              autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" autofocus
-              placeholder="seu@email.com"
-              class="w-full pl-10 pr-4 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
-            >
-          </div>
+    <!-- Formulário -->
+    <main class="lg-form-area">
+      <div class="lg-barra">
+        <div id="connection-status-login" class="lg-status">
+          <span class="lg-ponto"></span>
+          <span>Online</span>
         </div>
-
-        <div>
-          <label for="login-password" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Senha</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-violet">
-              <i data-lucide="lock" class="w-4 h-4"></i>
-            </span>
-            <input 
-              type="password" 
-              id="login-password" 
-              required 
-              autocomplete="current-password"
-              placeholder="Sua senha"
-              class="w-full pl-10 pr-11 py-3 bg-brand-lightCard dark:bg-brand-darkBg border border-brand-lightBorder dark:border-brand-darkBorder rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-violet transition-all"
-            >
-            <button 
-              type="button" 
-              onclick="toggleLoginPassword()" 
-              id="login-eye-btn" aria-label="Mostrar senha" aria-pressed="false"
-              class="absolute inset-y-0 right-0 px-3.5 flex items-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-r-2xl"
-            >
-              <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
-            </button>
+        <button type="button" onclick="toggleTheme(this)" class="theme-switch-track relative" title="Alternar Modo Claro/Escuro">
+          <div class="theme-switch-thumb">
+            <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-950 block dark:hidden stroke-[2.5]"></i>
+            <i data-lucide="moon" class="w-3.5 h-3.5 text-slate-800 hidden dark:block stroke-[2.5]"></i>
           </div>
-        </div>
-
-        <p id="login-error" role="alert" aria-live="assertive" class="hidden text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl px-3 py-2"></p>
-        <p id="login-caps" aria-live="polite" class="hidden text-[11px] font-semibold text-amber-800 dark:text-amber-300">Caps Lock está ativado.</p>
-
-        <button 
-          type="submit" id="login-submit"
-          class="w-full min-h-[48px] py-3.5 bg-gradient-to-r from-brand-purpleDeep via-brand-violet to-brand-purpleDeep hover:brightness-110 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2 mt-2 border border-brand-gold/40"
-        >
-          <span id="login-submit-text">Entrar</span>
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
-      </form>
-      <p class="mt-4 text-center text-[11px] text-slate-500 dark:text-slate-400">
-        Ao entrar, você concorda com os <a href="termos.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Termos de Uso</a> e a <a href="privacidade.html" target="_blank" rel="noopener" class="text-brand-violet underline font-semibold">Política de Privacidade</a>.
-      </p>
-    </div>
+      </div>
+
+      <div class="lg-cartao">
+        <img src="logo.webp" data-company-logo alt="" width="640" height="347" class="lg-logo-celular">
+        <h2 class="lg-h2">Entrar</h2>
+        <p class="lg-sub">Use o e-mail e a senha cadastrados pela administradora.</p>
+
+        <form id="form-login" onsubmit="handleLoginSubmit(event)" class="lg-form" novalidate>
+          <div class="lg-campo">
+            <label for="login-email">E-mail</label>
+            <div class="lg-input">
+              <i data-lucide="mail"></i>
+              <input type="email" id="login-email" required autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" autofocus placeholder="seu@email.com">
+            </div>
+          </div>
+
+          <div class="lg-campo">
+            <label for="login-password">Senha</label>
+            <div class="lg-input">
+              <i data-lucide="lock"></i>
+              <input type="password" id="login-password" required autocomplete="current-password" placeholder="Sua senha">
+              <button type="button" onclick="toggleLoginPassword()" id="login-eye-btn" aria-label="Mostrar senha" aria-pressed="false" class="lg-olho">
+                <i id="login-eye-icon" data-lucide="eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="lg-linha">
+            <label class="lg-lembrar" for="login-lembrar">
+              <input type="checkbox" id="login-lembrar" checked>
+              <span>Lembrar de mim</span>
+            </label>
+            <span class="lg-esqueci">Esqueceu a senha? Fale com a administradora.</span>
+          </div>
+
+          <p id="login-error" role="alert" aria-live="assertive" class="hidden lg-erro"></p>
+          <p id="login-caps" aria-live="polite" class="hidden lg-caps">Caps Lock está ativado.</p>
+
+          <button type="submit" id="login-submit" class="lg-entrar">
+            <span id="login-submit-text">Entrar</span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+        </form>
+
+        <p class="lg-termos">
+          Ao entrar, você concorda com os <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a> e a
+          <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>, incluindo o
+          <b>registro de acessos e atividades</b> (data, aparelho, localização aproximada e ações no sistema) para segurança.
+        </p>
+      </div>
+      <p class="lg-seguro"><i data-lucide="lock-keyhole"></i> Conexão segura · acesso individual e registrado</p>
+    </main>
   </section>
 
   <!-- ========================================== -->
@@ -176,6 +167,7 @@
         <button type="button" data-tab="fidelidade" onclick="irPeloMais('fidelidade')"><i data-lucide="award"></i><span>Fidelidade</span></button>
         <button type="button" data-tab="configuracoes" onclick="irPeloMais('configuracoes')"><i data-lucide="settings"></i><span>Configurações</span></button>
         <a href="usuarios.html" data-so-admin class="hidden"><i data-lucide="shield-check"></i><span>Usuários</span></a>
+        <a href="logs.html" data-so-auditor class="hidden"><i data-lucide="scroll-text"></i><span>Logs</span></a>
       </div>
       <div class="ms-rodape">
         <button type="button" onclick="toggleTheme()"><i data-lucide="moon"></i><span>Tema claro / escuro</span></button>
@@ -254,6 +246,10 @@
             <span class="flex items-center gap-2">
               <i data-lucide="receipt" class="w-4 h-4"></i> Frente de Caixa (PDV)
             </span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
+          </a>
+          <a href="logs.html" data-so-auditor class="hidden mt-1.5 w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-brand-gold/40 text-brand-gold hover:bg-brand-gold/10 transition-all">
+            <span class="flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4"></i> Logs e segurança</span>
             <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
           </a>
           <a href="usuarios.html" data-so-admin class="hidden mt-1.5 w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-brand-gold/40 text-brand-gold hover:bg-brand-gold/10 transition-all">

@@ -30,7 +30,7 @@
     <div>
       <span class="text-[11px] font-bold text-brand-gold uppercase tracking-wider">LGPD • Lei nº 13.709/2018</span>
       <h1 class="text-2xl sm:text-3xl font-black mt-1">Política de Privacidade</h1>
-      <p class="text-slate-600 dark:text-slate-300 mt-2">Última atualização: 17/11/2026. Explicamos aqui, em linguagem simples, quais dados pessoais a <strong>DepilClear Women & Men - Sandra Ramos</strong> usa no atendimento e no sistema de agendamentos, para quê, por quanto tempo e quais são os seus direitos.</p>
+      <p class="text-slate-600 dark:text-slate-300 mt-2">Última atualização: 18/11/2026. Explicamos aqui, em linguagem simples, quais dados pessoais a <strong>DepilClear Women & Men - Sandra Ramos</strong> usa no atendimento e no sistema de agendamentos, para quê, por quanto tempo e quais são os seus direitos.</p>
     </div>
 
     <section aria-labelledby="s1" class="space-y-2">
@@ -79,7 +79,7 @@
 
     <section aria-labelledby="s5" class="space-y-2">
       <h2 id="s5" class="text-lg font-extrabold text-brand-purpleDeep dark:text-brand-violetLight">5. Onde ficam os dados e como protegemos</h2>
-      <p>Os dados de clientes, agenda, vendas e caixa ficam <strong>guardados no navegador do aparelho da clínica</strong> (armazenamento local), com verificação de integridade contra alterações acidentais. O acesso ao sistema exige login com senha, a sessão expira em 8 horas e a comunicação usa HTTPS.</p>
+      <p>Os dados de clientes, agenda, vendas e caixa ficam em um <strong>banco de dados na nuvem (Supabase, servidores no Brasil — São Paulo)</strong>, com uma cópia em cada aparelho da clínica para o sistema funcionar sem internet. É feito <strong>backup automático todo dia</strong>, guardado por 30 dias. O acesso exige login individual com senha e toda a comunicação usa HTTPS.</p>
       <p>Pedimos à equipe que use senhas fortes, bloqueie o aparelho, não compartilhe o acesso e faça backups periódicos. Nenhum sistema é 100% imune a incidentes; se ocorrer um que possa causar risco relevante, avisaremos as pessoas afetadas e a ANPD, como manda a lei.</p>
     </section>
 
@@ -113,7 +113,8 @@
       <h2 id="s11" class="text-lg font-extrabold text-brand-purpleDeep dark:text-brand-violetLight">11. Como a equipe protege os dados das clientes</h2>
       <ul class="list-disc pl-5 space-y-1">
         <li>Cada pessoa da equipe tem login próprio; senhas são guardadas apenas como <em>hash</em> (bcrypt), nunca em texto.</li>
-        <li>A sessão expira em 8 horas, há bloqueio após tentativas de senha erradas e toda a comunicação usa HTTPS.</li>
+        <li>Há bloqueio após tentativas de senha erradas, a sessão só fica salva no aparelho quando a pessoa marca "lembrar de mim" e toda a comunicação usa HTTPS.</li>
+        <li><strong>Registro de acessos e atividades da equipe:</strong> cada login, aparelho usado, localização aproximada (cidade/estado pelo IP, sem GPS) e ação no sistema fica registrado, sem possibilidade de alteração, por 12 meses, para prevenir e apurar uso indevido dos dados das clientes (LGPD, art. 7º, IX, e art. 46). A equipe é informada e concorda com isso ao entrar, conforme os <a href="termos.html" class="text-brand-violet underline font-semibold">Termos de Uso</a>.</li>
         <li>O banco de dados só aceita acesso pelo servidor do sistema (regras de segurança por linha — RLS); ninguém o acessa diretamente pela internet.</li>
         <li>A equipe assina os <a href="termos.html" class="text-brand-violet underline font-semibold">Termos de Uso</a>, com dever de sigilo sobre os dados das clientes.</li>
       </ul>

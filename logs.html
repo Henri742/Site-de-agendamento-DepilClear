@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Logs e segurança — DepilClear</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0c0b0f">
+  <link rel="icon" type="image/webp" href="icon-192.webp">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400..900&display=swap" rel="stylesheet">
+  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
+  <link rel="stylesheet" href="logs.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-esq">
+      <img src="logo.webp" alt="DepilClear" width="640" height="347">
+      <div>
+        <h1>Logs e segurança</h1>
+        <p id="ao-vivo" class="ao-vivo" hidden><span></span>ao vivo</p>
+      </div>
+    </div>
+    <a class="btn" href="index.html">← Sistema</a>
+  </header>
+
+  <main id="conteudo" hidden>
+    <!-- Resumo -->
+    <section class="resumo" aria-label="Resumo do período">
+      <div class="card-num"><span id="n-acessos">0</span><small>acessos</small></div>
+      <div class="card-num"><span id="n-pessoas">0</span><small>pessoas</small></div>
+      <div class="card-num"><span id="n-alteracoes">0</span><small>alterações</small></div>
+      <div class="card-num alerta"><span id="n-alertas">0</span><small>alertas</small></div>
+    </section>
+
+    <!-- Alertas -->
+    <section class="bloco" aria-labelledby="t-alertas">
+      <div class="bloco-cab">
+        <h2 id="t-alertas">Atividades suspeitas</h2>
+        <span class="dica">Toque num alerta para ver os eventos da pessoa</span>
+      </div>
+      <ul id="lista-alertas" class="alertas"></ul>
+    </section>
+
+    <!-- Filtros -->
+    <section class="bloco filtros" aria-labelledby="t-filtros">
+      <h2 id="t-filtros" class="sr">Filtros</h2>
+      <div class="chips" role="group" aria-label="Período" id="f-periodo">
+        <button type="button" data-dias="0" aria-pressed="true">Hoje</button>
+        <button type="button" data-dias="7" aria-pressed="false">7 dias</button>
+        <button type="button" data-dias="30" aria-pressed="false">30 dias</button>
+        <button type="button" data-dias="90" aria-pressed="false">90 dias</button>
+      </div>
+      <div class="chips" role="group" aria-label="Tipo de evento" id="f-tipo">
+        <button type="button" data-tipo="" aria-pressed="true">Tudo</button>
+        <button type="button" data-tipo="acesso" aria-pressed="false">Acessos</button>
+        <button type="button" data-tipo="visto" aria-pressed="false">O que viu</button>
+        <button type="button" data-tipo="mudanca" aria-pressed="false">O que alterou</button>
+        <button type="button" data-tipo="exportou" aria-pressed="false">Exportações</button>
+        <button type="button" data-tipo="whatsapp" aria-pressed="false">WhatsApp</button>
+      </div>
+      <div class="linha-filtros">
+        <label>Pessoa<select id="f-pessoa"><option value="">Todas</option></select></label>
+        <label>Aparelho<select id="f-aparelho"><option value="">Todos</option><option>Celular</option><option>Computador</option><option>Tablet</option></select></label>
+        <label class="busca">Buscar<input id="f-busca" type="search" placeholder="Cliente, cidade, IP…"></label>
+      </div>
+      <div class="linha-acoes">
+        <span id="contagem" class="dica"></span>
+        <button type="button" class="btn" id="limpar">Limpar filtros</button>
+        <button type="button" class="btn" id="exportar">Baixar CSV</button>
+      </div>
+    </section>
+
+    <!-- Linha do tempo -->
+    <section class="bloco" aria-labelledby="t-eventos">
+      <h2 id="t-eventos" class="sr">Eventos</h2>
+      <div id="lista-eventos" class="eventos"><p class="vazio">Carregando…</p></div>
+      <button type="button" class="btn mais" id="mais" hidden>Mostrar mais</button>
+    </section>
+  </main>
+
+  <main id="sem-acesso" hidden>
+    <section class="bloco restrito">
+      <h2>Acesso restrito</h2>
+      <p>Esta área é exclusiva. A tentativa de acesso foi registrada.</p>
+      <a class="btn" href="index.html">Voltar ao sistema</a>
+    </section>
+  </main>
+
+  <script defer src="vendor/supabase.js"></script>
+  <script defer src="security.js"></script>
+  <script defer src="sync.js"></script>
+  <script defer src="logs.js"></script>
+</body>
+</html>

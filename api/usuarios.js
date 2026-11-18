@@ -2,6 +2,7 @@
 // GET: lista | POST: cria | PATCH: altera (nome, função, ativo, senha) | DELETE ?id=: exclui
 import { applyCors, requireAuth, isAdmin, adminClient } from './_auth.js';
 import { rateLimit } from './_ratelimit.js';
+import { registrar } from './log.js';
 
 const FUNCOES = ['admin', 'recepcao', 'depiladora'];
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -52,6 +53,7 @@ export default async function handler(req, res) {
       }
       const { error: e2 } = await sb.from('perfis').insert({ user_id: data.user.id, nome, email, funcao, ativo: true });
       if (e2) { await sb.auth.admin.deleteUser(data.user.id); throw e2; }
+      await registrar(req, eu, [{ evento: 'criou', alvo: `usuário: ${nome} (${email})`, detalhes: { funcao } }]);
       return res.status(201).json({ sucesso: true });
     }
 
@@ -71,6 +73,9 @@ export default async function handler(req, res) {
       if (Object.keys(auth).length) { const { error } = await sb.auth.admin.updateUserById(id, auth); if (error) throw error; }
       const { error } = await sb.from('perfis').update(mudancas).eq('user_id', id);
       if (error) throw error;
+      const { data: alvo } = await sb.from('perfis').select('nome, email').eq('user_id', id).maybeSingle();
+      const o_que = [mudancas.nome !== undefined && 'nome', mudancas.funcao && `função → ${mudancas.funcao}`, mudancas.ativo !== undefined && (mudancas.ativo ? 'reativou' : 'desativou'), body.senha && 'trocou a senha'].filter(Boolean);
+      await registrar(req, eu, [{ evento: 'editou', alvo: `usuário: ${alvo?.nome || id} (${alvo?.email || ''})`, detalhes: { mudancas: o_que } }]);
       return res.status(200).json({ sucesso: true });
     }
 
@@ -78,8 +83,10 @@ export default async function handler(req, res) {
       const id = String(req.query.id || '');
       if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ erro: 'Usuário inválido.' });
       if (id === eu.id) return res.status(400).json({ erro: 'Você não pode excluir o seu próprio usuário.' });
+      const { data: alvo } = await sb.from('perfis').select('nome, email').eq('user_id', id).maybeSingle();
       const { error } = await sb.auth.admin.deleteUser(id); // o perfil sai junto (on delete cascade)
       if (error) throw error;
+      await registrar(req, eu, [{ evento: 'excluiu', alvo: `usuário: ${alvo?.nome || id} (${alvo?.email || ''})` }]);
       return res.status(200).json({ sucesso: true });
     }
 

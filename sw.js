@@ -3,7 +3,7 @@
 // ATENÇÃO: respostas de CDN guardadas aqui são "opacas" (no-cors): o navegador NÃO consegue conferir o
 // hash SRI delas ao servir do cache. A verificação de integridade acontece na 1ª carga pela rede; a cópia
 // em cache é confiável apenas se a 1ª carga foi legítima. Ao trocar de versão de CDN, suba o número do cache.
-const CACHE_NAME = 'depilclear-offline-v16';
+const CACHE_NAME = 'depilclear-offline-v17';
 
 const LOCAL_ASSETS = [
   '/',
@@ -20,6 +20,9 @@ const LOCAL_ASSETS = [
   '/vendor/supabase.js',
   '/usuarios.html',
   '/usuarios.js',
+  '/logs.html',
+  '/logs.js',
+  '/logs.css',
   '/logo.webp',
   '/icon-192.webp',
   '/icon-512.webp',

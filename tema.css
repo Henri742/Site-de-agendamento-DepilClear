@@ -417,3 +417,82 @@ html.dark #wpp-modal .wpp-ok { color: #6ee7b7; }
 #wpp-fallback .wpp-fb-x { background: transparent; color: var(--t-muted); font-size: 20px; padding: 0 8px; }
 @media (max-width: 767px) { #wpp-fallback { bottom: calc(84px + env(safe-area-inset-bottom)); } }
 #wpp-modal .wpp-proxima { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22, 163, 74, .25); }
+
+/* ===================== LOGIN PROFISSIONAL ===================== */
+#view-login.lg-tela { min-height: 100dvh; width: 100%; display: grid; grid-template-columns: 1fr; background: var(--t-bg) !important; }
+.lg-marca {
+  position: relative; overflow: hidden; color: #fff; padding: 20px 20px 22px;
+  background:
+    radial-gradient(500px 300px at 110% -10%, rgba(212, 175, 55, .35), transparent 60%),
+    radial-gradient(500px 360px at -20% 120%, rgba(124, 58, 237, .55), transparent 60%),
+    linear-gradient(160deg, #17102a 0%, #0c0b0f 70%);
+}
+.lg-marca-topo { display: flex; justify-content: center; }
+.lg-logo { width: 190px; height: auto; background: #fff; border-radius: 18px; padding: 10px 14px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); }
+.lg-marca-meio, .lg-rodape-marca { display: none; }
+.lg-selo { display: inline-block; margin: 0 0 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(212, 175, 55, .5); color: #e7c766; font: 800 11px/1 Montserrat, system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; }
+.lg-titulo { margin: 0 0 22px; font: 900 32px/1.15 Montserrat, system-ui, sans-serif; letter-spacing: -.8px; max-width: 460px; }
+.lg-recursos { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 440px; }
+.lg-recursos li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #d9d3e4; }
+.lg-recursos b { color: #fff; }
+.lg-recursos svg { flex-shrink: 0; width: 22px; height: 22px; padding: 8px; box-sizing: content-box; border-radius: 12px; background: rgba(212, 175, 55, .14); color: #e7c766; }
+.lg-rodape-marca { font-size: 12px; color: #9d95ad; margin: 0; }
+
+.lg-form-area { display: flex; flex-direction: column; align-items: center; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
+.lg-barra { width: 100%; max-width: 440px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 14px 0; }
+.lg-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--t-border); background: var(--t-surface); font: 700 12px/1 Montserrat, system-ui, sans-serif; color: var(--t-muted); }
+.lg-ponto { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, .2); }
+.lg-cartao { width: 100%; max-width: 440px; margin-top: -4px; padding: 26px 22px; border-radius: 26px; background: var(--t-surface); border: 1px solid var(--t-border); box-shadow: var(--t-shadow-lg); }
+.lg-logo-celular { display: none; }
+.lg-h2 { margin: 0; font: 900 26px/1.2 Montserrat, system-ui, sans-serif; letter-spacing: -.5px; color: var(--t-text); }
+.lg-sub { margin: 6px 0 22px; font-size: 14px; color: var(--t-muted); }
+.lg-form { display: grid; gap: 16px; }
+.lg-campo label { display: block; margin-bottom: 6px; font: 700 13px/1 Montserrat, system-ui, sans-serif; color: var(--t-text); }
+.lg-input { position: relative; display: flex; align-items: center; }
+.lg-input > svg { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--t-muted); pointer-events: none; }
+.lg-input input { width: 100%; min-height: 52px; padding: 0 48px 0 44px; border-radius: 16px; border: 1px solid var(--t-border); background: var(--t-card); color: var(--t-text); font: 500 16px/1 Montserrat, system-ui, sans-serif; }
+.lg-input input::placeholder { color: var(--t-muted); opacity: .8; }
+.lg-olho { position: absolute; right: 4px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: var(--t-muted); border-radius: 12px; cursor: pointer; }
+.lg-olho svg { width: 18px; height: 18px; }
+.lg-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.lg-lembrar { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font: 700 14px/1 Montserrat, system-ui, sans-serif; color: var(--t-text); cursor: pointer; }
+.lg-lembrar input { width: 20px; height: 20px; accent-color: var(--t-accent); }
+.lg-esqueci { font-size: 12px; color: var(--t-muted); }
+.lg-erro { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; border: 1px solid; }
+.lg-caps { margin: 0; font-size: 12px; font-weight: 700; }
+.lg-entrar {
+  min-height: 54px; border: 0; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font: 800 15px/1 Montserrat, system-ui, sans-serif; letter-spacing: .3px; cursor: pointer;
+  background: var(--t-accent); color: #fff; box-shadow: 0 12px 26px -12px rgba(91, 52, 214, .8); transition: transform .12s ease, filter .12s ease;
+}
+html.dark .lg-entrar { background: linear-gradient(180deg, #e2c260, #c9a12e); color: #1a1405; box-shadow: 0 12px 26px -12px rgba(212, 175, 55, .6); }
+.lg-entrar svg { width: 18px; height: 18px; }
+.lg-entrar:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.lg-entrar[disabled] { opacity: .7; cursor: wait; transform: none; }
+.lg-termos { margin: 18px 0 0; font-size: 12px; line-height: 1.55; color: var(--t-muted); text-align: center; }
+.lg-termos a { color: var(--t-accent); font-weight: 700; text-decoration: underline; }
+html.dark .lg-termos a { color: var(--t-accent-strong); }
+.lg-seguro { display: flex; align-items: center; gap: 6px; margin: 16px 0 0; font-size: 12px; color: var(--t-muted); }
+.lg-seguro svg { width: 14px; height: 14px; }
+
+/* Computador: marca à esquerda, formulário à direita */
+@media (min-width: 1024px) {
+  #view-login.lg-tela { grid-template-columns: minmax(420px, 1.05fr) 1fr; }
+  .lg-marca { display: flex; flex-direction: column; justify-content: space-between; padding: 40px 48px; min-height: 100dvh; }
+  .lg-marca-topo { justify-content: flex-start; }
+  .lg-marca-meio, .lg-rodape-marca { display: block; }
+  .lg-logo { width: 210px; }
+  .lg-form-area { justify-content: center; padding: 24px 40px; }
+  .lg-barra { position: absolute; top: 18px; right: 28px; width: auto; }
+  .lg-cartao { padding: 36px 34px; margin-top: 0; }
+}
+/* Celular: faixa da marca curta no topo, cartão sobe um pouco sobre ela */
+@media (max-width: 1023px) {
+  .lg-marca { padding-bottom: 54px; }
+  .lg-form-area { margin-top: -40px; position: relative; }
+  .lg-barra { position: absolute; top: -96px; right: 16px; width: auto; padding: 0; }
+  .lg-marca-topo { padding-top: env(safe-area-inset-top); justify-content: flex-start; }
+  .lg-logo { width: 150px; padding: 8px 10px; border-radius: 14px; }
+  .lg-barra { top: -100px; }
+}
+@media (max-width: 380px) { .lg-logo { width: 140px; } .lg-cartao { padding: 22px 18px; } }

@@ -3,6 +3,7 @@
 // GET ?baixar=1 com login de administradora: gera agora e devolve o arquivo para download.
 // GET ?listar=1 com login de administradora: lista os backups guardados.
 import { applyCors, requireAuth, isAdmin, adminClient } from './_auth.js';
+import { registrar } from './log.js';
 
 const BUCKET = 'backups';
 const MANTER_DIAS = 30;
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
       }
       const conteudo = await gerar(sb);
       await guardar(sb, conteudo, `backup-${hojeSP()}-manual.json`);
+      await registrar(req, eu, [{ evento: 'exportou', alvo: 'backup completo (download)', detalhes: { registros: conteudo.total } }]);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="depilclear-backup-${hojeSP()}.json"`);
       return res.status(200).send(JSON.stringify(conteudo));
@@ -63,6 +65,7 @@ export default async function handler(req, res) {
     if ((existentes || []).some(a => a.name === nome)) return res.status(200).json({ sucesso: true, ja_existia: true });
     const conteudo = await gerar(sb);
     await guardar(sb, conteudo, nome);
+    await sb.from('atividades').delete().lt('criado_em', new Date(Date.now() - 365 * 864e5).toISOString()); // guarda 12 meses
     return res.status(200).json({ sucesso: true, total: conteudo.total });
   } catch (err) {
     console.error('Erro no backup:', err);

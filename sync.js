@@ -73,6 +73,85 @@
   let iniciado = false, enviando = false, falhas = 0, timerEnvio = 0, perfil = null, canal = null;
 
   try { outbox = new Map(JSON.parse(getLocal(OUTBOX_KEY) || '[]')); } catch (e) { outbox = new Map(); }
+
+  /* ---------- Registro de atividades (auditoria) ----------
+   * Fila no aparelho (funciona offline) enviada ao /api/log, que acrescenta IP, local e aparelho. */
+  const LOGQ_KEY = 'dc-logq', APARELHO_KEY = 'dc-aparelho';
+  let aparelhoId = getLocal(APARELHO_KEY);
+  if (!aparelhoId) {
+    aparelhoId = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+    setLocal(APARELHO_KEY, aparelhoId);
+  }
+  let logq = [];
+  try { logq = JSON.parse(getLocal(LOGQ_KEY) || '[]'); } catch (e) { logq = []; }
+  let timerLog = 0, enviandoLog = false;
+
+  function log(evento, alvo, detalhes) {
+    if (!perfil && evento !== 'login') return; // só registra quem está logado
+    logq.push({ evento, alvo: alvo == null ? null : String(alvo).slice(0, 200), detalhes: detalhes || null, ocorrido_em: new Date().toISOString(), device_id: aparelhoId });
+    if (logq.length > 1000) logq = logq.slice(-1000);
+    setLocal(LOGQ_KEY, JSON.stringify(logq));
+    clearTimeout(timerLog);
+    timerLog = setTimeout(() => enviarLogs(), 2500);
+  }
+
+  async function enviarLogs(keepalive = false) {
+    if (enviandoLog || !logq.length || !navigator.onLine || !tokenAtual) return;
+    enviandoLog = true;
+    try {
+      while (logq.length) {
+        const lote = logq.slice(0, 50);
+        const r = await fetch('/api/log', {
+          method: 'POST', keepalive,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenAtual}` },
+          body: JSON.stringify({ eventos: lote })
+        });
+        if (!r.ok) break; // tenta de novo mais tarde (ex.: token renovando)
+        logq = logq.slice(lote.length);
+        setLocal(LOGQ_KEY, JSON.stringify(logq));
+        if (keepalive) break;
+      }
+    } catch (e) { /* sem rede: fica na fila */ } finally { enviandoLog = false; }
+  }
+  setInterval(() => enviarLogs(), 30000);
+  window.addEventListener('online', () => enviarLogs());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) enviarLogs(true); });
+
+  function logFalhaLogin(email, motivo) {
+    if (!navigator.onLine) return;
+    fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventos: [{ evento: 'login_falhou', email, detalhes: { motivo }, device_id: aparelhoId, ocorrido_em: new Date().toISOString() }] }) }).catch(() => {});
+  }
+
+  // Nome legível das coleções e de cada item, para o log ser fácil de entender
+  const NOME_COLECAO = {
+    appointments: 'agendamento', clients: 'cliente', services: 'serviço', categories: 'categoria', professionals: 'profissional',
+    wpp_templates: 'modelo de WhatsApp', sales_log: 'venda', cash_ops: 'operação de caixa', fidelity_redeemed: 'resgate de fidelidade',
+    company_config: 'dados da empresa', client_credits: 'crédito de cliente', fidelity: 'cartão fidelidade'
+  };
+  function rotulo(dados, id) {
+    if (!dados || typeof dados !== 'object') return String(id);
+    if (dados.clientName) return `${dados.clientName}${dados.date ? ' · ' + dados.date.split('-').reverse().join('/') : ''}${dados.time ? ' ' + dados.time : ''}`;
+    if (dados.name) return dados.name;
+    if (dados.title) return dados.title;
+    if (dados.total != null) return `${dados.client && dados.client.name ? dados.client.name + ' · ' : ''}R$ ${Number(dados.total).toFixed(2)}`;
+    if (dados.type && dados.amount != null) return `${dados.type} R$ ${Number(dados.amount).toFixed(2)}`;
+    return String(id);
+  }
+  // O que mudou numa edição (campos simples, ex.: status Agendado → Confirmada)
+  function camposAlterados(antes, depois) {
+    const out = {};
+    if (!antes || !depois) return out;
+    Object.keys(Object.assign({}, antes, depois)).forEach(k => {
+      if (k === '_sig' || Object.keys(out).length >= 8) return;
+      const a = antes[k], b = depois[k];
+      const simples = (v) => v == null || ['string', 'number', 'boolean'].includes(typeof v);
+      if (simples(a) && simples(b) && a !== b) out[k] = [a == null ? '' : String(a).slice(0, 60), b == null ? '' : String(b).slice(0, 60)];
+      else if (!simples(a) || !simples(b)) { if (JSON.stringify(a) !== JSON.stringify(b)) out[k] = ['…', '(alterado)']; }
+    });
+    return out;
+  }
+
   const salvarOutbox = () => setLocal(OUTBOX_KEY, JSON.stringify([...outbox]));
   const chaveFila = (c, id) => c + '|' + id;
   const mapaDe = (c) => { if (!snap.has(c)) snap.set(c, new Map()); return snap.get(c); };
@@ -108,18 +187,39 @@
     const m = mapaDe(d.colecao);
     const itens = itensDe(d, valor);
     const vistos = new Set();
-    let mudou = false;
+    const mudancas = [];
     itens.forEach(([id, dados]) => {
       vistos.add(id);
       const j = JSON.stringify(dados);
-      if (m.get(id) !== j) { m.set(id, j); enfileirar(d.colecao, id, dados, false); mudou = true; }
+      const antes = m.get(id);
+      if (antes !== j) {
+        m.set(id, j); enfileirar(d.colecao, id, dados, false);
+        let anterior = null; try { anterior = antes ? JSON.parse(antes) : null; } catch (e) { /* ignora */ }
+        mudancas.push({ tipo: antes ? 'editou' : 'criou', id, dados, anterior });
+      }
     });
     // Itens que sumiram = excluídos (num documento de fidelidade só existe o próprio id)
     const candidatos = d.tipo === 'doc' ? [d.id] : [...m.keys()];
     candidatos.forEach(id => {
-      if (!vistos.has(id) && m.has(id)) { m.delete(id); enfileirar(d.colecao, id, null, true); mudou = true; }
+      if (!vistos.has(id) && m.has(id)) {
+        let anterior = null; try { anterior = JSON.parse(m.get(id)); } catch (e) { /* ignora */ }
+        m.delete(id); enfileirar(d.colecao, id, null, true);
+        mudancas.push({ tipo: 'excluiu', id, dados: anterior });
+      }
     });
-    if (mudou) { salvarOutbox(); agendarEnvio(300); atualizarStatus(); }
+    if (mudancas.length) {
+      salvarOutbox(); agendarEnvio(300); atualizarStatus();
+      if (d.colecao !== 'wpp_sent') {
+        const nome = NOME_COLECAO[d.colecao] || d.colecao;
+        if (mudancas.length > 20) {
+          const conta = (t) => mudancas.filter(x => x.tipo === t).length;
+          log('alterou_lote', nome, { criados: conta('criou'), editados: conta('editou'), excluidos: conta('excluiu') });
+        } else {
+          mudancas.forEach(x => log(x.tipo, `${nome}: ${rotulo(x.dados, x.id)}`,
+            x.tipo === 'editou' ? { colecao: d.colecao, id: x.id, campos: camposAlterados(x.anterior, x.dados) } : { colecao: d.colecao, id: x.id }));
+        }
+      }
+    }
   }
 
   // Intercepta as gravações do app (só no localStorage, nunca no sessionStorage)
@@ -133,15 +233,28 @@
   };
 
   /* ---------- Cliente Supabase e login ---------- */
+  const LEMBRAR_KEY = 'dc-lembrar';
+  const lembrarAtivo = () => getLocal(LEMBRAR_KEY) !== '0';
+  function setLembrar(v) {
+    setLocal(LEMBRAR_KEY, v ? '1' : '0');
+    if (!v) removeOrig.call(localStorage, AUTH_KEY); else { try { sessionStorage.removeItem(AUTH_KEY); } catch (e) { /* ignora */ } }
+  }
+  // Onde a sessão fica: aparelho (lembrar) ou só esta janela (não lembrar)
+  const armazenamentoSessao = {
+    getItem: (k) => { try { return (lembrarAtivo() ? localStorage : sessionStorage).getItem(k); } catch (e) { return null; } },
+    setItem: (k, v) => { try { if (lembrarAtivo()) setOrig.call(localStorage, k, v); else sessionStorage.setItem(k, v); } catch (e) { /* ignora */ } },
+    removeItem: (k) => { try { removeOrig.call(localStorage, k); sessionStorage.removeItem(k); } catch (e) { /* ignora */ } }
+  };
+  let sessaoRegistrada = false;
   const sb = window.supabase && window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_KEY, detectSessionInUrl: false },
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_KEY, detectSessionInUrl: false, storage: armazenamentoSessao },
     realtime: { params: { eventsPerSecond: 20 } }
   });
   let tokenAtual = '';
   if (sb) sb.auth.onAuthStateChange((_ev, session) => { tokenAtual = session ? session.access_token : ''; });
 
   function sessaoSalva() {
-    try { const s = JSON.parse(getLocal(AUTH_KEY) || 'null'); return s && s.refresh_token && s.user ? s : null; } catch (e) { return null; }
+    try { const s = JSON.parse(armazenamentoSessao.getItem(AUTH_KEY) || 'null'); return s && s.refresh_token && s.user ? s : null; } catch (e) { return null; }
   }
 
   async function carregarPerfil(userId) {
@@ -150,10 +263,12 @@
     return data;
   }
 
-  async function login(email, senha) {
+  async function login(email, senha, lembrar = true) {
     if (!sb) return { ok: false, erro: 'Não foi possível carregar o sistema de login. Recarregue a página.' };
+    setLembrar(lembrar);
     const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
     if (error) {
+      if (/invalid login/i.test(error.message)) logFalhaLogin(String(email).trim().toLowerCase(), 'senha ou e-mail incorretos');
       const msg = /invalid login/i.test(error.message) ? 'E-mail ou senha incorretos.'
         : /rate|too many/i.test(error.message) ? 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
         : (!navigator.onLine || /fetch|network/i.test(error.message)) ? 'Sem internet. Conecte-se para entrar pela primeira vez.'
@@ -168,6 +283,8 @@
       return { ok: false, erro: 'Usuário sem acesso. Fale com a administradora.' };
     }
     perfil = p; setLocal(PERFIL_KEY, JSON.stringify(p));
+    sessaoRegistrada = true;
+    log('login', p.nome, { lembrar_de_mim: !!lembrar, pagina: location.pathname });
     return { ok: true, usuario: p };
   }
 
@@ -186,17 +303,20 @@
         const p = await carregarPerfil(user.id);
         if (!p || !p.ativo) return { ok: false, reason: 'unauthorized' };
         perfil = p; setLocal(PERFIL_KEY, JSON.stringify(p));
+        if (!sessaoRegistrada) { sessaoRegistrada = true; log('sessao', location.pathname); }
         return { ok: true, usuario: p };
       } catch (e) { /* servidor fora: usa o cache abaixo */ }
     }
     if (cache && cache.ativo && cache.email === (user.email || '').toLowerCase()) {
       perfil = cache;
+      if (!sessaoRegistrada) { sessaoRegistrada = true; log('sessao', location.pathname, { offline: true }); }
       return { ok: true, offline: true, usuario: cache };
     }
     return { ok: false, reason: 'offline' };
   }
 
   async function logout() {
+    if (perfil) { log('logout', location.pathname); await enviarLogs(true); }
     parar();
     removeOrig.call(localStorage, PERFIL_KEY);
     perfil = null; tokenAtual = '';
@@ -395,6 +515,10 @@
     token: () => tokenAtual,
     temSessaoSalva: () => !!sessaoSalva(),
     perfil: () => perfil,
+    log,
+    lembrarAtivo,
+    // Acesso aos logs: decidido pelo banco (regra no Supabase), nunca pelo código do site
+    souAuditor: async () => { try { const { data } = await sb.rpc('sou_auditor'); return data === true; } catch (e) { return false; } },
     pendentes: () => outbox.size,
     enviarAgora: () => enviar(),
     _testes: { descrever, itensDe }
