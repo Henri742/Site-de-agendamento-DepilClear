@@ -3,18 +3,28 @@
  * caixa.js - PDV com Multi-pagamento, Código de Serviço e Fidelidade
  * ======================================================== */
 
-// O caixa só abre para quem tem sessão VÁLIDA: o token é conferido no servidor (/api/me).
-// Offline: só se já houve validação bem-sucedida nesta aba nas últimas 8h (ver security.js).
+// O caixa só abre para quem tem sessão válida (Supabase Auth; offline vale a sessão salva no aparelho).
+// Depiladora não usa o caixa.
 // Enquanto valida, a página fica oculta (html.auth-pending, definido no <head>).
 (async function guardCaixaSession() {
   const result = await validateSession();
-  if (!result.ok) {
-    clearSession();
+  if (!result.ok || (result.usuario && result.usuario.funcao === 'depiladora')) {
+    if (!result.ok) clearSession();
     window.location.replace('index.html');
     return;
   }
   document.documentElement.classList.remove('auth-pending');
+  DC.iniciar();
 })();
+
+// Vendas, clientes e serviços alterados em outro aparelho
+window.addEventListener('depilclear:remoto', (e) => {
+  const chaves = (e.detail && e.detail.chaves) || [];
+  if (chaves.includes('depilclear_sales_log')) salesLog = safeReadStore('depilclear_sales_log');
+  if (chaves.includes('depilclear_cash_ops')) cashOperations = safeReadStore('depilclear_cash_ops');
+  if (chaves.some(k => k === 'depilclear_clients' || k === 'depilclear_services')) carregarListasPOS();
+});
+window.addEventListener('depilclear:acesso-revogado', () => window.location.replace('index.html'));
 
 // Se o CDN do Lucide não carregar (offline), o PDV segue funcionando sem ícones
 if (typeof window.lucide === 'undefined') {
@@ -93,6 +103,16 @@ const defaultServices = [
 ];
 
 function initPOS() {
+  carregarListasPOS();
+  renderPosCartTable();
+  renderPosTotals();
+  applyInitialTheme();
+  setupNetworkListener();
+  lucide.createIcons();
+}
+
+// Clientes e serviços (também chamado quando chegam mudanças de outro aparelho)
+function carregarListasPOS() {
   const savedClients = localStorage.getItem('depilclear_clients');
   posClients = savedClients ? JSON.parse(savedClients) : [];
 
@@ -103,17 +123,12 @@ function initPOS() {
       code: s.code || (100 + idx + 1)
     }));
   } else {
+    // Só em memória: gravar aqui mandaria os serviços de exemplo para a nuvem antes de chegarem os reais
     posServices = defaultServices;
-    localStorage.setItem('depilclear_services', JSON.stringify(posServices));
   }
 
   // Preenche a lista do catálogo do modal de imediato
   renderCatalogModalGrid('');
-  renderPosCartTable();
-  renderPosTotals();
-  applyInitialTheme();
-  setupNetworkListener();
-  lucide.createIcons();
 }
 
 /* ========================================================

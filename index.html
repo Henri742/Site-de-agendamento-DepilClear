@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- Evita o "piscar" da tela de login quando já existe sessão ativa -->
   <style>html.has-session #view-login{display:none !important}</style>
-  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}try{var t=sessionStorage.getItem('depilclear_token');if(t){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(p&&p.exp*1000>Date.now()){document.documentElement.classList.add('has-session')}}}catch(e){}</script>
+  <script>try{if(localStorage.getItem('depilclear_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}try{var a=JSON.parse(localStorage.getItem('dc-auth')||'null');if(a&&a.refresh_token&&localStorage.getItem('dc-perfil')){document.documentElement.classList.add('has-session')}}catch(e){}</script>
   <title>DepilClear Women & Men - Sandra Ramos</title>
   <meta name="description" content="Sistema interno de agendamentos, recepção e caixa da DepilClear Women & Men - Sandra Ramos.">
   <meta name="robots" content="noindex, nofollow">
@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="tailwind.css">
   <!-- Folha de Estilos Modular Externa -->
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="tema.css">
 </head>
 
 <!-- SUBSTITUA A LINHA DO <body> POR ESTA: -->
@@ -221,6 +222,18 @@
             </span>
             <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
           </a>
+          <a href="usuarios.html" data-so-admin class="hidden mt-1.5 w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-brand-gold/40 text-brand-gold hover:bg-brand-gold/10 transition-all">
+            <span class="flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4"></i> Usuários e Backups
+            </span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
+          </a>
+          <a href="index.html?mural" target="_blank" rel="noopener" class="mt-1.5 w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-brand-lightBorder dark:border-brand-darkBorder text-slate-600 dark:text-slate-300 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard transition-all">
+            <span class="flex items-center gap-2">
+              <i data-lucide="monitor" class="w-4 h-4"></i> Abrir mural em tela cheia
+            </span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-80"></i>
+          </a>
         </div>
       </nav>
 
@@ -231,7 +244,7 @@
           <a href="privacidade.html" target="_blank" rel="noopener" class="text-[10px] text-brand-violet underline font-semibold">Política de Privacidade</a>
           <a href="termos.html" target="_blank" rel="noopener" class="text-[10px] text-brand-violet underline font-semibold ml-2">Termos de Uso</a>
           <span id="storage-status-badge" class="text-[10px] text-brand-gold font-medium flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Gravando Localmente
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Nuvem + cópia no aparelho
           </span>
         </div>
         <button onclick="handleLogout()" title="Sair do sistema" class="p-2 text-slate-400 hover:text-rose-500 rounded-xl transition-all">
@@ -682,10 +695,16 @@
               <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cadastro de Clientes</h2>
               <p class="text-xs text-brand-lightMuted dark:text-slate-400">Gestão com validação de CPF, telefones, histórico e busca inteligente.</p>
             </div>
-            <button onclick="openClientModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
+            <div class="flex gap-2">
+            <button onclick="abrirImportacao()" class="px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 border border-brand-lightBorder dark:border-brand-darkBorder text-slate-700 dark:text-slate-200 hover:bg-brand-lightCard dark:hover:bg-brand-darkCard">
+              <i data-lucide="file-up" class="w-4 h-4 text-brand-violet"></i>
+              <span>Importar (SGBR / planilha)</span>
+            </button>
+              <button onclick="openClientModal()" class="px-4 py-2.5 bg-gradient-to-r from-brand-purpleDeep to-brand-violet text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-lg border border-brand-gold/40">
               <i data-lucide="user-plus" class="w-4 h-4 text-brand-gold"></i>
               <span>Novo Cliente</span>
             </button>
+            </div>
           </div>
 
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-brand-lightSurface dark:bg-brand-darkSurface border border-brand-lightBorder dark:border-brand-darkBorder rounded-3xl">
@@ -1662,7 +1681,10 @@
     </div>
 
     <canvas id="hidden-render-canvas" class="hidden"></canvas>
+    <script defer src="vendor/supabase.js"></script>
     <script defer src="security.js"></script>
+    <script defer src="sync.js"></script>
     <script defer src="app.js"></script>
+    <script defer src="import.js"></script>
 </body>
 </html>

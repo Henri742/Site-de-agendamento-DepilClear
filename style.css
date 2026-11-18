@@ -451,3 +451,55 @@ html:not(.dark) .bg-brand-purpleDeep.text-brand-gold { color: #d4af37; }
     justify-content: center;
   }
 }
+
+/* ===== Mural em tela cheia (depiladoras, TV ou ?mural) ===== */
+html.modo-mural #app-sidebar,
+html.modo-mural #mobile-menu-overlay,
+html.modo-mural #mobile-fab,
+html.modo-mural header.md\:hidden button,
+html.modo-mural #section-recepcao > div > p:first-child { display: none !important; }
+html.modo-mural main { padding-bottom: 16px; }
+html.modo-mural .tab-pane:not(#section-recepcao) { display: none !important; }
+html.modo-mural #section-recepcao { display: block !important; }
+/* Depiladora só olha: sem marcar chegada nem editar */
+html[data-funcao="depiladora"] #section-recepcao [onclick*="toggleReceptionArrival"],
+html[data-funcao="depiladora"] #section-recepcao [oncontextmenu] { pointer-events: none; cursor: default; }
+
+/* ===== Indicador de sincronização ===== */
+#connection-indicator-desktop[data-sync="sync"] { color: #6d28d9; border-color: rgba(109, 40, 217, .35); background: rgba(109, 40, 217, .08); }
+html.dark #connection-indicator-desktop[data-sync="sync"] { color: #c4b5fd; }
+#dc-sync-pill { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; padding: 6px 12px; border-radius: 999px;
+  font: 700 11px/1.2 Montserrat, system-ui, sans-serif; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; box-shadow: 0 6px 16px -8px rgba(0,0,0,.3); }
+#dc-sync-pill[data-sync="off"] { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+#dc-sync-pill[data-sync="sync"] { background: #f5f3ff; color: #5b21b6; border-color: #c4b5fd; }
+html.dark #dc-sync-pill { background: #052e22; color: #6ee7b7; border-color: #065f46; }
+html.dark #dc-sync-pill[data-sync="off"] { background: #3a2a05; color: #fcd34d; border-color: #92400e; }
+html.dark #dc-sync-pill[data-sync="sync"] { background: #241540; color: #c4b5fd; border-color: #5b21b6; }
+
+/* ===== Importação de clientes ===== */
+#imp-modal { position: fixed; inset: 0; z-index: 80; background: rgba(15, 8, 30, .6); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; animation: overlayIn .2s ease both; }
+#imp-modal .imp-caixa { width: 100%; max-width: 760px; max-height: calc(100vh - 32px); overflow: auto; background: #fff; color: #1e1530; border-radius: 24px; padding: 20px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); animation: modalIn .25s cubic-bezier(.2,.7,.2,1) both; }
+html.dark #imp-modal .imp-caixa { background: #170e28; color: #f1f5f9; }
+#imp-modal .imp-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+#imp-modal h3 { margin: 0; font-size: 18px; font-weight: 800; }
+#imp-modal .imp-x { width: 40px; height: 40px; border-radius: 12px; font-size: 22px; line-height: 1; }
+#imp-modal .imp-x:hover { background: rgba(124, 58, 237, .1); }
+#imp-modal .imp-ajuda { font-size: 13px; color: #5b5470; margin: 0 0 12px; }
+html.dark #imp-modal .imp-ajuda { color: #b9b2c9; }
+#imp-modal .imp-arquivo { display: flex; flex-direction: column; gap: 8px; padding: 22px; border: 2px dashed #c4b5fd; border-radius: 18px; text-align: center; font-size: 13px; cursor: pointer; }
+#imp-modal .imp-arquivo input { margin: 0 auto; max-width: 100%; font: inherit; }
+#imp-modal .imp-erro { color: #b91c1c; font-size: 13px; font-weight: 600; min-height: 1em; }
+html.dark #imp-modal .imp-erro { color: #fca5a5; }
+#imp-modal .imp-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+#imp-modal .imp-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; }
+#imp-modal select { min-height: 40px; border-radius: 10px; border: 1px solid #e7ddf3; padding: 0 8px; background: #fbf9fe; color: inherit; font: inherit; font-weight: 500; }
+html.dark #imp-modal select { background: #120a20; border-color: #2e1f47; }
+#imp-modal .imp-resumo { font-weight: 700; font-size: 13px; margin: 14px 0 8px; color: #047857; }
+html.dark #imp-modal .imp-resumo { color: #6ee7b7; }
+#imp-modal .imp-rolagem { overflow-x: auto; }
+#imp-modal .imp-tabela { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
+#imp-modal .imp-tabela th, #imp-modal .imp-tabela td { text-align: left; padding: 7px 8px; border-bottom: 1px solid rgba(124, 58, 237, .15); }
+#imp-modal .imp-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+#imp-modal .imp-acoes button { min-height: 44px; padding: 0 16px; border-radius: 14px; font-weight: 700; font-size: 13px; border: 1px solid rgba(124, 58, 237, .3); }
+#imp-modal .imp-primario { background: linear-gradient(90deg, #4c1d95, #7c3aed); color: #fff; border-color: transparent !important; }
+#imp-modal .imp-primario[disabled] { opacity: .5; cursor: not-allowed; }

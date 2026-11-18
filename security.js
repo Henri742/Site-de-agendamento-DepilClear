@@ -5,7 +5,7 @@
  *
  *  1) Escape/validação de saída (XSS): escapeHtml, jsStr, safeImageSrc, safeColor
  *  2) Integridade de dados sensíveis no localStorage (HMAC-SHA256)
- *  3) Sessão: validação do JWT no servidor (/api/me) com limite offline
+ *  3) Sessão: Supabase Auth (sync.js), funciona offline com a sessão salva no aparelho
  * ======================================================== */
 
 /* ---------- 0) DESEMPENHO DOS ÍCONES ---------- */
@@ -291,61 +291,22 @@ function safeWriteStore(key, records) {
   return signed;
 }
 
-/* ---------- 3) SESSÃO (JWT validado no servidor) ---------- */
-
-const SESSION_MAX_OFFLINE_MS = 8 * 60 * 60 * 1000; // 8h (mesma validade do token)
+/* ---------- 3) SESSÃO (Supabase Auth, via sync.js) ---------- */
 
 function getAuthToken() {
-  return sessionStorage.getItem('depilclear_token') || '';
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const parts = String(token).split('.');
-    if (parts.length !== 3 || parts.some(p => !/^[A-Za-z0-9_-]+$/.test(p))) return null;
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '=')).split('')
-      .map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
-    return JSON.parse(json);
-  } catch (e) { return null; }
-}
-
-// Checagem ESTRUTURAL (não prova autenticidade: quem prova é o /api/me)
-function tokenLooksValid(token) {
-  const p = decodeJwtPayload(token);
-  return Boolean(p && p.userId && typeof p.exp === 'number' && p.exp * 1000 > Date.now());
+  return (window.DC && DC.token()) || '';
 }
 
 function clearSession() {
   ['depilclear_token', 'depilclear_session_validated', 'depilclear_active_user'].forEach(k => sessionStorage.removeItem(k));
   document.documentElement.classList.remove('has-session');
+  if (window.DC) DC.logout();
 }
 
-// Valida o token no servidor. Retorna { ok, offline?, usuario?, reason? }
+// Retorna { ok, offline?, usuario?, reason? }. Offline: vale a sessão salva no aparelho e o último perfil conhecido.
 async function validateSession() {
-  const token = getAuthToken();
-  if (!tokenLooksValid(token)) return { ok: false, reason: 'token' };
-
-  try {
-    const res = await fetch('/api/me', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store'
-    });
-    if (res.status === 200) {
-      const data = await res.json().catch(() => ({}));
-      sessionStorage.setItem('depilclear_session_validated', String(Date.now()));
-      return { ok: true, usuario: data.usuario || null };
-    }
-    if (res.status === 401 || res.status === 403) return { ok: false, reason: 'unauthorized' };
-    // 5xx / 404 (servidor indisponível): trata como offline
-  } catch (e) { /* sem rede */ }
-
-  // OFFLINE: só libera se JÁ houve validação bem-sucedida nesta sessão, há menos de 8h.
-  // LIMITE: offline não há como provar a assinatura do token; o marcador é só uma barreira de conveniência.
-  const ts = Number(sessionStorage.getItem('depilclear_session_validated') || 0);
-  if (ts && Date.now() - ts < SESSION_MAX_OFFLINE_MS) return { ok: true, offline: true };
-  return { ok: false, reason: 'offline' };
+  if (!window.DC) return { ok: false, reason: 'token' };
+  return DC.sessao();
 }
 
 

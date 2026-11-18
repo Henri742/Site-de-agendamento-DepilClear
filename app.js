@@ -322,29 +322,13 @@ async function handleLoginSubmit(event) {
   if (submitText) submitText.textContent = 'Entrando…';
 
   try {
-    const resposta = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-
-    // Se o servidor devolver HTML (erro 404/500 da hospedagem), não quebra no JSON
-    const dados = await resposta.json().catch(() => ({}));
-
-    if (!resposta.ok) {
-      showLoginError(dados.erro || (resposta.status >= 500 ? 'Servidor indisponível. Tente novamente em instantes.' : 'E-mail ou senha incorretos.'));
+    const resultado = await DC.login(email, password);
+    if (!resultado.ok) {
+      showLoginError(resultado.erro);
       passwordInput?.select();
       return false;
     }
-
-    if (!tokenLooksValid(dados.token || '')) {
-      showLoginError('Resposta de login inválida. Tente novamente.');
-      return false;
-    }
-    // O acesso depende do TOKEN (validado no servidor em /api/me). Nada de flag booleana.
-    sessionStorage.setItem('depilclear_token', dados.token);
-    sessionStorage.setItem('depilclear_session_validated', String(Date.now()));
-    sessionStorage.setItem('depilclear_active_user', (dados.usuario && dados.usuario.email) || '');
+    const dados = { usuario: resultado.usuario };
     document.documentElement.classList.add('has-session');
 
     document.getElementById('view-login')?.classList.add('hidden');
@@ -362,6 +346,7 @@ async function handleLoginSubmit(event) {
     startWhatsAppScheduler();
     initCalendar();
     renderAllViews();
+    aposEntrar(dados.usuario);
     showToast(`Bem-vindo(a), ${(dados.usuario && dados.usuario.nome) || ''}!`, 'success');
     lucide.createIcons();
   } catch (erro) {
@@ -448,12 +433,14 @@ function switchTab(tabId) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('bg-gradient-to-r', 'from-brand-purpleDeep', 'to-brand-violet', 'text-white', 'shadow-md', 'shadow-purple-900/30');
     el.classList.add('text-slate-600', 'dark:text-slate-300');
+    el.removeAttribute('aria-current');
   });
 
   const activeNav = document.getElementById(`nav-${tabId}`);
   if (activeNav) {
     activeNav.classList.remove('text-slate-600', 'dark:text-slate-300');
     activeNav.classList.add('bg-gradient-to-r', 'from-brand-purpleDeep', 'to-brand-violet', 'text-white', 'shadow-md', 'shadow-purple-900/30');
+    activeNav.setAttribute('aria-current', 'page');
   }
 
   const sidebar = document.getElementById('app-sidebar');
@@ -3478,7 +3465,7 @@ async function checkUserSession() {
   }
 
   document.documentElement.classList.add('has-session');
-  const user = (result.usuario && result.usuario.email) || sessionStorage.getItem('depilclear_active_user') || '';
+  const user = (result.usuario && result.usuario.email) || '';
   document.getElementById('view-login')?.classList.add('hidden');
   const dash = document.getElementById('view-dashboard');
   if (dash) {
@@ -3494,9 +3481,35 @@ async function checkUserSession() {
   startWhatsAppScheduler();
   initCalendar();
   renderAllViews();
+  aposEntrar(result.usuario);
   lucide.createIcons();
   return true;
 }
+
+// Depois do login: liga a sincronização e ajusta a tela à função da pessoa
+function aposEntrar(usuario) {
+  const funcao = (usuario && usuario.funcao) || '';
+  const html = document.documentElement;
+  html.dataset.funcao = funcao;
+  // Depiladora (ou ?mural na URL, para TV/celular da sala): só o mural, ao vivo
+  const soMural = funcao === 'depiladora' || new URLSearchParams(location.search).has('mural');
+  html.classList.toggle('modo-mural', soMural);
+  if (soMural) switchTab('recepcao');
+  document.querySelectorAll('[data-so-admin]').forEach(el => el.classList.toggle('hidden', funcao !== 'admin'));
+  DC.iniciar();
+}
+
+// Mudanças vindas de outro aparelho: recarrega as listas e redesenha a tela atual
+window.addEventListener('depilclear:remoto', () => {
+  if (!document.documentElement.classList.contains('has-session')) return;
+  loadAllFromLocalStorage();
+  renderAllViews();
+  if (typeof updateMuralCounters === 'function') updateMuralCounters();
+});
+
+window.addEventListener('depilclear:acesso-revogado', () => {
+  handleLogout('Seu acesso foi alterado pela administradora. Entre novamente.');
+});
 
 // DOMContentLoaded (e não window.onload): não espera fontes/imagens para liberar a tela
 document.addEventListener('DOMContentLoaded', function() {

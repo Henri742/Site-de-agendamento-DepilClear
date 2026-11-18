@@ -1,0 +1,126 @@
+/* ========================================================
+ * DEPILCLEAR - tema.css  (visual 2026)
+ * Camada de aparência por cima do Tailwind compilado e do style.css.
+ * Mantém roxo + dourado da marca, com superfícies mais limpas, menos gradiente
+ * e hierarquia mais clara. Carregue POR ÚLTIMO.
+ * ======================================================== */
+:root {
+  --t-bg: #f6f4fa;
+  --t-surface: #ffffff;
+  --t-card: #f4f0fb;
+  --t-border: #e8e1f3;
+  --t-text: #1c1527;
+  --t-muted: #6b6280;
+  --t-accent: #5b34d6;
+  --t-accent-strong: #3f2399;
+  --t-accent-soft: #efe9ff;
+  --t-gold: #b8901c;
+  --t-shadow: 0 1px 2px rgba(28, 21, 39, .04), 0 8px 24px -12px rgba(63, 35, 153, .18);
+  --t-shadow-lg: 0 2px 4px rgba(28, 21, 39, .04), 0 24px 48px -20px rgba(63, 35, 153, .28);
+  --t-radius: 20px;
+}
+html.dark {
+  --t-bg: #0e0a15;
+  --t-surface: #15101f;
+  --t-card: #1c1529;
+  --t-border: #2a2140;
+  --t-text: #f3f0f8;
+  --t-muted: #a79fbb;
+  --t-accent: #a48bff;
+  --t-accent-strong: #c4b5fd;
+  --t-accent-soft: #241a3d;
+  --t-gold: #d9b64a;
+  --t-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -14px rgba(0, 0, 0, .6);
+  --t-shadow-lg: 0 2px 6px rgba(0, 0, 0, .3), 0 28px 56px -24px rgba(0, 0, 0, .7);
+}
+
+/* Fundo com brilho sutil da marca */
+body {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(124, 58, 237, .07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(212, 175, 55, .06), transparent 60%),
+    var(--t-bg) !important;
+  color: var(--t-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Superfícies */
+.bg-brand-lightSurface { background-color: var(--t-surface) !important; }
+.bg-brand-lightCard { background-color: var(--t-card) !important; }
+.bg-brand-lightBg { background-color: var(--t-bg) !important; }
+.border-brand-lightBorder { border-color: var(--t-border) !important; }
+html.dark .dark\:bg-brand-darkSurface { background-color: var(--t-surface) !important; }
+html.dark .dark\:bg-brand-darkCard { background-color: var(--t-card) !important; }
+html.dark .dark\:bg-brand-darkBg { background-color: var(--t-bg) !important; }
+html.dark .dark\:border-brand-darkBorder { border-color: var(--t-border) !important; }
+
+.rounded-3xl { border-radius: var(--t-radius) !important; }
+.shadow-xl, .shadow-lg { box-shadow: var(--t-shadow) !important; }
+.shadow-2xl { box-shadow: var(--t-shadow-lg) !important; }
+
+/* Menu lateral: item ativo em pílula suave com marcador dourado (sem gradiente pesado) */
+#app-sidebar { background: color-mix(in srgb, var(--t-surface) 94%, transparent) !important; backdrop-filter: blur(10px); }
+#app-sidebar .nav-item { position: relative; font-weight: 600; letter-spacing: .1px; transition: background-color .15s ease, color .15s ease; }
+#app-sidebar .nav-item[aria-current="page"],
+#app-sidebar .nav-item.bg-gradient-to-r {
+  background: var(--t-accent-soft) !important;
+  color: var(--t-accent-strong) !important;
+  box-shadow: none !important;
+}
+#app-sidebar .nav-item[aria-current="page"]::before,
+#app-sidebar .nav-item.bg-gradient-to-r::before {
+  content: ""; position: absolute; left: 4px; top: 22%; bottom: 22%; width: 3px; border-radius: 3px; background: var(--t-gold);
+}
+#app-sidebar .nav-item:not(.bg-gradient-to-r):hover { background: var(--t-card) !important; }
+#nav-recepcao:not(.bg-gradient-to-r) { background: transparent !important; border-color: transparent !important; }
+
+/* Cabeçalho em vidro */
+header.sticky { background: color-mix(in srgb, var(--t-surface) 82%, transparent) !important; backdrop-filter: blur(12px) saturate(1.2); box-shadow: none !important; }
+
+/* Botões principais: cor sólida da marca, com leve elevação */
+button.bg-gradient-to-r.from-brand-purpleDeep,
+a.bg-gradient-to-r.from-brand-purpleDeep {
+  background: var(--t-accent) !important;
+  border-color: transparent !important;
+  box-shadow: 0 6px 16px -8px rgba(91, 52, 214, .7) !important;
+  transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+}
+html.dark button.bg-gradient-to-r.from-brand-purpleDeep,
+html.dark a.bg-gradient-to-r.from-brand-purpleDeep { background: #6d4ae8 !important; }
+button.bg-gradient-to-r.from-brand-purpleDeep:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(91, 52, 214, .8) !important; }
+button.bg-gradient-to-r.from-brand-purpleDeep:active { transform: translateY(0); }
+button.bg-gradient-to-r.from-brand-purpleDeep .text-brand-gold { color: #fde68a !important; }
+
+/* Campos */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea {
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):focus, select:focus, textarea:focus {
+  border-color: var(--t-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 18%, transparent) !important;
+  outline: none;
+}
+
+/* Títulos com mais presença */
+main h2.text-xl, main h2.text-2xl { letter-spacing: -.4px; }
+
+/* Tela de login: cartão flutuante sobre o fundo da marca */
+#view-login {
+  background:
+    radial-gradient(800px 500px at 15% 10%, rgba(124, 58, 237, .16), transparent 60%),
+    radial-gradient(700px 500px at 90% 90%, rgba(212, 175, 55, .14), transparent 60%),
+    var(--t-bg) !important;
+}
+#view-login > .max-w-md { box-shadow: var(--t-shadow-lg) !important; border-radius: 28px !important; }
+
+#connection-indicator-desktop { border-radius: 999px !important; }
+
+/* Rolagem fina e da cor da marca */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--t-accent) 35%, transparent) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  button.bg-gradient-to-r.from-brand-purpleDeep:hover { transform: none; }
+}
+
+/* Cliente importada sem sexo informado: esconde a etiqueta vazia */
+#clients-table-body span.rounded-full.font-bold:empty { display: none; }

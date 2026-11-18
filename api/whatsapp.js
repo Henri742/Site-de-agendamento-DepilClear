@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Método não permitido.' });
 
   // Só usuários logados disparam mensagens
-  const usuario = requireAuth(req, res);
+  const usuario = await requireAuth(req, res);
   if (!usuario) return;
 
   // Contém abuso/spam: 30 requisições por minuto por IP

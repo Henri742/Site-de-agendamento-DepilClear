@@ -1,6 +1,6 @@
 // api/_auth.js
 // Arquivos que começam com "_" dentro de /api NÃO viram rotas na Vercel: é só um módulo auxiliar.
-import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 
 const DEFAULT_ORIGINS = [
   'https://agendamentodepil.vercel.app',
@@ -32,29 +32,38 @@ export function applyCors(req, res, methods = 'POST, OPTIONS') {
   return true;
 }
 
-// Valida o JWT emitido pelo /api/login. Retorna o payload ou responde 401/500 e retorna null.
-export function requireAuth(req, res) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    console.error('JWT_SECRET não configurado.');
+let _admin = null;
+// Cliente com a chave de serviço (ignora RLS): só no servidor, nunca no navegador
+export function adminClient() {
+  if (!_admin) {
+    _admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
+  return _admin;
+}
+
+// Valida o token do Supabase Auth e o perfil ativo. Retorna { id, email, nome, funcao } ou responde 401/500 e retorna null.
+export async function requireAuth(req, res) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('ERRO CRÍTICO: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes na Vercel.');
     res.status(500).json({ erro: 'Configuração interna do servidor pendente.' });
     return null;
   }
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) { res.status(401).json({ erro: 'Faça login novamente.' }); return null; }
   try {
-    // Algoritmo FIXO: impede "alg: none" e confusão de algoritmos
-    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
-    if (!payload || typeof payload !== 'object' || !payload.userId) throw new Error('payload inválido');
-    return payload;
+    const sb = adminClient();
+    const { data, error } = await sb.auth.getUser(token);
+    if (error || !data?.user) throw new Error('token');
+    const { data: perfil } = await sb.from('perfis').select('nome, funcao, ativo').eq('user_id', data.user.id).maybeSingle();
+    if (!perfil || !perfil.ativo) throw new Error('perfil');
+    return { id: data.user.id, email: data.user.email, nome: perfil.nome, funcao: perfil.funcao };
   } catch {
-    res.status(401).json({ erro: 'Sessão expirada ou inválida. Faça login novamente.' });
+    res.status(401).json({ erro: 'Sessão expirada ou sem acesso. Faça login novamente.' });
     return null;
   }
 }
 
-// Papéis com permissão de escrita (ex.: "admin"). Configurável: ADMIN_ROLES="admin,proprietaria"
 export function isAdmin(usuario) {
-  const roles = (process.env.ADMIN_ROLES || 'admin').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  return roles.includes(String(usuario?.funcao || '').toLowerCase());
+  return usuario?.funcao === 'admin';
 }

@@ -3,7 +3,7 @@
 // ATENÇÃO: respostas de CDN guardadas aqui são "opacas" (no-cors): o navegador NÃO consegue conferir o
 // hash SRI delas ao servir do cache. A verificação de integridade acontece na 1ª carga pela rede; a cópia
 // em cache é confiável apenas se a 1ª carga foi legítima. Ao trocar de versão de CDN, suba o número do cache.
-const CACHE_NAME = 'depilclear-offline-v7';
+const CACHE_NAME = 'depilclear-offline-v8';
 
 const LOCAL_ASSETS = [
   '/',
@@ -12,8 +12,14 @@ const LOCAL_ASSETS = [
   '/caixa.css',
   '/caixa.js',
   '/style.css',
+  '/tema.css',
   '/app.js',
   '/security.js',
+  '/sync.js',
+  '/import.js',
+  '/vendor/supabase.js',
+  '/usuarios.html',
+  '/usuarios.js',
   '/logo.webp',
   '/icon-192.webp',
   '/icon-512.webp',
@@ -115,6 +121,9 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+
+  // Banco (Supabase) e qualquer outro domínio: nunca guardar no cache (dados pessoais e sempre atuais)
+  if (url.origin !== self.location.origin) return;
 
   // Arquivos locais: rede primeiro (pega atualizações do app.js), cache se estiver offline
   event.respondWith(
