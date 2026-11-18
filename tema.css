@@ -19,19 +19,24 @@
   --t-shadow-lg: 0 2px 4px rgba(28, 21, 39, .04), 0 24px 48px -20px rgba(63, 35, 153, .28);
   --t-radius: 20px;
 }
+/* Tema escuro — regra 60·30·10 com as cores da logo:
+   60% preto (fundo), 30% grafite com toque de roxo (superfícies, menu, cartões), 10% dourado (ação e destaque).
+   O roxo da logo aparece só em detalhes secundários. */
 html.dark {
-  --t-bg: #0e0a15;
-  --t-surface: #15101f;
-  --t-card: #1c1529;
-  --t-border: #2a2140;
-  --t-text: #f3f0f8;
-  --t-muted: #a79fbb;
-  --t-accent: #a48bff;
-  --t-accent-strong: #c4b5fd;
-  --t-accent-soft: #241a3d;
-  --t-gold: #d9b64a;
-  --t-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -14px rgba(0, 0, 0, .6);
-  --t-shadow-lg: 0 2px 6px rgba(0, 0, 0, .3), 0 28px 56px -24px rgba(0, 0, 0, .7);
+  --t-bg: #0c0b0f;            /* 60 — preto da logo, levemente quente */
+  --t-surface: #15131b;       /* 30 — superfícies */
+  --t-card: #1c1924;          /* 30 — cartões elevados */
+  --t-border: #2a2533;
+  --t-text: #f4f1f7;
+  --t-muted: #a9a2b6;
+  --t-accent: #d4af37;        /* 10 — dourado da logo */
+  --t-accent-strong: #e7c766;
+  --t-accent-soft: rgba(212, 175, 55, .12);
+  --t-on-accent: #1a1405;
+  --t-purple: #9b6dff;        /* roxo da logo, clareado para ler no escuro */
+  --t-gold: #d4af37;
+  --t-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 10px 28px -16px rgba(0, 0, 0, .8);
+  --t-shadow-lg: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 28px 56px -24px rgba(0, 0, 0, .85);
 }
 
 /* Fundo com brilho sutil da marca */
@@ -245,3 +250,75 @@ html.modo-mural #view-dashboard main { padding-bottom: 24px !important; }
   body:has(#bottom-nav):not(:has(#view-dashboard)) { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   #dc-sync-pill { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
 }
+
+/* ===================== TEMA ESCURO 60·30·10 ===================== */
+html.dark body { background: var(--t-bg) !important; color: var(--t-text); }
+html.dark #view-login {
+  background:
+    radial-gradient(700px 420px at 15% 0%, rgba(212, 175, 55, .10), transparent 60%),
+    radial-gradient(600px 420px at 100% 100%, rgba(155, 109, 255, .10), transparent 60%),
+    var(--t-bg) !important;
+}
+/* Texto: hierarquia em 3 tons (títulos, corpo, apoio) */
+html.dark .dark\:text-white, html.dark .text-slate-900.dark\:text-white { color: var(--t-text) !important; }
+html.dark .dark\:text-slate-200, html.dark .dark\:text-slate-300 { color: #ddd7e6 !important; }
+html.dark .dark\:text-slate-400, html.dark .text-slate-400, html.dark .text-slate-500, html.dark .text-brand-lightMuted { color: var(--t-muted) !important; }
+
+/* Ação principal = dourado (os 10%) */
+html.dark button.bg-gradient-to-r.from-brand-purpleDeep,
+html.dark a.bg-gradient-to-r.from-brand-purpleDeep,
+html.dark #mobile-fab:not([hidden]),
+html.dark .bg-brand-violet:is(button, a) {
+  background: linear-gradient(180deg, #e2c260, #c9a12e) !important;
+  color: var(--t-on-accent) !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 20px -10px rgba(212, 175, 55, .55) !important;
+}
+html.dark button.bg-gradient-to-r.from-brand-purpleDeep :is(svg, span, i),
+html.dark #mobile-fab svg,
+html.dark .bg-brand-violet:is(button, a) :is(svg, span) { color: var(--t-on-accent) !important; }
+html.dark button.bg-gradient-to-r.from-brand-purpleDeep:hover { filter: brightness(1.06); }
+
+/* Menu lateral, barra inferior e filtros: item ativo em dourado */
+html.dark #app-sidebar { background: var(--t-surface) !important; border-color: var(--t-border) !important; }
+html.dark #app-sidebar .nav-item[aria-current="page"],
+html.dark #app-sidebar .nav-item.bg-gradient-to-r { background: var(--t-accent-soft) !important; color: var(--t-accent-strong) !important; }
+html.dark #app-sidebar .nav-item.bg-gradient-to-r svg { color: var(--t-accent) !important; }
+html.dark #app-sidebar .nav-item:not(.bg-gradient-to-r) { color: #cfc8da !important; }
+html.dark #app-sidebar .nav-item svg { color: var(--t-muted) !important; }
+html.dark #bottom-nav { background: color-mix(in srgb, var(--t-surface) 94%, transparent); }
+html.dark #bottom-nav [aria-current="page"] { color: var(--t-accent) !important; }
+html.dark .md-filtros button[aria-selected="true"] { background: var(--t-accent) !important; color: var(--t-on-accent) !important; box-shadow: 0 6px 14px -8px rgba(212, 175, 55, .6); }
+html.dark .client-gender-btn.bg-brand-violet { background: var(--t-accent) !important; color: var(--t-on-accent) !important; }
+html.dark .ms-grade [aria-current="page"] { border-color: var(--t-accent); background: var(--t-accent-soft); }
+html.dark .ms-grade svg { color: var(--t-accent); }
+
+/* Cabeçalho e superfícies */
+html.dark header.sticky { background: color-mix(in srgb, var(--t-bg) 85%, transparent) !important; border-color: var(--t-border) !important; }
+html.dark .md-resumo, html.dark .md-card { background: var(--t-surface); }
+html.dark .md-hora { background: var(--t-accent-soft); color: var(--t-accent-strong); }
+html.dark .md-card:not(.md-chegou) { border-left-color: var(--t-accent); }
+
+/* Campos */
+html.dark input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),
+html.dark textarea { color: var(--t-text) !important; }
+/* select mantém a cor própria (ex.: status verde/âmbar do agendamento) */
+html.dark input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),
+html.dark select, html.dark textarea { background-color: #110f16 !important; border-color: var(--t-border) !important; }
+html.dark input::placeholder, html.dark textarea::placeholder { color: #7d7689 !important; }
+html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
+  border-color: var(--t-accent) !important; box-shadow: 0 0 0 3px rgba(212, 175, 55, .18) !important;
+}
+
+/* Destaques e números em dourado; roxo da logo nos detalhes */
+html.dark .text-brand-gold { color: var(--t-accent) !important; }
+html.dark .text-brand-violet, html.dark .dark\:text-brand-violetLight { color: var(--t-purple) !important; }
+
+/* Interruptor de tema no escuro: grafite com aro dourado */
+html.dark .theme-switch-track { background: linear-gradient(135deg, #1c1924, #2a2533) !important; border-color: rgba(212, 175, 55, .45) !important; }
+
+/* Folhas e janelas */
+html.dark #mais-sheet:not([hidden]), html.dark [id^="modal-"].fixed > div { background: var(--t-surface) !important; }
+html.dark .ms-grade > *, html.dark .ms-fechar { background: var(--t-card); border-color: var(--t-border); }
+
+* { scrollbar-color: color-mix(in srgb, var(--t-accent) 35%, transparent) transparent; }

@@ -456,7 +456,7 @@ html:not(.dark) .bg-brand-purpleDeep.text-brand-gold { color: #d4af37; }
 html.modo-mural #app-sidebar,
 html.modo-mural #mobile-menu-overlay,
 html.modo-mural #mobile-fab,
-html.modo-mural header.md\:hidden button,
+html.modo-mural header.md\:hidden button[onclick="toggleMobileMenu()"],
 html.modo-mural #section-recepcao > div > p:first-child { display: none !important; }
 html.modo-mural main { padding-bottom: 16px; }
 html.modo-mural .tab-pane:not(#section-recepcao) { display: none !important; }
@@ -555,3 +555,6 @@ html.dark .md-tag-wait { background: #422006; color: #fde68a; }
 html.dark .md-servicos span[style*="color"] { color: #f1f5f9 !important; }
 .md-passou { opacity: .55; }
 .md-vazio { padding: 40px 16px; text-align: center; font-weight: 700; color: var(--t-muted, #6b6280); border: 2px dashed var(--t-border, #e8e1f3); border-radius: 18px; }
+
+/* Interruptor de tema: tamanho fixo (a regra geral de 40px de toque deixava sobra embaixo da bolinha) */
+.theme-switch-track { min-height: 32px !important; flex-shrink: 0; }
