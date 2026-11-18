@@ -410,3 +410,10 @@ html.dark #wpp-modal .wpp-ok { color: #6ee7b7; }
   :is(#imp-modal, #wpp-modal) .imp-caixa { max-width: none !important; border-radius: 26px 26px 0 0 !important; max-height: 92dvh !important; padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; animation: sheetUp .28s cubic-bezier(.2,.8,.2,1) both !important; }
   #wpp-modal .wpp-acoes button { flex: 1; justify-content: center; }
 }
+
+/* WhatsApp: barra "o app não abriu" e destaque da próxima mensagem */
+#wpp-fallback { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 90; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); padding: 10px 12px 10px 16px; border-radius: 18px; background: var(--t-surface); color: var(--t-text); border: 1px solid var(--t-border); box-shadow: var(--t-shadow-lg); font: 600 13px/1.3 Montserrat, system-ui, sans-serif; }
+#wpp-fallback button { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 0; background: #16a34a; color: #fff; font-weight: 800; }
+#wpp-fallback .wpp-fb-x { background: transparent; color: var(--t-muted); font-size: 20px; padding: 0 8px; }
+@media (max-width: 767px) { #wpp-fallback { bottom: calc(84px + env(safe-area-inset-bottom)); } }
+#wpp-modal .wpp-proxima { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22, 163, 74, .25); }

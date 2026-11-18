@@ -3024,10 +3024,19 @@ function buildWhatsAppVars(app, clientName, lastDate) {
   };
 }
 
-// Onde abrir (preferência de cada aparelho): auto = wa.me escolhe (app no celular, app/Web no PC)
+// Onde abrir (preferência de cada aparelho):
+//  auto = tenta o APLICATIVO (que reaproveita a janela já aberta); se ele não abrir, oferece o WhatsApp Web
+//  app  = sempre o aplicativo   |   web = sempre o WhatsApp Web
+// Limite do navegador: não dá para "ver" se o app ou uma aba do WhatsApp Web já estão abertos. O app,
+// quando chamado, usa a própria janela aberta. Já o WhatsApp Web bloqueia ser reaproveitado por outro
+// site (proteção COOP), então cada envio pelo Web recarrega a aba nomeada que o sistema abriu.
 const WPP_MODO_KEY = 'dc-wpp-modo';
+const WPP_SEM_APP_KEY = 'dc-wpp-sem-app'; // o app não abriu neste aparelho: o automático vai direto ao Web
 function wppModo() { try { return localStorage.getItem(WPP_MODO_KEY) || 'auto'; } catch (e) { return 'auto'; } }
-function setWppModo(modo) { try { localStorage.setItem(WPP_MODO_KEY, modo); } catch (e) { /* ignora */ } }
+function setWppModo(modo) {
+  try { localStorage.setItem(WPP_MODO_KEY, modo); localStorage.removeItem(WPP_SEM_APP_KEY); } catch (e) { /* ignora */ }
+}
+function wppSemApp() { try { return localStorage.getItem(WPP_SEM_APP_KEY) === '1'; } catch (e) { return false; } }
 
 // Só dígitos, com DDI 55 quando vier DDD + número
 function telefoneWhatsApp(phone) {
@@ -3036,23 +3045,59 @@ function telefoneWhatsApp(phone) {
   return d.length >= 12 && d.length <= 13 ? d : '';
 }
 
-function linkWhatsApp(phone, texto) {
+function linkWhatsApp(phone, texto, destino = 'app') {
   const num = telefoneWhatsApp(phone);
   if (!num) return '';
   const t = encodeURIComponent(texto || '');
-  const modo = wppModo();
-  if (modo === 'web') return `https://web.whatsapp.com/send?phone=${num}&text=${t}`;
-  if (modo === 'app') return `whatsapp://send?phone=${num}&text=${t}`;
-  return `https://wa.me/${num}?text=${t}`;
+  return destino === 'web'
+    ? `https://web.whatsapp.com/send?phone=${num}&text=${t}`
+    : `whatsapp://send?phone=${num}&text=${t}`;
+}
+
+function abrirWhatsAppWeb(url) {
+  const w = window.open(url, 'depilclear-whatsapp'); // mesma aba enquanto o navegador permitir
+  if (w) { try { w.opener = null; } catch (e) { /* ignora */ } }
+  else showToast('O navegador bloqueou a janela do WhatsApp. Permita pop-ups para este site.', 'warning');
+}
+
+// Barra rápida quando o app não respondeu: um toque abre no WhatsApp Web
+function oferecerWhatsAppWeb(urlWeb) {
+  document.getElementById('wpp-fallback')?.remove();
+  const bar = document.createElement('div');
+  bar.id = 'wpp-fallback';
+  bar.setAttribute('role', 'alert');
+  bar.innerHTML = '<span>O aplicativo do WhatsApp não abriu.</span><button type="button">Abrir no WhatsApp Web</button><button type="button" class="wpp-fb-x" aria-label="Fechar">×</button>';
+  bar.querySelector('button').onclick = () => { abrirWhatsAppWeb(urlWeb); bar.remove(); };
+  bar.querySelector('.wpp-fb-x').onclick = () => bar.remove();
+  document.body.append(bar);
+  setTimeout(() => bar.remove(), 15000);
 }
 
 function abrirWhatsApp(phone, texto, nome) {
-  const url = linkWhatsApp(phone, texto);
-  if (!url) { showToast(`O telefone de ${nome || 'cliente'} não serve para WhatsApp. Confira o cadastro.`, 'error'); return false; }
-  if (url.startsWith('whatsapp:')) { location.href = url; return true; }
-  // Reaproveita a mesma aba do WhatsApp Web em vez de abrir uma nova a cada mensagem
-  const w = window.open(url, 'depilclear-whatsapp');
-  if (w) w.opener = null; else location.href = url;
+  const urlApp = linkWhatsApp(phone, texto, 'app');
+  if (!urlApp) { showToast(`O telefone de ${nome || 'cliente'} não serve para WhatsApp. Confira o cadastro.`, 'error'); return false; }
+  const urlWeb = linkWhatsApp(phone, texto, 'web');
+  const modo = wppModo();
+  if (modo === 'web' || (modo === 'auto' && wppSemApp())) { abrirWhatsAppWeb(urlWeb); return true; }
+
+  // Chama o app (se já estiver aberto, ele mesmo traz a janela para frente na conversa).
+  // Se a página não perder o foco em ~2,5 s, o app não abriu: no automático, oferece o Web.
+  let abriu = false;
+  const marcar = () => { abriu = true; };
+  window.addEventListener('blur', marcar, { once: true });
+  document.addEventListener('visibilitychange', marcar, { once: true });
+  location.href = urlApp;
+  setTimeout(() => {
+    window.removeEventListener('blur', marcar);
+    document.removeEventListener('visibilitychange', marcar);
+    if (abriu) return;
+    if (modo === 'auto') {
+      try { localStorage.setItem(WPP_SEM_APP_KEY, '1'); } catch (e) { /* ignora */ }
+      oferecerWhatsAppWeb(urlWeb);
+    } else {
+      showToast('O aplicativo do WhatsApp não abriu. Confira se ele está instalado ou troque para "WhatsApp Web".', 'warning');
+    }
+  }, 2500);
   return true;
 }
 
@@ -3171,9 +3216,9 @@ function abrirFilaWhatsApp({ so = null, titulo = '' } = {}) {
       <p class="imp-ajuda">Toque em <b>Abrir no WhatsApp</b>: a conversa da cliente abre com a mensagem pronta, é só tocar em <b>Enviar</b> lá.</p>
       <label class="wpp-modo">Abrir em
         <select onchange="setWppModo(this.value)" aria-label="Onde abrir o WhatsApp">
-          <option value="auto" ${modo === 'auto' ? 'selected' : ''}>Automático (app ou Web)</option>
-          <option value="app" ${modo === 'app' ? 'selected' : ''}>Aplicativo do WhatsApp</option>
-          <option value="web" ${modo === 'web' ? 'selected' : ''}>WhatsApp Web (navegador)</option>
+          <option value="auto" ${modo === 'auto' ? 'selected' : ''}>Automático: aplicativo, senão WhatsApp Web</option>
+          <option value="app" ${modo === 'app' ? 'selected' : ''}>Sempre o aplicativo (celular ou Windows)</option>
+          <option value="web" ${modo === 'web' ? 'selected' : ''}>Sempre o WhatsApp Web</option>
         </select>
       </label>
       <ul class="wpp-lista">
@@ -3195,6 +3240,18 @@ function abrirFilaWhatsApp({ so = null, titulo = '' } = {}) {
       li.classList.add('wpp-feito');
       li.querySelector('.wpp-acoes').innerHTML = '<span class="wpp-ok">✓ Marcada como enviada</span>';
       atualizarFilaWhatsApp();
+      // Em sequência: a próxima já fica destacada e com foco (um toque/Enter por mensagem)
+      const proxima = modal.querySelector('li[data-key]:not(.wpp-feito)');
+      modal.querySelectorAll('.wpp-proxima').forEach(x => x.classList.remove('wpp-proxima'));
+      if (proxima) {
+        proxima.classList.add('wpp-proxima');
+        const btn = proxima.querySelector('.wpp-enviar');
+        const resta = modal.querySelectorAll('li[data-key]:not(.wpp-feito)').length;
+        btn.innerHTML = `<i data-lucide="send"></i> Enviar próxima (${resta} restante${resta === 1 ? '' : 's'})`;
+        lucide.createIcons();
+        proxima.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        setTimeout(() => btn.focus({ preventScroll: true }), 50);
+      }
     };
     li.querySelector('.wpp-enviar').onclick = () => { if (abrirWhatsApp(item.phone, item.texto, item.nome)) concluir(); };
     li.querySelector('.wpp-pular').onclick = concluir;
