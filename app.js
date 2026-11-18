@@ -1204,7 +1204,88 @@ function getMuralApps(dateStr) {
   return appointmentsList.filter(a => a.date === dateStr && a.status === 'Confirmada');
 }
 
+/* ---------- Mural simplificado das depiladoras (celular primeiro, só leitura) ---------- */
+let muralDiaOffset = 0; // 0 = hoje, 1 = amanhã
+
+function dataLocalISO(offsetDias = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function setMuralDia(offset) {
+  muralDiaOffset = offset;
+  renderMuralDepiladora();
+}
+
+function renderMuralDepiladora() {
+  const secao = document.getElementById('section-recepcao');
+  if (!secao) return;
+  let box = document.getElementById('mural-depiladora');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'mural-depiladora';
+    secao.prepend(box);
+  }
+  const dataStr = dataLocalISO(muralDiaOffset);
+  const [y, m, d] = dataStr.split('-');
+  const nomeDia = new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('pt-BR', { weekday: 'long' });
+  const apps = getMuralApps(dataStr).slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  const agoraHM = muralDiaOffset === 0 ? new Date().toTimeString().slice(0, 5) : '';
+
+  // Agrupa por horário
+  const grupos = [];
+  apps.forEach(a => {
+    const ult = grupos[grupos.length - 1];
+    if (ult && ult.time === a.time) ult.apps.push(a); else grupos.push({ time: a.time, apps: [a] });
+  });
+
+  const lista = grupos.length ? grupos.map(g => {
+    const passou = agoraHM && g.time < agoraHM && g.apps.every(a => a.arrivedAtReception);
+    return `
+      <li class="md-grupo${passou ? ' md-passou' : ''}">
+        <div class="md-hora">${escapeHtml(g.time)}</div>
+        <div class="md-cards">
+          ${g.apps.map(a => `
+            <article class="md-card${a.arrivedAtReception ? ' md-chegou' : ''}">
+              <div class="md-linha">
+                <strong class="md-nome">${escapeHtml(a.clientName)}</strong>
+                ${a.isFirstTime ? '<span class="md-tag md-tag-1vez">1ª vez</span>' : ''}
+                <span class="md-tag ${a.arrivedAtReception ? 'md-tag-ok' : 'md-tag-wait'}">${a.arrivedAtReception ? 'Chegou' : 'Aguardando'}</span>
+              </div>
+              <div class="md-servicos">${renderMuralServiceBadges(a)}</div>
+            </article>`).join('')}
+        </div>
+      </li>`;
+  }).join('') : `<li class="md-vazio">Nenhuma cliente confirmada para ${muralDiaOffset === 0 ? 'hoje' : 'amanhã'}.</li>`;
+
+  box.innerHTML = `
+    <div class="md-topo">
+      <div class="md-filtros" role="tablist" aria-label="Escolher o dia">
+        <button type="button" role="tab" aria-selected="${muralDiaOffset === 0}" onclick="setMuralDia(0)">Hoje</button>
+        <button type="button" role="tab" aria-selected="${muralDiaOffset === 1}" onclick="setMuralDia(1)">Amanhã</button>
+      </div>
+      <div class="md-resumo">
+        <div>
+          <span class="md-dia">${escapeHtml(nomeDia)}</span>
+          <span class="md-data">${escapeHtml(`${d}/${m}/${y}`)}</span>
+        </div>
+        <div class="md-total" aria-label="Total de clientes confirmadas">
+          <span class="md-total-num">${apps.length}</span>
+          <span class="md-total-txt">confirmada${apps.length === 1 ? '' : 's'}</span>
+        </div>
+      </div>
+    </div>
+    <ol class="md-lista">${lista}</ol>`;
+}
+
+// Vira o dia sozinho à meia-noite e mantém o "já passou" atualizado
+setInterval(() => {
+  if (document.documentElement.dataset.funcao === 'depiladora') renderMuralDepiladora();
+}, 60000);
+
 function renderPhysicalReceptionSheet() {
+  if (document.documentElement.dataset.funcao === 'depiladora') { renderMuralDepiladora(); return; }
   updateMuralCounters();
   const thead = document.getElementById('physical-sheet-thead');
   const tbody = document.getElementById('physical-sheet-body');
@@ -3496,6 +3577,7 @@ function aposEntrar(usuario) {
   // Depiladora (ou ?mural na URL, para TV/celular da sala): só o mural, ao vivo
   const soMural = funcao === 'depiladora' || new URLSearchParams(location.search).has('mural');
   html.classList.toggle('modo-mural', soMural);
+  if (funcao === 'depiladora') muralDiaOffset = 0;
   if (soMural) switchTab('recepcao');
   document.querySelectorAll('[data-so-admin]').forEach(el => el.classList.toggle('hidden', funcao !== 'admin'));
   DC.iniciar();
