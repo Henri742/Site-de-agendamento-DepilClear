@@ -73,16 +73,6 @@ function showConfirm({ title = 'Confirmar ação', message = '', confirmText = '
 
 // fetch que já envia o token JWT recebido no login.
 // Se o servidor responder 401 (token inválido/expirado), encerra a sessão e volta ao login.
-async function authFetch(url, options = {}) {
-  const headers = Object.assign({}, options.headers || {}, {
-    Authorization: `Bearer ${getAuthToken()}`
-  });
-  const res = await fetch(url, Object.assign({}, options, { headers }));
-  if (res.status === 401) {
-    handleLogout('Sessão expirada ou inválida. Faça login novamente.');
-  }
-  return res;
-}
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -1210,6 +1200,9 @@ function renderAgendaView() {
             <option value="Cancelado" ${escapeHtml(app.status === 'Cancelado' ? 'selected' : '')}>● Cancelado</option>
           </select>
 
+          <button onclick="abrirWhatsAppDoAgendamento(${Number(app.id)})" class="p-2 text-emerald-500 hover:text-emerald-600 rounded-xl hover:bg-emerald-500/10" title="Abrir WhatsApp da cliente" aria-label="Abrir WhatsApp de ${escapeHtml(app.clientName)}">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+          </button>
           <button onclick="openEditAppointmentModal(${Number(app.id)})" class="p-2 text-slate-400 hover:text-brand-gold rounded-xl hover:bg-brand-lightCard dark:hover:bg-brand-darkCard" title="Editar">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
           </button>
@@ -3003,7 +2996,9 @@ function renderWhatsAppTemplatesList() {
 }
 
 /* ========================================================
- * DISPARO SILENCIOSO DE WHATSAPP (VIA BACKEND /api/whatsapp)
+ * WHATSAPP SEM API
+ * O sistema monta a mensagem e abre o WhatsApp (app no celular/Windows ou WhatsApp Web)
+ * já na conversa da cliente, com o texto pronto. A pessoa só toca em "Enviar".
  * ======================================================== */
 // Monta o texto do modelo trocando {variáveis}; variável desconhecida fica como está
 function buildWhatsAppText(tpl, vars) {
@@ -3029,54 +3024,50 @@ function buildWhatsAppVars(app, clientName, lastDate) {
   };
 }
 
-// Envia pela API. Retorna { ok, simulated }
-async function sendWhatsAppMessage(phone, message, label, { silent = false } = {}) {
-  if (!phone) return { ok: false };
-  if (!navigator.onLine) {
-    if (!silent) showToast('Sem internet: a mensagem de WhatsApp não foi enviada.', 'warning');
-    return { ok: false };
-  }
-  try {
-    const resposta = await authFetch('/api/whatsapp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, message })
-    });
-    const resultado = await resposta.json().catch(() => ({}));
-    if (resposta.ok && resultado.sucesso) {
-      showToast(resultado.simulacao
-        ? `📲 WhatsApp SIMULADO para ${label} (API não configurada).`
-        : `📲 WhatsApp enviado para ${label}!`, resultado.simulacao ? 'warning' : 'success');
-      return { ok: true, simulated: Boolean(resultado.simulacao) };
-    }
-    showToast(resultado.erro || 'Não foi possível enviar o WhatsApp.', 'error');
-  } catch (err) {
-    console.error('Erro no envio do WhatsApp:', err);
-    showToast('Falha de conexão ao enviar WhatsApp.', 'error');
-  }
-  return { ok: false };
+// Onde abrir (preferência de cada aparelho): auto = wa.me escolhe (app no celular, app/Web no PC)
+const WPP_MODO_KEY = 'dc-wpp-modo';
+function wppModo() { try { return localStorage.getItem(WPP_MODO_KEY) || 'auto'; } catch (e) { return 'auto'; } }
+function setWppModo(modo) { try { localStorage.setItem(WPP_MODO_KEY, modo); } catch (e) { /* ignora */ } }
+
+// Só dígitos, com DDI 55 quando vier DDD + número
+function telefoneWhatsApp(phone) {
+  let d = String(phone || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (d.length === 10 || d.length === 11) d = '55' + d;
+  return d.length >= 12 && d.length <= 13 ? d : '';
 }
 
-// Disparo imediato quando o STATUS do agendamento muda.
-// Modelos com "antecedência" não disparam aqui: eles são enviados pelo agendador (abaixo).
-async function triggerWhatsAppWebhook(app, triggerStatus) {
-  const tpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active && !t.advanceDays);
-  if (!tpl || !app.phone) return;
-  await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName);
+function linkWhatsApp(phone, texto) {
+  const num = telefoneWhatsApp(phone);
+  if (!num) return '';
+  const t = encodeURIComponent(texto || '');
+  const modo = wppModo();
+  if (modo === 'web') return `https://web.whatsapp.com/send?phone=${num}&text=${t}`;
+  if (modo === 'app') return `whatsapp://send?phone=${num}&text=${t}`;
+  return `https://wa.me/${num}?text=${t}`;
 }
 
-/* ---------- Agendador (lembretes com antecedência + clientes inativas) ----------
- * Funciona enquanto o sistema estiver aberto em algum navegador logado (não há servidor
- * rodando 24h; os dados ficam no navegador). Horário sempre de Brasília (UTC-3). */
+function abrirWhatsApp(phone, texto, nome) {
+  const url = linkWhatsApp(phone, texto);
+  if (!url) { showToast(`O telefone de ${nome || 'cliente'} não serve para WhatsApp. Confira o cadastro.`, 'error'); return false; }
+  if (url.startsWith('whatsapp:')) { location.href = url; return true; }
+  // Reaproveita a mesma aba do WhatsApp Web em vez de abrir uma nova a cada mensagem
+  const w = window.open(url, 'depilclear-whatsapp');
+  if (w) w.opener = null; else location.href = url;
+  return true;
+}
+
+/* ---------- Registro de enviadas (sincronizado entre os aparelhos) ---------- */
 const WPP_SENT_KEY = 'depilclear_wpp_sent';
-const WPP_MAX_PER_RUN = 10;
-
 function getWppSent() {
   try { return JSON.parse(localStorage.getItem(WPP_SENT_KEY) || '{}'); } catch (e) { return {}; }
 }
-
 function saveWppSent(map) {
   try { localStorage.setItem(WPP_SENT_KEY, JSON.stringify(map)); } catch (e) { /* cota cheia */ }
+}
+function marcarWppEnviada(key) {
+  const sent = getWppSent();
+  sent[key] = { status: 'ok', at: Date.now() };
+  saveWppSent(sent);
 }
 
 // Instante de "dia + hora" no horário de Brasília
@@ -3090,74 +3081,161 @@ function shiftDateStr(dateStr, { days = 0, months = 0 } = {}) {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 }
 
-let wppSchedulerRunning = false;
+/* ---------- Fila: tudo que está pronto para enviar ---------- */
+function itensFilaWhatsApp() {
+  const now = Date.now();
+  const sent = getWppSent();
+  const jaFoi = (key) => sent[key] && sent[key].status === 'ok';
+  const itens = [];
 
-async function runWhatsAppScheduler() {
-  if (wppSchedulerRunning || !getAuthToken() || !navigator.onLine) return;
-  wppSchedulerRunning = true;
-  try {
-    const now = Date.now();
-    const sent = getWppSent();
-    let count = 0;
+  // 1) Mensagens de mudança de status deixadas para depois
+  Object.entries(sent).forEach(([key, r]) => {
+    if (!key.startsWith('st:') || !r || r.status !== 'pendente') return;
+    const [, tplId, appId] = key.split(':');
+    const app = appointmentsList.find(a => String(a.id) === appId);
+    const tpl = whatsappTemplates.find(t => t.id === tplId);
+    if (!app || !tpl || !app.phone) return;
+    itens.push({ key, tipo: tpl.title, nome: app.clientName, phone: app.phone, texto: buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), quando: r.at });
+  });
 
-    const shouldSkip = (key) => {
-      const rec = sent[key];
-      if (!rec) return false;
-      if (rec.status === 'ok') return true;
-      return now - rec.at < 30 * 60 * 1000; // falhou: tenta de novo só depois de 30 min
+  // 2) Lembretes com antecedência (ex.: 1 dia antes), a partir do horário escolhido no modelo
+  whatsappTemplates.filter(t => t.active && t.advanceDays).forEach(tpl => {
+    appointmentsList.forEach(app => {
+      if (app.status !== tpl.trigger || !app.phone || !app.date || !app.time) return;
+      const start = brasiliaInstant(app.date, app.time);
+      if (isNaN(start) || start <= now) return; // atendimento já passou
+      const sendAt = brasiliaInstant(shiftDateStr(app.date, { days: -tpl.advanceDays }), tpl.sendTime);
+      if (now < sendAt) return;
+      const key = `adv:${tpl.id}:${app.id}:${app.date}:${app.time}`;
+      if (jaFoi(key)) return;
+      itens.push({ key, tipo: tpl.title, nome: app.clientName, phone: app.phone, texto: buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), quando: sendAt });
+    });
+  });
+
+  // 3) Clientes que completaram 3 meses sem vir (só quem ficou inativa nos últimos 7 dias)
+  whatsappTemplates.filter(t => t.active && t.trigger === 'Inativo').forEach(tpl => {
+    clientsList.forEach(client => {
+      if (!client.phone) return;
+      const last = getClientLastAppointmentDate(client.id);
+      if (!last) return;
+      const sendAt = brasiliaInstant(shiftDateStr(last, { months: 3, days: 1 }), tpl.sendTime);
+      if (now < sendAt || now - sendAt > 7 * 86400000) return;
+      if (getClientStatus(client.id) !== 'inativa') return;
+      const key = `ina:${tpl.id}:${client.id}:${last}`;
+      if (jaFoi(key)) return;
+      itens.push({ key, tipo: tpl.title, nome: client.name, phone: client.phone, texto: buildWhatsAppText(tpl, buildWhatsAppVars(null, client.name, last)), quando: sendAt });
+    });
+  });
+
+  return itens.sort((a, b) => a.quando - b.quando);
+}
+
+// Aviso no topo da Agenda: "N mensagens para enviar"
+function atualizarFilaWhatsApp() {
+  const secao = document.getElementById('section-agendamentos');
+  if (!secao) return;
+  let aviso = document.getElementById('wpp-fila-aviso');
+  if (!aviso) {
+    aviso = document.createElement('button');
+    aviso.type = 'button';
+    aviso.id = 'wpp-fila-aviso';
+    aviso.onclick = () => abrirFilaWhatsApp();
+    secao.prepend(aviso);
+  }
+  const n = itensFilaWhatsApp().length;
+  aviso.hidden = n === 0;
+  aviso.innerHTML = `<i data-lucide="message-circle"></i><span><b>${n}</b> mensage${n === 1 ? 'm' : 'ns'} de WhatsApp para enviar</span><span class="wpp-ver">Ver</span>`;
+  lucide.createIcons();
+}
+
+function fecharFilaWhatsApp() { document.getElementById('wpp-modal')?.remove(); }
+
+// Lista para enviar uma a uma. Com { so: key } mostra só aquela mensagem (logo após mudar o status).
+function abrirFilaWhatsApp({ so = null, titulo = '' } = {}) {
+  fecharFilaWhatsApp();
+  const itens = itensFilaWhatsApp().filter(i => !so || i.key === so);
+  const modal = document.createElement('div');
+  modal.id = 'wpp-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'wpp-titulo');
+  modal.onclick = (e) => { if (e.target === modal) fecharFilaWhatsApp(); };
+  modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharFilaWhatsApp(); });
+  const modo = wppModo();
+  modal.innerHTML = `
+    <div class="imp-caixa">
+      <div class="imp-topo">
+        <h3 id="wpp-titulo">${escapeHtml(titulo || 'Mensagens de WhatsApp')}</h3>
+        <button type="button" class="imp-x" aria-label="Fechar" onclick="fecharFilaWhatsApp()">×</button>
+      </div>
+      <p class="imp-ajuda">Toque em <b>Abrir no WhatsApp</b>: a conversa da cliente abre com a mensagem pronta, é só tocar em <b>Enviar</b> lá.</p>
+      <label class="wpp-modo">Abrir em
+        <select onchange="setWppModo(this.value)" aria-label="Onde abrir o WhatsApp">
+          <option value="auto" ${modo === 'auto' ? 'selected' : ''}>Automático (app ou Web)</option>
+          <option value="app" ${modo === 'app' ? 'selected' : ''}>Aplicativo do WhatsApp</option>
+          <option value="web" ${modo === 'web' ? 'selected' : ''}>WhatsApp Web (navegador)</option>
+        </select>
+      </label>
+      <ul class="wpp-lista">
+        ${itens.length ? itens.map(i => `
+          <li data-key="${escapeHtml(i.key)}">
+            <div class="wpp-cab"><strong>${escapeHtml(i.nome)}</strong><span>${escapeHtml(i.tipo)}</span></div>
+            <p class="wpp-texto">${escapeHtml(i.texto)}</p>
+            <div class="wpp-acoes">
+              <button type="button" class="wpp-pular">Já enviei / pular</button>
+              <button type="button" class="imp-primario wpp-enviar"><i data-lucide="send"></i> Abrir no WhatsApp</button>
+            </div>
+          </li>`).join('') : '<li class="wpp-vazio">Nenhuma mensagem pendente. 🎉</li>'}
+      </ul>
+    </div>`;
+  modal.querySelectorAll('li[data-key]').forEach(li => {
+    const item = itens.find(i => i.key === li.dataset.key);
+    const concluir = () => {
+      marcarWppEnviada(item.key);
+      li.classList.add('wpp-feito');
+      li.querySelector('.wpp-acoes').innerHTML = '<span class="wpp-ok">✓ Marcada como enviada</span>';
+      atualizarFilaWhatsApp();
     };
+    li.querySelector('.wpp-enviar').onclick = () => { if (abrirWhatsApp(item.phone, item.texto, item.nome)) concluir(); };
+    li.querySelector('.wpp-pular').onclick = concluir;
+  });
+  document.body.append(modal);
+  lucide.createIcons();
+  setTimeout(() => modal.querySelector('.wpp-enviar, .imp-x')?.focus(), 30);
+}
 
-    // 1) Lembretes N dias antes do atendimento, no horário escolhido
-    for (const tpl of whatsappTemplates.filter(t => t.active && t.advanceDays)) {
-      for (const app of appointmentsList) {
-        if (count >= WPP_MAX_PER_RUN) break;
-        if (app.status !== tpl.trigger || !app.phone || !app.date || !app.time) continue;
-        const start = brasiliaInstant(app.date, app.time);
-        if (isNaN(start) || start <= now) continue; // atendimento já passou
-        const sendAt = brasiliaInstant(shiftDateStr(app.date, { days: -tpl.advanceDays }), tpl.sendTime);
-        if (now < sendAt) continue;
-        const key = `adv:${tpl.id}:${app.id}:${app.date}:${app.time}`;
-        if (shouldSkip(key)) continue;
+// Ao mudar o status: guarda a mensagem como pendente e já oferece o envio
+function triggerWhatsAppWebhook(app, triggerStatus) {
+  const tpl = whatsappTemplates.find(t => t.trigger === triggerStatus && t.active && !t.advanceDays);
+  if (!tpl || !app.phone || document.documentElement.dataset.funcao === 'depiladora') return;
+  const key = `st:${tpl.id}:${app.id}:${triggerStatus}`;
+  const sent = getWppSent();
+  sent[key] = { status: 'pendente', at: Date.now() };
+  saveWppSent(sent);
+  atualizarFilaWhatsApp();
+  abrirFilaWhatsApp({ so: key, titulo: `Enviar WhatsApp para ${app.clientName}?` });
+}
 
-        const r = await sendWhatsAppMessage(app.phone, buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)), app.clientName, { silent: true });
-        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
-        saveWppSent(sent);
-        count++;
-      }
-    }
-
-    // 2) Cliente que completou 3 meses sem atendimento (só quem ficou inativa nos últimos 7 dias,
-    //    para não disparar para toda a base antiga de uma vez)
-    for (const tpl of whatsappTemplates.filter(t => t.active && t.trigger === 'Inativo')) {
-      for (const client of clientsList) {
-        if (count >= WPP_MAX_PER_RUN) break;
-        if (!client.phone) continue;
-        const last = getClientLastAppointmentDate(client.id);
-        if (!last) continue;
-        const sendAt = brasiliaInstant(shiftDateStr(last, { months: 3, days: 1 }), tpl.sendTime);
-        if (now < sendAt || now - sendAt > 7 * 86400000) continue;
-        if (getClientStatus(client.id) !== 'inativa') continue;
-        const key = `ina:${tpl.id}:${client.id}:${last}`;
-        if (shouldSkip(key)) continue;
-
-        const r = await sendWhatsAppMessage(client.phone, buildWhatsAppText(tpl, buildWhatsAppVars(null, client.name, last)), client.name, { silent: true });
-        sent[key] = { status: r.ok ? 'ok' : 'fail', at: now };
-        saveWppSent(sent);
-        count++;
-      }
-    }
-  } catch (err) {
-    console.error('Erro no agendador de WhatsApp:', err);
-  } finally {
-    wppSchedulerRunning = false;
+// Botão do cartão da agenda: abre a conversa com a mensagem do status atual (ou um "Olá")
+function abrirWhatsAppDoAgendamento(appId) {
+  const app = appointmentsList.find(a => a.id === appId);
+  if (!app) return;
+  const tpl = whatsappTemplates.find(t => t.trigger === app.status && t.active && !t.advanceDays)
+    || whatsappTemplates.find(t => t.id === 'confirmacao');
+  const texto = tpl ? buildWhatsAppText(tpl, buildWhatsAppVars(app, app.clientName)) : `Olá ${app.clientName}!`;
+  if (abrirWhatsApp(app.phone, texto, app.clientName) && tpl) {
+    const key = `st:${tpl.id}:${app.id}:${app.status}`;
+    if (getWppSent()[key]) marcarWppEnviada(key);
+    atualizarFilaWhatsApp();
   }
 }
 
 function startWhatsAppScheduler() {
   if (window.__wppSchedulerStarted) return;
   window.__wppSchedulerStarted = true;
-  setTimeout(runWhatsAppScheduler, 4000);
-  setInterval(runWhatsAppScheduler, 60 * 1000);
+  setTimeout(atualizarFilaWhatsApp, 1500);
+  setInterval(atualizarFilaWhatsApp, 60 * 1000); // lembretes entram na fila na hora marcada
+  window.addEventListener('depilclear:remoto', atualizarFilaWhatsApp); // enviada em outro aparelho some daqui
 }
 
 /* ========================================================
@@ -3603,8 +3681,8 @@ function aposEntrar(usuario) {
   const funcao = (usuario && usuario.funcao) || '';
   const html = document.documentElement;
   html.dataset.funcao = funcao;
-  // Depiladora (ou ?mural na URL, para TV/celular da sala): só o mural, ao vivo
-  const soMural = funcao === 'depiladora' || new URLSearchParams(location.search).has('mural');
+  // Depiladora: só o mural, ao vivo
+  const soMural = funcao === 'depiladora';
   html.classList.toggle('modo-mural', soMural);
   if (funcao === 'depiladora') muralDiaOffset = 0;
   if (soMural) switchTab('recepcao');

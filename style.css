@@ -477,32 +477,32 @@ html.dark #dc-sync-pill[data-sync="off"] { background: #3a2a05; color: #fcd34d; 
 html.dark #dc-sync-pill[data-sync="sync"] { background: #241540; color: #c4b5fd; border-color: #5b21b6; }
 
 /* ===== Importação de clientes ===== */
-#imp-modal { position: fixed; inset: 0; z-index: 80; background: rgba(15, 8, 30, .6); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; animation: overlayIn .2s ease both; }
-#imp-modal .imp-caixa { width: 100%; max-width: 760px; max-height: calc(100vh - 32px); overflow: auto; background: #fff; color: #1e1530; border-radius: 24px; padding: 20px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); animation: modalIn .25s cubic-bezier(.2,.7,.2,1) both; }
-html.dark #imp-modal .imp-caixa { background: #170e28; color: #f1f5f9; }
-#imp-modal .imp-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-#imp-modal h3 { margin: 0; font-size: 18px; font-weight: 800; }
-#imp-modal .imp-x { width: 40px; height: 40px; border-radius: 12px; font-size: 22px; line-height: 1; }
-#imp-modal .imp-x:hover { background: rgba(124, 58, 237, .1); }
-#imp-modal .imp-ajuda { font-size: 13px; color: #5b5470; margin: 0 0 12px; }
-html.dark #imp-modal .imp-ajuda { color: #b9b2c9; }
-#imp-modal .imp-arquivo { display: flex; flex-direction: column; gap: 8px; padding: 22px; border: 2px dashed #c4b5fd; border-radius: 18px; text-align: center; font-size: 13px; cursor: pointer; }
-#imp-modal .imp-arquivo input { margin: 0 auto; max-width: 100%; font: inherit; }
-#imp-modal .imp-erro { color: #b91c1c; font-size: 13px; font-weight: 600; min-height: 1em; }
-html.dark #imp-modal .imp-erro { color: #fca5a5; }
-#imp-modal .imp-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
-#imp-modal .imp-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; }
-#imp-modal select { min-height: 40px; border-radius: 10px; border: 1px solid #e7ddf3; padding: 0 8px; background: #fbf9fe; color: inherit; font: inherit; font-weight: 500; }
-html.dark #imp-modal select { background: #120a20; border-color: #2e1f47; }
-#imp-modal .imp-resumo { font-weight: 700; font-size: 13px; margin: 14px 0 8px; color: #047857; }
-html.dark #imp-modal .imp-resumo { color: #6ee7b7; }
-#imp-modal .imp-rolagem { overflow-x: auto; }
-#imp-modal .imp-tabela { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
-#imp-modal .imp-tabela th, #imp-modal .imp-tabela td { text-align: left; padding: 7px 8px; border-bottom: 1px solid rgba(124, 58, 237, .15); }
-#imp-modal .imp-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
-#imp-modal .imp-acoes button { min-height: 44px; padding: 0 16px; border-radius: 14px; font-weight: 700; font-size: 13px; border: 1px solid rgba(124, 58, 237, .3); }
-#imp-modal .imp-primario { background: linear-gradient(90deg, #4c1d95, #7c3aed); color: #fff; border-color: transparent !important; }
-#imp-modal .imp-primario[disabled] { opacity: .5; cursor: not-allowed; }
+:is(#imp-modal, #wpp-modal) { position: fixed; inset: 0; z-index: 80; background: rgba(15, 8, 30, .6); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; animation: overlayIn .2s ease both; }
+:is(#imp-modal, #wpp-modal) .imp-caixa { width: 100%; max-width: 760px; max-height: calc(100vh - 32px); overflow: auto; background: #fff; color: #1e1530; border-radius: 24px; padding: 20px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); animation: modalIn .25s cubic-bezier(.2,.7,.2,1) both; }
+html.dark :is(#imp-modal, #wpp-modal) .imp-caixa { background: #170e28; color: #f1f5f9; }
+:is(#imp-modal, #wpp-modal) .imp-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+:is(#imp-modal, #wpp-modal) h3 { margin: 0; font-size: 18px; font-weight: 800; }
+:is(#imp-modal, #wpp-modal) .imp-x { width: 40px; height: 40px; border-radius: 12px; font-size: 22px; line-height: 1; }
+:is(#imp-modal, #wpp-modal) .imp-x:hover { background: rgba(124, 58, 237, .1); }
+:is(#imp-modal, #wpp-modal) .imp-ajuda { font-size: 13px; color: #5b5470; margin: 0 0 12px; }
+html.dark :is(#imp-modal, #wpp-modal) .imp-ajuda { color: #b9b2c9; }
+:is(#imp-modal, #wpp-modal) .imp-arquivo { display: flex; flex-direction: column; gap: 8px; padding: 22px; border: 2px dashed #c4b5fd; border-radius: 18px; text-align: center; font-size: 13px; cursor: pointer; }
+:is(#imp-modal, #wpp-modal) .imp-arquivo input { margin: 0 auto; max-width: 100%; font: inherit; }
+:is(#imp-modal, #wpp-modal) .imp-erro { color: #b91c1c; font-size: 13px; font-weight: 600; min-height: 1em; }
+html.dark :is(#imp-modal, #wpp-modal) .imp-erro { color: #fca5a5; }
+:is(#imp-modal, #wpp-modal) .imp-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+:is(#imp-modal, #wpp-modal) .imp-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; }
+:is(#imp-modal, #wpp-modal) select { min-height: 40px; border-radius: 10px; border: 1px solid #e7ddf3; padding: 0 8px; background: #fbf9fe; color: inherit; font: inherit; font-weight: 500; }
+html.dark :is(#imp-modal, #wpp-modal) select { background: #120a20; border-color: #2e1f47; }
+:is(#imp-modal, #wpp-modal) .imp-resumo { font-weight: 700; font-size: 13px; margin: 14px 0 8px; color: #047857; }
+html.dark :is(#imp-modal, #wpp-modal) .imp-resumo { color: #6ee7b7; }
+:is(#imp-modal, #wpp-modal) .imp-rolagem { overflow-x: auto; }
+:is(#imp-modal, #wpp-modal) .imp-tabela { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
+:is(#imp-modal, #wpp-modal) .imp-tabela th, :is(#imp-modal, #wpp-modal) .imp-tabela td { text-align: left; padding: 7px 8px; border-bottom: 1px solid rgba(124, 58, 237, .15); }
+:is(#imp-modal, #wpp-modal) .imp-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+:is(#imp-modal, #wpp-modal) .imp-acoes button { min-height: 44px; padding: 0 16px; border-radius: 14px; font-weight: 700; font-size: 13px; border: 1px solid rgba(124, 58, 237, .3); }
+:is(#imp-modal, #wpp-modal) .imp-primario { background: linear-gradient(90deg, #4c1d95, #7c3aed); color: #fff; border-color: transparent !important; }
+:is(#imp-modal, #wpp-modal) .imp-primario[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* Botão "Sair" do mural (o menu lateral fica escondido nesse modo) */
 #mural-sair { display: none; }
